@@ -692,7 +692,7 @@
   .auth-note{font-size:12px; color:var(--muted); text-align:center; padding-top:2px}
   @media (max-width:900px){ .staff-row{grid-template-columns:auto 1fr auto} .staff-row .id,.staff-row .st{display:none} .att-mark{min-width:0; width:100%} }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 (function(){
 'use strict';
@@ -793,9 +793,10 @@ let S = seed();
 let db = null, sb = null, mode = 'local', remoteReady=false;
 const LS_KEY='lighthouse-state-v2', SB_KEY='lh-supabase';
 const SB_DEFAULT_URL='https://lwpueuxyuokszeflgyfv.supabase.co';
+const SB_DEFAULT_KEY='sb_publishable_HX3OFYXKbLL9F2ylHmMdKQ_0bgNHF3W'; // publishable (public) key of the Limelight project; safe to ship in the client
 const inArtifact = () => !!(window.claude && window.claude.use);
-function sbConfig(){ try{ const c=JSON.parse(localStorage.getItem(SB_KEY)||'null'); return c && c.url && c.key ? c : null; }catch(e){ return null; } }
-function setSbConfig(c){ try{ if(c) localStorage.setItem(SB_KEY,JSON.stringify(c)); else localStorage.removeItem(SB_KEY); }catch(e){} }
+function sbConfig(){ try{ const c=JSON.parse(localStorage.getItem(SB_KEY)||'null'); if(c&&c.off) return null; if(c&&c.url&&c.key) return c; }catch(e){} return SB_DEFAULT_KEY ? {url:SB_DEFAULT_URL,key:SB_DEFAULT_KEY,builtin:true} : null; }
+function setSbConfig(c){ try{ if(c) localStorage.setItem(SB_KEY,JSON.stringify(c)); else localStorage.setItem(SB_KEY,JSON.stringify({off:true})); }catch(e){} }
 function loadLocal(){ try{ const raw=localStorage.getItem(LS_KEY); if(raw){ const o=JSON.parse(raw); COLS.forEach(c=>{ if(Array.isArray(o[c])) S[c]=o[c]; }); } }catch(e){} }
 function saveLocal(){ if(mode==='supabase') return; try{ localStorage.setItem(LS_KEY, JSON.stringify(S)); }catch(e){} }
 function setSync(state,text){ const el=$('#sync'); if(!el) return; el.className='sync '+state; el.querySelector('span').textContent=text; }
@@ -951,7 +952,7 @@ $('#modal-form').addEventListener('submit',e=>{
 });
 modal.addEventListener('input',e=>{ const f=e.target.closest('.field'); if(f) f.classList.remove('invalid'); });
 
-window.__LH={ bind, $, $$, esc, uid, S:()=>S, setState:v=>{S=v}, persist, go, showModal, closeModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, hhmm, todayISO, avgHours, unaccounted, overdue, addActivity, onLeaveToday, nextOccurrence, daysUntil, whenLabel, minsBetween, monthKey, thisMonth, STATUSES, STATUS_LABEL, ATT, PAY_TYPES, DEMO, emailOk, urlOk, empAv, avFor, ini, inr, loadLocal, connectArtifactDb, connectSupabase, loadAllSupabase, sbConfig, setSbConfig, SB_DEFAULT_URL, inArtifact, attStatus, monthStats, workdaysIn, earned, paid, pendingBal, isAdmin, COLS,
+window.__LH={ bind, $, $$, esc, uid, S:()=>S, setState:v=>{S=v}, persist, go, showModal, closeModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, hhmm, todayISO, avgHours, unaccounted, overdue, addActivity, onLeaveToday, nextOccurrence, daysUntil, whenLabel, minsBetween, monthKey, thisMonth, STATUSES, STATUS_LABEL, ATT, PAY_TYPES, DEMO, emailOk, urlOk, empAv, avFor, ini, inr, loadLocal, connectArtifactDb, connectSupabase, loadAllSupabase, sbConfig, setSbConfig, SB_DEFAULT_URL, SB_DEFAULT_KEY, inArtifact, attStatus, monthStats, workdaysIn, earned, paid, pendingBal, isAdmin, COLS,
   get ME(){ return ME; }, set ME(v){ ME=v; }, get mode(){ return mode; }, set mode(v){ mode=v; }, get sb(){ return sb; }, get db(){ return db; }, setSync, sbSession:null, flush };
 })();
 </script>
@@ -1657,8 +1658,8 @@ window.renderSettings=function(){
         ${inArt?'<div class="chip or" style="white-space:normal;padding:10px 12px;border-radius:14px">Inside a Claude artifact, outside servers are blocked. Download the HTML file and open it directly (or deploy it) to use Supabase.</div>':''}
         <form id="sb-form" style="display:flex;flex-direction:column;gap:12px">
           <div class="field"><label for="sb-url">Project URL</label><div class="control"><input id="sb-url" value="${esc(cfg?cfg.url:L.SB_DEFAULT_URL)}" placeholder="https://xxxx.supabase.co"></div></div>
-          <div class="field"><label for="sb-key">Anon public key <span class="opt">(Supabase → Project Settings → API)</span></label><div class="control"><input id="sb-key" type="password" value="${esc(cfg?cfg.key:'')}" placeholder="eyJhbGciOi..." autocomplete="off"></div></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" type="submit" style="height:40px;padding:0 18px;font-size:13px" ${inArt?'disabled':''}>Save & connect</button>${cfg?'<button class="btn btn-ghost" type="button" id="sb-clear">Disconnect (back to demo)</button>':''}</div>
+          <div class="field"><label for="sb-key">Anon public key <span class="opt">(Supabase → Project Settings → API)</span></label><div class="control"><input id="sb-key" type="password" value="${esc(cfg?cfg.key:(L.SB_DEFAULT_KEY||''))}" placeholder="sb_publishable_... or eyJhbGciOi..." autocomplete="off"></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" type="submit" style="height:40px;padding:0 18px;font-size:13px" ${inArt?'disabled':''}>Save & connect</button><button class="btn btn-ghost" type="button" id="sb-clear">Use demo mode instead</button></div>
         </form>
         <div class="kv"><div><span>Mode</span><b>${mode}</b></div><div><span>Signed in as</span><b>${esc(sess?sess.user.email:ME().email)}</b></div><div><span>Role</span><b>${esc(ME().access||'admin')}</b></div><div><span>Realtime</span><b>${mode==='supabase'?'On (postgres_changes)':'—'}</b></div></div>
       </div>
@@ -1713,7 +1714,7 @@ function busy(b,on){ b.disabled=on; b.classList.toggle('loading',on); }
 function enterApp(){ document.body.classList.add('in-app'); try{ sessionStorage.setItem('lh-auth','1'); }catch(e){} go('dashboard'); }
 window.leaveApp=function(silent){ document.body.classList.remove('in-app'); try{ sessionStorage.removeItem('lh-auth'); }catch(e){} showView('login'); if(!silent) toast('Logged out.'); };
 $('#logout-btn').addEventListener('click',async()=>{ if(L.mode==='supabase'&&L.sb){ try{ await L.sb.auth.signOut(); }catch(e){} } window.leaveApp(); });
-function setDemoBox(){ const sbOn=L.mode==='supabase'; const box=$('.demo'); if(!box) return; box.innerHTML = sbOn ? `<div class="demo-title">Connected to Supabase</div><div class="auth-note" style="text-align:left">Sign in with the user you created in Supabase Authentication. New accounts from Sign up need email confirmation (or disable it in Supabase Auth settings).</div><button type="button" class="link" id="sb-disc" style="margin-top:6px">Use demo mode instead</button>` : `<div class="demo-title">Demo login</div><div class="demo-row"><span>Email</span><code>${DEMO.email}</code></div><div class="demo-row"><span>Password</span><code>${DEMO.password}</code></div><button type="button" class="link" id="fill-demo">Fill these in</button><div class="auth-note" style="text-align:left;margin-top:4px">Want real accounts? Connect Supabase from Settings after logging in.</div>`; }
+function setDemoBox(){ const sbOn=L.mode==='supabase'; const box=$('.demo'); if(!box) return; box.innerHTML = sbOn ? `<div class="demo-title">Connected to Supabase</div><div class="auth-note" style="text-align:left">Sign in with your Limelight account (the users listed in Supabase → Authentication). New accounts from Sign up need email confirmation (or disable it in Supabase Auth settings).</div><button type="button" class="link" id="sb-disc" style="margin-top:6px">Use demo mode instead</button>` : `<div class="demo-title">Demo login</div><div class="demo-row"><span>Email</span><code>${DEMO.email}</code></div><div class="demo-row"><span>Password</span><code>${DEMO.password}</code></div><button type="button" class="link" id="fill-demo">Fill these in</button><div class="auth-note" style="text-align:left;margin-top:4px">Want real accounts? Connect Supabase from Settings after logging in.</div>`; }
 document.addEventListener('click',e=>{ if(e.target.id==='sb-disc'){ if(confirm('Disconnect Supabase and use demo mode?')){ L.setSbConfig(null); location.reload(); } return; } if(e.target.id==='fill-demo'){ $('#email').value=DEMO.email; $('#password').value=DEMO.password; $$('.field.invalid').forEach(f=>f.classList.remove('invalid')); $('#login-btn').focus(); } });
 window.afterSupabaseLogin=async function(sess){
   if(document.body.classList.contains('in-app')) return;
@@ -1722,7 +1723,9 @@ window.afterSupabaseLogin=async function(sess){
   let me=s.employees.find(e=>(e.email||'').toLowerCase()===email);
   if(!me && !errs.length){ const nm=(sess.user.user_metadata&&(sess.user.user_metadata.full_name||sess.user.user_metadata.name))||email.split('@')[0]; me={id:uid(),name:nm,email,role:s.employees.length?'Staff':'Admin',dept:s.departments[0]?s.departments[0].name:'Operations',empId:'LH'+String(s.employees.length+1).padStart(4,'0'),joined:todayISO(),dob:'',managers:[],salary:0,phone:sess.user.phone||'',access:s.employees.length?'staff':'admin'}; s.employees.push(me); persist('employees'); addActivity(me.name+' signed in for the first time'); }
   if(me) L.ME={...me,ini:L.ini(me.name),av:L.avFor(me.name)}; else L.ME={id:'',name:email.split('@')[0],email,role:'',dept:'',access:'staff'};
-  enterApp(); toast('Signed in as '+email);
+  enterApp();
+  if(errs.length){ go('settings'); toast('Database not set up yet. Copy the SQL on this page and run it once in Supabase.'); }
+  else toast('Signed in as '+email);
 };
 $('#view-login').addEventListener('submit',async e=>{ e.preventDefault(); $('#f-pass .error').textContent='Password is required.'; const okE=mark($('#f-email'),!emailOk($('#email').value)); const okP=mark($('#f-pass'),!$('#password').value.trim()); if(!(okE&&okP)){ (okE?$('#password'):$('#email')).focus(); return; }
   const b=$('#login-btn'); busy(b,true);
