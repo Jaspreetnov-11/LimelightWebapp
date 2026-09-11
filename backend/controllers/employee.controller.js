@@ -139,4 +139,17 @@ const deleteEmployee = catchAsync(async (req, res) => {
   return apiResponse.success(res, null, 'Employee removed successfully');
 });
 
-module.exports = { getAllEmployees, getEmployeeById, createEmployee, updateEmployee, deleteEmployee, ACCESS };
+/**
+ * Bulk import from a spreadsheet: body { rows: [{name,email,password,phone,designation,department,shift,access,salary,joined,dob,reporting_manager}], dryRun }.
+ * Departments that do not exist are created; logins are created or linked. Returns a per-row report.
+ */
+const importEmployees = catchAsync(async (req, res) => {
+  const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
+  if (!rows.length) throw new AppError('No rows to import', 400);
+  if (rows.length > 500) throw new AppError('Import at most 500 rows at a time', 400);
+  const result = await require('../services/staff.service').importStaff(rows, { dryRun: Boolean(req.body.dryRun) });
+  if (!req.body.dryRun && result.summary.added) await activityModel.log(`${req.user.name} imported ${result.summary.added} staff from a spreadsheet`);
+  return apiResponse.success(res, result, req.body.dryRun ? 'Checked' : 'Imported');
+});
+
+module.exports = { getAllEmployees, getEmployeeById, createEmployee, updateEmployee, deleteEmployee, importEmployees, ACCESS };

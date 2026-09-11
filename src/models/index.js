@@ -18,6 +18,7 @@ export const EmployeeModel = {
   get: id => data(api.get('/employees/' + id)),
   create: body => data(api.post('/employees', body)),
   update: (id, body) => data(api.put('/employees/' + id, body)),
+  import: (rows, dryRun) => data(api.post('/employees/import', { rows, dryRun })),
   remove: id => api.del('/employees/' + id)
 };
 

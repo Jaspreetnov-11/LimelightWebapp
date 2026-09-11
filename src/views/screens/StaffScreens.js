@@ -10,6 +10,7 @@ import { AttendanceModel, EmployeeModel, PaymentModel } from '@/models';
 import { saveCsv } from '@/lib/download';
 import { Avatar, Chip, DateBtn, Donut, Empty, Icon, Legend, LinkBtn, Panel, Search, Sq, Stat, TaskChip, Tabs } from '@/views/ui';
 import { Pager, usePager } from '@/views/ui/Pager';
+import { ImportStaff } from '@/views/screens/ImportStaff';
 import { assigneeIds, avFor, fmtD, fmtDY, hm, ini, inr, overdue, STATUSES, STATUS_COLOR, STATUS_LABEL, thisMonth } from '@/lib/format';
 
 export function StaffListScreen() {
@@ -17,6 +18,7 @@ export function StaffListScreen() {
   const { isAdmin } = useAuth();
   const modals = useModals();
   const [q, setQ] = useState('');
+  const [importing, setImporting] = useState(false);
   const list = useMemo(() => { const s = q.toLowerCase(); return d.employees.filter(e => e.name.toLowerCase().includes(s) || (e.emp_id || '').toLowerCase().includes(s) || (e.phone || '').includes(s)); }, [d.employees, q]);
   const pager = usePager(list, 20);
   const groups = useMemo(() => { const g = {}; pager.items.forEach(e => { (g[e.dept || 'Other'] = g[e.dept || 'Other'] || []).push(e); }); return g; }, [pager.items]);
@@ -25,7 +27,8 @@ export function StaffListScreen() {
 
   return (
     <div className="content">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><h2 className="sec-title">Staff List <Chip tone="gy">{d.employees.length}</Chip></h2><div style={{ display: 'flex', gap: 8 }}>{isAdmin && <DateBtn icon="down" onClick={exportStaff}>Export</DateBtn>}{isAdmin && <button className="tb-btn solid" style={{ height: 34 }} onClick={() => modals.open('employee')}>+ Add Staff</button>}</div></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><h2 className="sec-title">Staff List <Chip tone="gy">{d.employees.length}</Chip></h2><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{isAdmin && <DateBtn icon="down" onClick={exportStaff}>Export</DateBtn>}{isAdmin && <DateBtn icon="file" onClick={() => setImporting(true)}>Import from Excel</DateBtn>}{isAdmin && <button className="tb-btn solid" style={{ height: 34 }} onClick={() => modals.open('employee')}>+ Add Staff</button>}</div>
+      {importing && <ImportStaff onClose={() => setImporting(false)} />}</div>
       {isAdmin && <div className="panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px', gap: 16, flexWrap: 'wrap' }}>
         <div><div style={{ fontWeight: 600, fontSize: 15 }}>Payroll balance</div><div className={'money ' + (totalPending > 0 ? 'neg' : 'pos')} style={{ fontSize: 22, marginTop: 6 }}>{totalPending > 0 ? '- ' : ''}{inr(Math.abs(totalPending))}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Total Pending · {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</div></div>
         <div style={{ display: 'flex', gap: 8 }}><Link href="/payroll" className="date-btn">Run payroll</Link><DateBtn icon={null} onClick={() => modals.open('payment')}>+ Add payment</DateBtn></div>
