@@ -1,5 +1,5 @@
 {
-  "name": "limelight-webapp",
+  "name": "lighthouse",
   "version": "3.0.0",
   "private": true,
   "description": "Limelight Workspace: Next.js frontend (View) + Express/Node.js MVC backend",
