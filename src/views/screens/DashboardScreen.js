@@ -8,7 +8,7 @@ import { useClock } from '@/controllers/useClock';
 import { useModals } from '@/controllers/useModals';
 import { TaskModel, TodoModel } from '@/models';
 import { Chip, Empty, GeoLink, Icon, LinkBtn, Panel, Pills, SectionTitle } from '@/views/ui';
-import { assigneeIds, fmtD, greeting, hhmm, hm, hrs1, inr, minsBetween, overdue, pct, thisMonth, workedToday } from '@/lib/format';
+import { assigneeIds, fmtD, greeting, hhmm, hm, hrs1, inr, MODE_LABEL, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
 
 function TaskMini({ t, onOpen, onAccept }) {
   const { taskAssigneeNames } = useData();
@@ -26,7 +26,9 @@ function ClockCard() {
   const clock = useClock();
   const r = clock.punch;
   const st = clock.state;
-  const head = st === 'in' ? 'Clocked in at ' + r.clock_in : st === 'done' ? 'Done for today · ' + hm(minsBetween(r.clock_in, r.clock_out)) + ' worked' : 'Not clocked in yet';
+  const fromYesterday = r && r.date && r.date < todayISO();
+  const modeTxt = r && r.mode && r.mode !== 'office' ? ' · ' + (MODE_LABEL[r.mode] || r.mode) : '';
+  const head = st === 'in' ? 'Clocked in at ' + r.clock_in + (fromYesterday ? ' (yesterday)' : '') + modeTxt : st === 'done' ? 'Done for today · ' + hm(punchMinutes(r)) + ' worked' + modeTxt : 'Not clocked in yet';
   return (
     <div className={'clock-card ' + st}>
       <div className="st"><span className="dot"></span>

@@ -1,15 +1,16 @@
 'use client';
-// Front-camera selfie capture for clock-in / clock-out. Compresses to a ~320px JPEG (10–15 KB).
+// Clock-in / clock-out step: where are you working from (Office / WFH / On field) + front-camera selfie.
+// Compresses the photo to a ~320px JPEG (10–15 KB). Resolves { selfie, mode } or null.
 import { useEffect, useRef, useState } from 'react';
 import { useUi } from '@/controllers/UiController';
 
 const W = 320, H = 400, QUALITY = 0.55;
+const MODES = [['office', '🏢', 'Office'], ['wfh', '🏠', 'Work from home'], ['field', '📍', 'On field']];
 
 function toJpeg(source, sw, sh) {
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  // cover-crop the source into the portrait frame
   const scale = Math.max(W / sw, H / sh);
   const dw = sw * scale, dh = sh * scale;
   ctx.drawImage(source, (W - dw) / 2, (H - dh) / 2, dw, dh);
@@ -24,10 +25,14 @@ export function SelfieModal() {
   const [shot, setShot] = useState('');
   const [err, setErr] = useState('');
   const [ready, setReady] = useState(false);
+  const [mode, setMode] = useState('office');
+  const needSelfie = !selfieRequest || selfieRequest.needSelfie !== false;
+  const askMode = Boolean(selfieRequest && selfieRequest.askMode);
 
   useEffect(() => {
     if (!selfieRequest) return undefined;
-    setShot(''); setErr(''); setReady(false);
+    setShot(''); setErr(''); setReady(false); setMode(selfieRequest.defaultMode || 'office');
+    if (selfieRequest.needSelfie === false) return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -60,28 +65,38 @@ export function SelfieModal() {
     img.onerror = () => setErr('Could not read that photo.');
     img.src = URL.createObjectURL(f);
   };
-  const use = () => { stop(); resolveSelfie(shot); };
+  const done = () => { stop(); resolveSelfie({ selfie: shot || '', mode }); };
   const cancel = () => { stop(); resolveSelfie(null); };
   const kb = shot ? Math.round((shot.length * 3) / 4 / 1024) : 0;
+  const canFinish = needSelfie ? Boolean(shot) : true;
 
   return (
     <div className="scrim open" role="presentation" style={{ zIndex: 60 }}>
       <div className="dialog" role="dialog" aria-modal="true" style={{ maxWidth: 420, textAlign: 'center' }}>
-        <h2>{selfieRequest.title || 'Take a selfie'}</h2>
-        <p>{selfieRequest.sub || 'Your photo and location are saved with this punch. Photos are kept for a limited time only.'}</p>
-        <div className="selfie-frame">
-          {shot ? <img src={shot} alt="Your selfie" /> : <video ref={videoRef} playsInline muted autoPlay style={{ display: err ? 'none' : 'block' }} />}
-          {!shot && err && <div className="selfie-err">{err}</div>}
-          {!shot && !err && !ready && <div className="selfie-err">Starting camera…</div>}
-        </div>
-        {shot && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{kb} KB</div>}
-        <input ref={fileRef} type="file" accept="image/*" capture="user" onChange={fromFile} hidden />
+        <h2>{selfieRequest.title || 'Clock in'}</h2>
+        <p>{selfieRequest.sub || 'Your photo and location are saved with this punch.'}</p>
+        {askMode && (
+          <div className="mode-pick">
+            {MODES.map(([k, ic, l]) => <button key={k} type="button" className={mode === k ? 'on' : ''} onClick={() => setMode(k)}><span>{ic}</span>{l}</button>)}
+          </div>
+        )}
+        {needSelfie && (
+          <>
+            <div className="selfie-frame">
+              {shot ? <img src={shot} alt="Your selfie" /> : <video ref={videoRef} playsInline muted autoPlay style={{ display: err ? 'none' : 'block' }} />}
+              {!shot && err && <div className="selfie-err">{err}</div>}
+              {!shot && !err && !ready && <div className="selfie-err">Starting camera…</div>}
+            </div>
+            {shot && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{kb} KB</div>}
+            <input ref={fileRef} type="file" accept="image/*" capture="user" onChange={fromFile} hidden />
+          </>
+        )}
         <div className="row" style={{ justifyContent: 'center', marginTop: 14, gap: 10, flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-ghost" onClick={cancel}>Cancel</button>
-          {!shot && !err && <button type="button" className="btn btn-primary" onClick={capture} disabled={!ready}>📷 Capture</button>}
-          {!shot && err && <button type="button" className="btn btn-primary" onClick={() => fileRef.current && fileRef.current.click()}>📷 Take photo</button>}
-          {shot && <button type="button" className="btn btn-ghost" onClick={() => setShot('')}>Retake</button>}
-          {shot && <button type="button" className="btn btn-primary" onClick={use}>Use this photo</button>}
+          {needSelfie && !shot && !err && <button type="button" className="btn btn-primary" onClick={capture} disabled={!ready}>📷 Capture</button>}
+          {needSelfie && !shot && err && <button type="button" className="btn btn-primary" onClick={() => fileRef.current && fileRef.current.click()}>📷 Take photo</button>}
+          {needSelfie && shot && <button type="button" className="btn btn-ghost" onClick={() => setShot('')}>Retake</button>}
+          {canFinish && <button type="button" className="btn btn-primary" onClick={done}>{selfieRequest.okLabel || 'Continue'}</button>}
         </div>
       </div>
     </div>

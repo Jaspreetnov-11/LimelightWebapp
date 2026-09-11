@@ -12,6 +12,11 @@ class AttendanceModel extends BaseModel {
     return db.get('SELECT * FROM lh_attendance WHERE emp = ? AND date = ?', [empId, date]);
   }
 
+  /** Latest punch still open (clocked in, not out) on or after `sinceDate` — e.g. a late-night shift from yesterday. */
+  async findOpenPunch(empId, sinceDate) {
+    return db.get("SELECT * FROM lh_attendance WHERE emp = ? AND date >= ? AND clock_in <> '' AND (clock_out = '' OR clock_out IS NULL) ORDER BY date DESC LIMIT 1", [empId, sinceDate]);
+  }
+
   async listDayAttendance(date) {
     return db.all(`
       SELECT a.*, e.name as emp_name, e.dept as emp_dept, e.emp_id, e.av, e.ini

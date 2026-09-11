@@ -62,13 +62,22 @@ const isLate = (shiftKey, clockIn) => {
   return t !== null && t > toMins(s.start) + cfg.graceMins;
 };
 
-/** Overtime hours for a clock-out, counted only after the shift's OT threshold (2 decimals). */
-const otHoursFor = (shiftKey, clockOut) => {
+/** Overtime hours for a clock-out, counted only after the shift's OT threshold (2 decimals).
+ *  nextDay = true when the clock-out happened after midnight (e.g. 01:30 the next day). */
+const otHoursFor = (shiftKey, clockOut, nextDay = false) => {
   const s = shiftOf(shiftKey);
   const t = toMins(clockOut);
   if (t === null) return 0;
-  const extra = t - toMins(s.otAfter);
+  const extra = t + (nextDay ? 1440 : 0) - toMins(s.otAfter);
   return extra > 0 ? Math.round((extra / 60) * 100) / 100 : 0;
+};
+
+/** Minutes worked on a punch (handles clock-outs after midnight via out_next_day). */
+const punchMinutes = row => {
+  if (!row || !row.clock_in || !row.clock_out) return 0;
+  const a = toMins(row.clock_in), b = toMins(row.clock_out);
+  if (a === null || b === null) return 0;
+  return Math.max(0, b + (Number(row.out_next_day) ? 1440 : 0) - a);
 };
 
 const workdaysIn = (month, upToToday = true) => {
@@ -114,6 +123,7 @@ module.exports = {
   shiftOf,
   isLate,
   otHoursFor,
+  punchMinutes,
   workdaysIn,
   calculateEarnedSalary,
   formatINR

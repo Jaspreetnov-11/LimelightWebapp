@@ -5,7 +5,10 @@ const employeeModel = require('../models/employee.model');
 const leaveModel = require('../models/leave.model');
 const activityModel = require('../models/activity.model');
 const AppError = require('../utils/appError');
-const { todayISO, thisMonth, nowHHMM, minsBetween, workdaysIn, isLate, otHoursFor, shiftOf, hoursPerDay } = require('../utils/calculations');
+const { todayISO, thisMonth, nowHHMM, workdaysIn, isLate, otHoursFor, punchMinutes, shiftOf, hoursPerDay } = require('../utils/calculations');
+
+const yesterdayOf = iso => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
+const MODES = ['office', 'wfh', 'field'];
 
 const settingsService = require('./settings.service');
 const db = require('../config/db');
@@ -50,7 +53,7 @@ function computeMonthStats(rows, leaves, month) {
     otHours += Number(r.ot_hours) || 0;
     fineHours += Number(r.fine_hours) || 0;
     if (r.clock_in && r.clock_out) {
-      totalWorkedMinutes += minsBetween(r.clock_in, r.clock_out);
+      totalWorkedMinutes += punchMinutes(r);
       daysWithOut++;
     }
   }
@@ -83,16 +86,18 @@ function computeMonthStats(rows, leaves, month) {
 class AttendanceService {
   async processClockIn(empId, { lat = null, lng = null, acc = null, addr = '', mode = 'office', selfie = '' } = {}) {
     const today = todayISO();
-    const [existing, emp] = await Promise.all([attendanceModel.findByEmpAndDate(empId, today), employeeModel.findById(empId)]);
+    const [existing, emp, open] = await Promise.all([attendanceModel.findByEmpAndDate(empId, today), employeeModel.findById(empId), attendanceModel.findOpenPunch(empId, yesterdayOf(today))]);
 
+    if (open && open.date !== today) throw new AppError(`You are still clocked in from ${open.date} (${open.clock_in}). Clock out first.`, 400);
     if (existing && existing.clock_in && !existing.clock_out) throw new AppError('Already clocked in for today.', 400);
     if (existing && existing.clock_out) throw new AppError('Already completed attendance for today.', 400);
     const inSelfie = cleanSelfie(selfie, settingsService.get().selfieOnClockIn, 'clock in');
     purgeOldSelfies();
 
+    if (!MODES.includes(mode)) mode = 'office';
     // An approved work-from-home request for today switches the punch to WFH mode
     const wfh = await db.get("SELECT id FROM lh_leaves WHERE emp = ? AND kind = 'wfh' AND from_date <= ? AND to_date >= ? AND (status = 'approved' OR status = '' OR status IS NULL) LIMIT 1", [empId, today, today]);
-    if (wfh) mode = 'wfh';
+    if (wfh && mode === 'office') mode = 'wfh';
 
     const timeStr = nowHHMM();
     const shift = emp ? emp.shift : 'day';
@@ -114,25 +119,30 @@ class AttendanceService {
       in_selfie: inSelfie
     });
 
-    await activityModel.log(`${emp ? emp.name : 'Employee'} clocked in at ${timeStr}${late ? ' (late)' : ''}${mode === 'wfh' ? ' · work from home' : ''}${addr ? ' from ' + addr : ''}`);
+    await activityModel.log(`${emp ? emp.name : 'Employee'} clocked in at ${timeStr}${late ? ' (late)' : ''}${mode === 'wfh' ? ' · work from home' : mode === 'field' ? ' · on field' : ''}${addr ? ' from ' + addr : ''}`);
     return record;
   }
 
   async processClockOut(empId, { lat = null, lng = null, acc = null, addr = '', selfie = '' } = {}) {
     const today = todayISO();
-    const [existing, emp] = await Promise.all([attendanceModel.findByEmpAndDate(empId, today), employeeModel.findById(empId)]);
+    // The open punch may be yesterday's: late-night shifts clock out after midnight
+    const [existing, emp] = await Promise.all([attendanceModel.findOpenPunch(empId, yesterdayOf(today)), employeeModel.findById(empId)]);
 
-    if (!existing || !existing.clock_in) throw new AppError('You have not clocked in yet today.', 400);
-    if (existing.clock_out) throw new AppError('Already clocked out today.', 400);
+    if (!existing || !existing.clock_in) {
+      const todays = await attendanceModel.findByEmpAndDate(empId, today);
+      if (todays && todays.clock_out) throw new AppError('Already clocked out today.', 400);
+      throw new AppError('You have not clocked in yet today.', 400);
+    }
     const outSelfie = cleanSelfie(selfie, settingsService.get().selfieOnClockOut, 'clock out');
 
     const timeStr = nowHHMM();
+    const nextDay = existing.date !== today;
     const shift = emp ? emp.shift : 'day';
-    // Overtime is automatic (when enabled): hours after the shift's OT threshold
-    const ot = settingsService.get().autoOvertime === false ? (Number(existing.ot_hours) || 0) : Math.max(Number(existing.ot_hours) || 0, otHoursFor(shift, timeStr));
-    const record = await attendanceModel.update(existing.id, { clock_out: timeStr, ot_hours: ot, out_lat: lat, out_lng: lng, out_acc: acc, out_addr: addr || '', out_selfie: outSelfie });
+    // Overtime is automatic (when enabled): hours after the shift's OT threshold, counting past midnight
+    const ot = settingsService.get().autoOvertime === false ? (Number(existing.ot_hours) || 0) : Math.max(Number(existing.ot_hours) || 0, otHoursFor(shift, timeStr, nextDay));
+    const record = await attendanceModel.update(existing.id, { clock_out: timeStr, out_next_day: nextDay ? 1 : 0, ot_hours: ot, out_lat: lat, out_lng: lng, out_acc: acc, out_addr: addr || '', out_selfie: outSelfie });
 
-    const workedMins = minsBetween(existing.clock_in, timeStr);
+    const workedMins = punchMinutes(record);
     await activityModel.log(`${emp ? emp.name : 'Employee'} clocked out at ${timeStr} (${Math.floor(workedMins / 60)}h ${workedMins % 60}m worked${ot ? ', OT ' + ot + 'h' : ''})`);
     return record;
   }

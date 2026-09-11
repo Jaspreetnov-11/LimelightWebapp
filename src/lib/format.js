@@ -25,12 +25,19 @@ export const shiftMonth = (m, n) => { const [y, mo] = m.split('-').map(Number); 
 export const hm = mins => { mins = Math.round(mins || 0); return String(Math.floor(mins / 60)).padStart(2, '0') + 'h ' + String(mins % 60).padStart(2, '0') + 'm'; };
 /** Hours + minutes, e.g. "8h 20m" (no leading zero on hours). */
 export const hrs1 = mins => { const m = Math.max(0, Math.round(Number(mins) || 0)); return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
-/** Minutes worked so far today from a punch (live while clocked in). */
-export const workedToday = (punch, now = new Date()) => {
+const toMins = s => { if (!s || !s.includes(':')) return null; const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+/** Minutes of a punch: finished (handles clock-out after midnight) or live until now. */
+export const punchMinutes = (punch, now = new Date()) => {
   if (!punch || !punch.clock_in) return 0;
-  if (punch.clock_out) return minsBetween(punch.clock_in, punch.clock_out);
-  return minsBetween(punch.clock_in, String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'));
+  const a = toMins(punch.clock_in);
+  if (punch.clock_out) return Math.max(0, toMins(punch.clock_out) + (Number(punch.out_next_day) ? 1440 : 0) - a);
+  const nowM = now.getHours() * 60 + now.getMinutes();
+  const startedYesterday = punch.date && punch.date < isoLocal(now);
+  return Math.max(0, nowM + (startedYesterday ? 1440 : 0) - a);
 };
+/** Minutes worked so far today from a punch (live while clocked in). */
+export const workedToday = (punch, now = new Date()) => punchMinutes(punch, now);
+export const MODE_LABEL = { office: 'Office', wfh: 'Work from home', field: 'On field' };
 export const hhmm = d => { let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, '0'); const ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; return h + ':' + m + ' ' + ap; };
 export const nowHHMM = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 export const ini = n => String(n || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');

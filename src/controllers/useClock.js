@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { AttendanceModel } from '@/models';
 import { useData } from './DataController';
 import { useUi } from './UiController';
-import { hhmm, hm, minsBetween } from '@/lib/format';
+import { hhmm, hm, MODE_LABEL, punchMinutes } from '@/lib/format';
 
 function getGeo() {
   return new Promise(resolve => {
@@ -47,10 +47,15 @@ export function useClock() {
     if (busy) return;
     if (state === 'done') { toast('Already clocked out today. Ask an admin to correct it if needed.'); return; }
     const needSelfie = state === 'off' ? selfieIn : selfieOut;
-    let selfie = '';
-    if (needSelfie) {
-      selfie = await askSelfie({ title: state === 'off' ? 'Selfie to clock in' : 'Selfie to clock out', sub: 'Look at the camera and tap Capture. Your photo and location are saved with this punch.' });
-      if (!selfie) { toast('Selfie is needed to ' + (state === 'off' ? 'clock in' : 'clock out') + '.'); return; }
+    let selfie = '', mode = 'office';
+    if (needSelfie || state === 'off') {
+      const r = await askSelfie({
+        title: state === 'off' ? 'Clock in' : 'Clock out',
+        sub: state === 'off' ? 'Where are you working from today?' + (needSelfie ? ' Then look at the camera and tap Capture.' : '') : 'Look at the camera and tap Capture.',
+        askMode: state === 'off', needSelfie, defaultMode: 'office', okLabel: state === 'off' ? 'Clock in' : 'Clock out'
+      });
+      if (!r) { toast(needSelfie ? 'Selfie is needed to ' + (state === 'off' ? 'clock in' : 'clock out') + '.' : 'Cancelled.'); return; }
+      selfie = r.selfie || ''; mode = r.mode || 'office';
     }
     setBusy(true);
     try {
@@ -60,12 +65,12 @@ export function useClock() {
       if (selfie) body.selfie = selfie;
       const where = g ? (addr ? ' · ' + addr : ' · location saved') : ' · no location';
       if (state === 'off') {
-        await AttendanceModel.clockIn({ ...body, mode: 'office' });
-        toast('Clocked in at ' + hhmm(new Date()) + where);
+        await AttendanceModel.clockIn({ ...body, mode });
+        toast('Clocked in at ' + hhmm(new Date()) + ' · ' + (MODE_LABEL[mode] || mode) + where);
         if (!g) toast('Location not available. Allow location access in the browser to record it next time.');
       } else {
         const rec = await AttendanceModel.clockOut(body);
-        toast('Clocked out at ' + hhmm(new Date()) + ' · ' + hm(minsBetween(rec.clock_in, rec.clock_out)) + ' today' + where);
+        toast('Clocked out at ' + hhmm(new Date()) + ' · ' + hm(punchMinutes(rec)) + ' worked' + where);
       }
       await reload('today', 'activity', 'employees', 'myStats');
     } catch (err) {

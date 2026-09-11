@@ -41,6 +41,12 @@ const getTodayStatus = catchAsync(async (req, res) => {
   let myPunch = null;
   if (empId) {
     myPunch = await attendanceModel.findByEmpAndDate(empId, today);
+    // Still clocked in from a late-night shift that started yesterday? Show that punch so they can clock out.
+    if (!myPunch) {
+      const y = new Date(today + 'T00:00:00Z'); y.setUTCDate(y.getUTCDate() - 1);
+      const open = await attendanceModel.findOpenPunch(empId, y.toISOString().slice(0, 10));
+      if (open) myPunch = open;
+    }
   }
 
   const allToday = await attendanceModel.listDayAttendance(today);
