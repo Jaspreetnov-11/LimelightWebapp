@@ -8,7 +8,7 @@ class ProjectModel extends BaseModel {
     super('lh_projects');
   }
 
-  listWithConsumedMinutes() {
+  async listWithConsumedMinutes() {
     return db.all(`
       SELECT p.*,
              COALESCE(SUM(t.mins), 0) as consumed_mins,
@@ -20,7 +20,7 @@ class ProjectModel extends BaseModel {
     `);
   }
 
-  getProjectStats(projectId) {
+  async getProjectStats(projectId) {
     return db.get(`
       SELECT p.*,
              COALESCE(SUM(t.mins), 0) as consumed_mins,

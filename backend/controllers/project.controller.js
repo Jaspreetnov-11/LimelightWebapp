@@ -8,18 +8,18 @@ const AppError = require('../utils/appError');
 const { todayISO } = require('../utils/calculations');
 
 const getAllProjects = catchAsync(async (req, res) => {
-  const projects = projectModel.listWithConsumedMinutes();
+  const projects = await projectModel.listWithConsumedMinutes();
   return apiResponse.success(res, projects);
 });
 
 const getProjectById = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const project = projectModel.getProjectStats(id);
+  const project = await projectModel.getProjectStats(id);
   if (!project) {
     throw new AppError('Project not found', 404);
   }
 
-  const tasks = taskModel.filterTasks({ project: id, limit: 200 });
+  const tasks = await taskModel.filterTasks({ project: id, limit: 200 });
   return apiResponse.success(res, { ...project, tasks });
 });
 
@@ -27,7 +27,7 @@ const createProject = catchAsync(async (req, res) => {
   const { name, client = '', billable = true, manager = '', start = todayISO(), alloc = 0, status = 'Approved' } = req.body;
   const id = 'p_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
 
-  const proj = projectModel.create({
+  const proj = await projectModel.create({
     id,
     name,
     client,
@@ -43,7 +43,7 @@ const createProject = catchAsync(async (req, res) => {
 
 const updateProject = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const existing = projectModel.findById(id);
+  const existing = await projectModel.findById(id);
   if (!existing) {
     throw new AppError('Project not found', 404);
   }
@@ -56,18 +56,18 @@ const updateProject = catchAsync(async (req, res) => {
     updateData.alloc = Number(updateData.alloc) || 0;
   }
 
-  const updated = projectModel.update(id, updateData);
+  const updated = await projectModel.update(id, updateData);
   return apiResponse.success(res, updated, 'Project updated successfully');
 });
 
 const deleteProject = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const existing = projectModel.findById(id);
+  const existing = await projectModel.findById(id);
   if (!existing) {
     throw new AppError('Project not found', 404);
   }
 
-  projectModel.delete(id);
+  await projectModel.delete(id);
   return apiResponse.success(res, null, 'Project deleted successfully');
 });
 

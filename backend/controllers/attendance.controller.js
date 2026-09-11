@@ -36,11 +36,11 @@ const getTodayStatus = catchAsync(async (req, res) => {
 
   let myPunch = null;
   if (empId) {
-    myPunch = attendanceModel.findByEmpAndDate(empId, today);
+    myPunch = await attendanceModel.findByEmpAndDate(empId, today);
   }
 
-  const allToday = attendanceModel.listDayAttendance(today);
-  const totalStaff = employeeModel.count();
+  const allToday = await attendanceModel.listDayAttendance(today);
+  const totalStaff = await employeeModel.count();
 
   const present = allToday.filter(a => a.status === 'present' || a.clock_in).length;
   const half = allToday.filter(a => a.status === 'half').length;
@@ -67,9 +67,9 @@ const getAttendanceList = catchAsync(async (req, res) => {
 
   let records;
   if (empId) {
-    records = attendanceModel.findAll({ emp: empId }, { orderBy: 'date DESC', limit: 100 });
+    records = await attendanceModel.findAll({ emp: empId }, { orderBy: 'date DESC', limit: 100 });
   } else {
-    records = attendanceModel.listDayAttendance(date);
+    records = await attendanceModel.listDayAttendance(date);
   }
 
   return apiResponse.success(res, records);
@@ -77,7 +77,7 @@ const getAttendanceList = catchAsync(async (req, res) => {
 
 const updateAttendance = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const existing = attendanceModel.findById(id);
+  const existing = await attendanceModel.findById(id);
   if (!existing) {
     throw new AppError('Attendance entry not found', 404);
   }
@@ -86,7 +86,7 @@ const updateAttendance = catchAsync(async (req, res) => {
   if (updateData.ot_hours !== undefined) updateData.ot_hours = Number(updateData.ot_hours) || 0;
   if (updateData.fine_hours !== undefined) updateData.fine_hours = Number(updateData.fine_hours) || 0;
 
-  const updated = attendanceModel.update(id, updateData);
+  const updated = await attendanceModel.update(id, updateData);
   return apiResponse.success(res, updated, 'Attendance updated successfully');
 });
 
@@ -96,12 +96,12 @@ const updateAttendance = catchAsync(async (req, res) => {
  */
 const markAttendance = catchAsync(async (req, res) => {
   const { emp, date, status = '', mode, ot_hours, fine_hours, note, clock_in, clock_out } = req.body;
-  const employee = employeeModel.findById(emp);
+  const employee = await employeeModel.findById(emp);
   if (!employee) {
     throw new AppError('Employee not found', 404);
   }
 
-  const existing = attendanceModel.findByEmpAndDate(emp, date);
+  const existing = await attendanceModel.findByEmpAndDate(emp, date);
   const patch = { status };
   if (mode !== undefined) patch.mode = mode;
   if (ot_hours !== undefined) patch.ot_hours = Number(ot_hours) || 0;
@@ -112,17 +112,17 @@ const markAttendance = catchAsync(async (req, res) => {
 
   let record;
   if (existing) {
-    record = attendanceModel.update(existing.id, patch);
+    record = await attendanceModel.update(existing.id, patch);
     // A record with nothing left in it is removed so the day shows as "not marked" again
     if (!record.status && !record.clock_in && !record.clock_out && !Number(record.ot_hours) && !Number(record.fine_hours) && !record.note) {
-      attendanceModel.delete(existing.id);
+      await attendanceModel.delete(existing.id);
       record = null;
     }
   } else {
     if (!status && !Number(patch.ot_hours) && !Number(patch.fine_hours) && !patch.note) {
       return apiResponse.success(res, null, 'Nothing to record');
     }
-    record = attendanceModel.create({
+    record = await attendanceModel.create({
       id: 'a_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4),
       emp,
       date,
@@ -143,7 +143,7 @@ const getEmployeeMonthStats = catchAsync(async (req, res) => {
   const { empId } = req.params;
   const { month = thisMonth() } = req.query;
 
-  const stats = attendanceService.getMonthStats(empId, month);
+  const stats = await attendanceService.getMonthStats(empId, month);
   return apiResponse.success(res, stats);
 });
 

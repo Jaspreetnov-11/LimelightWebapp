@@ -18,7 +18,7 @@ const formatBytes = (bytes) => {
 };
 
 const getAllFiles = catchAsync(async (req, res) => {
-  const files = fileModel.listWithDetails();
+  const files = await fileModel.listWithDetails();
   return apiResponse.success(res, files);
 });
 
@@ -31,7 +31,7 @@ const uploadFile = catchAsync(async (req, res) => {
   const assignedBy = req.user ? (req.user.employeeId || req.user.id) : '';
   const id = 'f_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
 
-  const fileRecord = fileModel.create({
+  const fileRecord = await fileModel.create({
     id,
     name: req.file.originalname,
     project,
@@ -47,7 +47,7 @@ const uploadFile = catchAsync(async (req, res) => {
 
 const downloadFile = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const file = fileModel.findById(id);
+  const file = await fileModel.findById(id);
   if (!file) {
     throw new AppError('File not found', 404);
   }
@@ -64,7 +64,7 @@ const downloadFile = catchAsync(async (req, res) => {
 
 const deleteFile = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const file = fileModel.findById(id);
+  const file = await fileModel.findById(id);
   if (!file) {
     throw new AppError('File not found', 404);
   }
@@ -81,7 +81,7 @@ const deleteFile = catchAsync(async (req, res) => {
     }
   }
 
-  fileModel.delete(id);
+  await fileModel.delete(id);
   return apiResponse.success(res, null, 'File removed successfully');
 });
 

@@ -26,9 +26,11 @@ router.get('/health', (req, res) => {
     status: 'ok',
     service: 'Limelight Workspace API',
     timestamp: new Date().toISOString(),
-    version: '3.0.0',
+    version: '3.1.0',
     commit: env.GIT_COMMIT || null,
-    db: env.DATABASE_PATH
+    db: env.DATABASE_TYPE === 'postgres' ? 'postgres (supabase)' : 'sqlite: ' + env.DATABASE_PATH,
+    auth: 'supabase',
+    adminApi: Boolean(env.SUPABASE_SERVICE_ROLE_KEY)
   });
 });
 

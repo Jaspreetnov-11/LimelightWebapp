@@ -6,7 +6,7 @@ const { thisMonth } = require('../utils/calculations');
 
 const exportAttendanceRegister = catchAsync(async (req, res) => {
   const { month = thisMonth() } = req.query;
-  const csv = reportService.getAttendanceRegisterCsv(month);
+  const csv = await reportService.getAttendanceRegisterCsv(month);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="attendance-register-${month}.csv"`);
   return res.send(csv);
@@ -14,35 +14,35 @@ const exportAttendanceRegister = catchAsync(async (req, res) => {
 
 const exportPayrollSummary = catchAsync(async (req, res) => {
   const { month = thisMonth() } = req.query;
-  const csv = reportService.getPayrollSummaryCsv(month);
+  const csv = await reportService.getPayrollSummaryCsv(month);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="payroll-${month}.csv"`);
   return res.send(csv);
 });
 
 const exportPaymentsLedger = catchAsync(async (req, res) => {
-  const csv = reportService.getPaymentsLedgerCsv();
+  const csv = await reportService.getPaymentsLedgerCsv();
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="payments-all.csv"');
   return res.send(csv);
 });
 
 const exportStaffDirectory = catchAsync(async (req, res) => {
-  const csv = reportService.getStaffDirectoryCsv();
+  const csv = await reportService.getStaffDirectoryCsv();
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="staff.csv"');
   return res.send(csv);
 });
 
 const exportTasks = catchAsync(async (req, res) => {
-  const csv = reportService.getTasksCsv();
+  const csv = await reportService.getTasksCsv();
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="tasks.csv"');
   return res.send(csv);
 });
 
 const exportProjects = catchAsync(async (req, res) => {
-  const csv = reportService.getProjectsCsv();
+  const csv = await reportService.getProjectsCsv();
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="projects.csv"');
   return res.send(csv);

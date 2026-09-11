@@ -9,8 +9,8 @@ const { todayISO } = require('../utils/calculations');
 
 const getActivities = catchAsync(async (req, res) => {
   const { limit = 60 } = req.query;
-  const activities = activityModel.getRecent(limit);
-  const unreadCount = activityModel.getUnreadCount();
+  const activities = await activityModel.getRecent(limit);
+  const unreadCount = await activityModel.getUnreadCount();
 
   return apiResponse.success(res, activities, 'Activities fetched', 200, {
     unreadCount
@@ -18,14 +18,14 @@ const getActivities = catchAsync(async (req, res) => {
 });
 
 const markAllRead = catchAsync(async (req, res) => {
-  activityModel.markAllAsRead();
+  await activityModel.markAllAsRead();
   return apiResponse.success(res, null, 'Marked all activities as read');
 });
 
 const getAlerts = catchAsync(async (req, res) => {
   const today = todayISO();
-  const overdueTasks = taskModel.filterTasks({ overdueOnly: true, todayDate: today, limit: 100 });
-  const allProjects = projectModel.listWithConsumedMinutes();
+  const overdueTasks = await taskModel.filterTasks({ overdueOnly: true, todayDate: today, limit: 100 });
+  const allProjects = await projectModel.listWithConsumedMinutes();
   const overshotProjects = allProjects.filter(p => Number(p.alloc) > 0 && Number(p.consumed_mins) > Number(p.alloc));
 
   return apiResponse.success(res, {

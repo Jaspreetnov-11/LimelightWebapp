@@ -13,9 +13,9 @@ const getAllLeaves = catchAsync(async (req, res) => {
 
   let leaves;
   if (empId) {
-    leaves = leaveModel.getEmployeeLeaves(empId, month);
+    leaves = await leaveModel.getEmployeeLeaves(empId, month);
   } else {
-    leaves = leaveModel.findAll({}, { orderBy: 'from_date DESC', limit: 100 });
+    leaves = await leaveModel.findAll({}, { orderBy: 'from_date DESC', limit: 100 });
   }
 
   return apiResponse.success(res, leaves);
@@ -23,7 +23,7 @@ const getAllLeaves = catchAsync(async (req, res) => {
 
 const getLeavesToday = catchAsync(async (req, res) => {
   const today = todayISO();
-  const onLeave = leaveModel.getLeavesOnDate(today);
+  const onLeave = await leaveModel.getLeavesOnDate(today);
   return apiResponse.success(res, onLeave);
 });
 
@@ -36,7 +36,7 @@ const applyLeave = catchAsync(async (req, res) => {
   }
 
   const id = 'l_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
-  const leave = leaveModel.create({
+  const leave = await leaveModel.create({
     id,
     emp: targetEmpId,
     from_date,
@@ -45,9 +45,9 @@ const applyLeave = catchAsync(async (req, res) => {
     status: 'approved'
   });
 
-  const empRecord = employeeModel.findById(targetEmpId);
+  const empRecord = await employeeModel.findById(targetEmpId);
   const name = empRecord ? empRecord.name : 'Staff';
-  activityModel.create({
+  await activityModel.create({
     id: 'act_' + Date.now(),
     text: `${name} applied for leave (${from_date} to ${to_date})`,
     at: new Date().toISOString(),
@@ -59,12 +59,12 @@ const applyLeave = catchAsync(async (req, res) => {
 
 const deleteLeave = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const existing = leaveModel.findById(id);
+  const existing = await leaveModel.findById(id);
   if (!existing) {
     throw new AppError('Leave record not found', 404);
   }
 
-  leaveModel.delete(id);
+  await leaveModel.delete(id);
   return apiResponse.success(res, null, 'Leave record deleted successfully');
 });
 

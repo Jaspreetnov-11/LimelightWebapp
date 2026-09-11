@@ -8,14 +8,11 @@ class AttendanceModel extends BaseModel {
     super('lh_attendance');
   }
 
-  findByEmpAndDate(empId, date) {
-    return db.get(
-      'SELECT * FROM lh_attendance WHERE emp = ? AND date = ?',
-      [empId, date]
-    );
+  async findByEmpAndDate(empId, date) {
+    return db.get('SELECT * FROM lh_attendance WHERE emp = ? AND date = ?', [empId, date]);
   }
 
-  listDayAttendance(date) {
+  async listDayAttendance(date) {
     return db.all(`
       SELECT a.*, e.name as emp_name, e.dept as emp_dept, e.emp_id, e.av, e.ini
       FROM lh_attendance a
@@ -25,7 +22,7 @@ class AttendanceModel extends BaseModel {
     `, [date]);
   }
 
-  getMonthAttendance(empId, month) {
+  async getMonthAttendance(empId, month) {
     return db.all(`
       SELECT * FROM lh_attendance
       WHERE emp = ? AND substr(date, 1, 7) = ?
@@ -33,11 +30,14 @@ class AttendanceModel extends BaseModel {
     `, [empId, month]);
   }
 
-  upsertPunch(data) {
-    const existing = this.findByEmpAndDate(data.emp, data.date);
-    if (existing) {
-      return this.update(existing.id, data);
-    }
+  /** All rows of a month for every employee (payroll runs use this to avoid N queries). */
+  async getMonthAttendanceAll(month) {
+    return db.all('SELECT * FROM lh_attendance WHERE substr(date, 1, 7) = ? ORDER BY date ASC', [month]);
+  }
+
+  async upsertPunch(data) {
+    const existing = await this.findByEmpAndDate(data.emp, data.date);
+    if (existing) return this.update(existing.id, data);
     return this.create(data);
   }
 }

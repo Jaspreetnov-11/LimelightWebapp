@@ -10,7 +10,7 @@ const getAllTasks = catchAsync(async (req, res) => {
   const { assignee, project, status, overdueOnly, page = 1, limit = 500 } = req.query;
   const offset = (Number(page) - 1) * Number(limit);
 
-  const tasks = taskModel.filterTasks({
+  const tasks = await taskModel.filterTasks({
     assignee,
     project,
     status,
@@ -20,8 +20,8 @@ const getAllTasks = catchAsync(async (req, res) => {
     offset
   });
 
-  const total = taskModel.count();
-  const statusCounts = taskModel.getStatusCounts(assignee);
+  const total = await taskModel.count();
+  const statusCounts = await taskModel.getStatusCounts(assignee);
 
   return apiResponse.success(res, tasks, 'Tasks fetched successfully', 200, {
     total,
@@ -31,7 +31,7 @@ const getAllTasks = catchAsync(async (req, res) => {
 
 const getTaskById = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const task = taskModel.findById(id);
+  const task = await taskModel.findById(id);
   if (!task) {
     throw new AppError('Task not found', 404);
   }
@@ -43,7 +43,7 @@ const createTask = catchAsync(async (req, res) => {
   const id = 't_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
   const assignedBy = req.user ? (req.user.employeeId || req.user.id) : '';
 
-  const task = taskModel.create({
+  const task = await taskModel.create({
     id,
     title,
     project,
@@ -63,7 +63,7 @@ const createTask = catchAsync(async (req, res) => {
 
 const updateTask = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const existing = taskModel.findById(id);
+  const existing = await taskModel.findById(id);
   if (!existing) {
     throw new AppError('Task not found', 404);
   }
@@ -81,7 +81,7 @@ const updateTask = catchAsync(async (req, res) => {
     updateData.mins = Number(updateData.mins) || 0;
   }
 
-  const updated = taskModel.update(id, updateData);
+  const updated = await taskModel.update(id, updateData);
   return apiResponse.success(res, updated, 'Task updated successfully');
 });
 
@@ -89,7 +89,7 @@ const updateTaskStatus = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
-  const existing = taskModel.findById(id);
+  const existing = await taskModel.findById(id);
   if (!existing) {
     throw new AppError('Task not found', 404);
   }
@@ -101,18 +101,18 @@ const updateTaskStatus = catchAsync(async (req, res) => {
     updateData.completed = null;
   }
 
-  const updated = taskModel.update(id, updateData);
+  const updated = await taskModel.update(id, updateData);
   return apiResponse.success(res, updated, `Task moved to ${status}`);
 });
 
 const deleteTask = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const existing = taskModel.findById(id);
+  const existing = await taskModel.findById(id);
   if (!existing) {
     throw new AppError('Task not found', 404);
   }
 
-  taskModel.delete(id);
+  await taskModel.delete(id);
   return apiResponse.success(res, null, 'Task deleted successfully');
 });
 

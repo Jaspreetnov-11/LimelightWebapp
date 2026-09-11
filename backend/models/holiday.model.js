@@ -8,11 +8,8 @@ class HolidayModel extends BaseModel {
     super('lh_holidays');
   }
 
-  getUpcoming(fromDate, limit = 10) {
-    return db.all(
-      'SELECT * FROM lh_holidays WHERE date >= ? ORDER BY date ASC LIMIT ?',
-      [fromDate, Number(limit)]
-    );
+  async getUpcoming(fromDate, limit = 10) {
+    return db.all('SELECT * FROM lh_holidays WHERE date >= ? ORDER BY date ASC LIMIT ?', [fromDate, Number(limit)]);
   }
 }
 

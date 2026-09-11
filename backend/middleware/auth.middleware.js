@@ -2,27 +2,41 @@
 
 const jwt = require('jsonwebtoken');
 const env = require('../config/env');
-const db = require('../config/db');
+const employeeModel = require('../models/employee.model');
 const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 
+function readToken(req) {
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    return req.headers.authorization.split(' ')[1];
+  }
+  if (req.cookies && req.cookies.token) return req.cookies.token;
+  return null;
+}
+
+function shapeUser(emp) {
+  const role = emp.access || 'staff';
+  return {
+    id: emp.id,
+    email: emp.email,
+    role,
+    employeeId: emp.id,
+    name: emp.name || String(emp.email || '').split('@')[0],
+    dept: emp.dept || '',
+    access: role,
+    empId: emp.emp_id || ''
+  };
+}
+
 /**
- * Protect routes: verifies Bearer JWT token from Authorization header or cookie
+ * Protect routes: verifies the API JWT and loads the employee (id = Supabase Auth user id).
  */
 const protect = catchAsync(async (req, res, next) => {
-  let token = null;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-    token = req.headers.authorization.split(' ')[1];
-  } else if (req.cookies && req.cookies.token) {
-    token = req.cookies.token;
-  }
-
+  const token = readToken(req);
   if (!token) {
     return next(new AppError('You are not logged in. Please log in to gain access.', 401));
   }
 
-  // Verify JWT
   let decoded;
   try {
     decoded = jwt.verify(token, env.JWT_SECRET);
@@ -33,80 +47,45 @@ const protect = catchAsync(async (req, res, next) => {
     return next(new AppError('Invalid authentication token.', 401));
   }
 
-  // Find user and join employee record
-  const user = db.get(
-    `SELECT u.id, u.email, u.role, u.employee_id, e.name, e.dept, e.access, e.emp_id
-     FROM lh_users u
-     LEFT JOIN lh_employees e ON u.employee_id = e.id
-     WHERE u.id = ?`,
-    [decoded.id]
-  );
-
-  if (!user) {
+  const emp = await employeeModel.findById(decoded.id);
+  if (!emp) {
     return next(new AppError('The user belonging to this token no longer exists.', 401));
   }
+  if (emp.active !== undefined && emp.active !== null && Number(emp.active) === 0) {
+    return next(new AppError('This account is deactivated.', 403));
+  }
 
-  // Attach user to request
-  req.user = {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    employeeId: user.employee_id,
-    name: user.name || user.email.split('@')[0],
-    dept: user.dept || '',
-    access: user.access || user.role,
-    empId: user.emp_id || ''
-  };
-
+  req.user = shapeUser(emp);
   next();
 });
 
 /**
- * Role-Based Access Control (RBAC) middleware
+ * Role-Based Access Control
  */
-const restrictTo = (...allowedRoles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return next(new AppError('User context not found. Please log in.', 401));
-    }
-
-    const userRole = (req.user.role || req.user.access || 'staff').toLowerCase();
-    const isAllowed = allowedRoles.map(r => r.toLowerCase()).includes(userRole);
-
-    if (!isAllowed && userRole !== 'admin') {
-      return next(new AppError('You do not have permission to perform this action.', 403));
-    }
-
-    next();
-  };
-};
-
-/**
- * Optional Auth middleware: attaches user if token exists, but doesn't block if absent
- */
-const optionalAuth = (req, res, next) => {
-  let token = null;
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
-
-  if (!token) return next();
-
-  try {
-    const decoded = jwt.verify(token, env.JWT_SECRET);
-    const user = db.get('SELECT id, email, role, employee_id FROM lh_users WHERE id = ?', [decoded.id]);
-    if (user) {
-      // Same shape as `protect` so controllers can rely on req.user.employeeId
-      req.user = { id: user.id, email: user.email, role: user.role, employeeId: user.employee_id, access: user.role };
-    }
-  } catch (err) {
-    // Ignore invalid optional tokens
+const restrictTo = (...allowedRoles) => (req, res, next) => {
+  if (!req.user) return next(new AppError('User context not found. Please log in.', 401));
+  const userRole = (req.user.role || req.user.access || 'staff').toLowerCase();
+  const isAllowed = allowedRoles.map(r => r.toLowerCase()).includes(userRole);
+  if (!isAllowed && userRole !== 'admin') {
+    return next(new AppError('You do not have permission to perform this action.', 403));
   }
   next();
 };
 
-module.exports = {
-  protect,
-  restrictTo,
-  optionalAuth
+/**
+ * Optional auth: attaches req.user when a valid token is present, never blocks.
+ */
+const optionalAuth = async (req, res, next) => {
+  const token = readToken(req);
+  if (!token) return next();
+  try {
+    const decoded = jwt.verify(token, env.JWT_SECRET);
+    const emp = await employeeModel.findById(decoded.id);
+    if (emp) req.user = shapeUser(emp);
+  } catch (err) {
+    // ignore invalid optional tokens
+  }
+  next();
 };
+
+module.exports = { protect, restrictTo, optionalAuth };

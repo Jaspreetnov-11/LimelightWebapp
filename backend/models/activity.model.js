@@ -8,20 +8,31 @@ class ActivityModel extends BaseModel {
     super('lh_activity');
   }
 
-  getRecent(limit = 60) {
-    return db.all(
-      'SELECT * FROM lh_activity ORDER BY created_at DESC LIMIT ?',
-      [Number(limit)]
-    );
+  /** Fire-and-forget log line; never breaks the calling request. */
+  async log(text) {
+    try {
+      await this.create({
+        id: 'act_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        text,
+        at: new Date().toISOString(),
+        read: 0
+      });
+    } catch (err) {
+      console.error('[ACTIVITY]', err.message);
+    }
   }
 
-  getUnreadCount() {
-    const row = db.get('SELECT COUNT(*) as count FROM lh_activity WHERE read = 0');
-    return row ? row.count : 0;
+  async getRecent(limit = 60) {
+    return db.all('SELECT * FROM lh_activity ORDER BY created_at DESC LIMIT ?', [Number(limit)]);
   }
 
-  markAllAsRead() {
-    db.run('UPDATE lh_activity SET read = 1 WHERE read = 0');
+  async getUnreadCount() {
+    const row = await db.get('SELECT COUNT(*) as count FROM lh_activity WHERE read = 0');
+    return row ? Number(row.count) || 0 : 0;
+  }
+
+  async markAllAsRead() {
+    await db.run('UPDATE lh_activity SET read = 1 WHERE read = 0');
     return true;
   }
 }

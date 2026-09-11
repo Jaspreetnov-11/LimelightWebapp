@@ -10,9 +10,9 @@ const getAllHolidays = catchAsync(async (req, res) => {
   const { upcoming } = req.query;
   let holidays;
   if (upcoming === 'true') {
-    holidays = holidayModel.getUpcoming(todayISO(), 10);
+    holidays = await holidayModel.getUpcoming(todayISO(), 10);
   } else {
-    holidays = holidayModel.findAll({}, { orderBy: 'date ASC' });
+    holidays = await holidayModel.findAll({}, { orderBy: 'date ASC' });
   }
   return apiResponse.success(res, holidays);
 });
@@ -24,17 +24,17 @@ const createHoliday = catchAsync(async (req, res) => {
   }
 
   const id = 'h_' + Math.random().toString(36).slice(2, 8);
-  const holiday = holidayModel.create({ id, name, date });
+  const holiday = await holidayModel.create({ id, name, date });
   return apiResponse.created(res, holiday, 'Holiday created successfully');
 });
 
 const deleteHoliday = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const existing = holidayModel.findById(id);
+  const existing = await holidayModel.findById(id);
   if (!existing) {
     throw new AppError('Holiday not found', 404);
   }
-  holidayModel.delete(id);
+  await holidayModel.delete(id);
   return apiResponse.success(res, null, 'Holiday deleted successfully');
 });
 

@@ -8,7 +8,7 @@ class DepartmentModel extends BaseModel {
     super('lh_departments');
   }
 
-  listWithStaffCount() {
+  async listWithStaffCount() {
     return db.all(`
       SELECT d.*, COUNT(e.id) as staff_count
       FROM lh_departments d

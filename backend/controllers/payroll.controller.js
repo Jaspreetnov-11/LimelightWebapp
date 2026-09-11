@@ -7,7 +7,7 @@ const { thisMonth } = require('../utils/calculations');
 
 const getPayroll = catchAsync(async (req, res) => {
   const { month = thisMonth() } = req.query;
-  const payroll = payrollService.calculateMonthlyPayroll(month);
+  const payroll = await payrollService.calculateMonthlyPayroll(month);
   return apiResponse.success(res, payroll);
 });
 
@@ -15,7 +15,7 @@ const payAllPendingSalaries = catchAsync(async (req, res) => {
   const { month = thisMonth() } = req.body;
   const assignedBy = req.user ? (req.user.employeeId || req.user.id) : '';
 
-  const result = payrollService.payAllPending(month, assignedBy);
+  const result = await payrollService.payAllPending(month, assignedBy);
   return apiResponse.success(res, result, `Recorded salary payments for ${result.count} staff members`);
 });
 

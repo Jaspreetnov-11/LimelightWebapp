@@ -8,7 +8,7 @@ class FileModel extends BaseModel {
     super('lh_files');
   }
 
-  listWithDetails() {
+  async listWithDetails() {
     return db.all(`
       SELECT f.*, p.name as project_name, e.name as uploader_name
       FROM lh_files f
