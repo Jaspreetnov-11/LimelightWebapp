@@ -8,15 +8,19 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { todayISO, thisMonth } = require('../utils/calculations');
 
+// Selfies are stored on the row; list responses only say whether one exists.
+const pub = a => { if (!a) return a; const { in_selfie, out_selfie, ...rest } = a; return { ...rest, in_selfie: Boolean(in_selfie), out_selfie: Boolean(out_selfie) }; };
+const pubAll = rows => (rows || []).map(pub);
+
 const clockIn = catchAsync(async (req, res) => {
   const empId = req.user.id;
   if (!empId) {
     throw new AppError('No employee profile linked to this user.', 400);
   }
 
-  const { lat, lng, acc, addr, mode } = req.body;
-  const punch = await attendanceService.processClockIn(empId, { lat, lng, acc, addr, mode });
-  return apiResponse.success(res, punch, 'Clocked in successfully');
+  const { lat, lng, acc, addr, mode, selfie } = req.body;
+  const punch = await attendanceService.processClockIn(empId, { lat, lng, acc, addr, mode, selfie });
+  return apiResponse.success(res, pub(punch), 'Clocked in successfully');
 });
 
 const clockOut = catchAsync(async (req, res) => {
@@ -25,9 +29,9 @@ const clockOut = catchAsync(async (req, res) => {
     throw new AppError('No employee profile linked to this user.', 400);
   }
 
-  const { lat, lng, acc, addr } = req.body;
-  const punch = await attendanceService.processClockOut(empId, { lat, lng, acc, addr });
-  return apiResponse.success(res, punch, 'Clocked out successfully');
+  const { lat, lng, acc, addr, selfie } = req.body;
+  const punch = await attendanceService.processClockOut(empId, { lat, lng, acc, addr, selfie });
+  return apiResponse.success(res, pub(punch), 'Clocked out successfully');
 });
 
 const getTodayStatus = catchAsync(async (req, res) => {
@@ -49,7 +53,7 @@ const getTodayStatus = catchAsync(async (req, res) => {
 
   return apiResponse.success(res, {
     today,
-    myPunch,
+    myPunch: pub(myPunch),
     summary: {
       totalStaff,
       present,
@@ -58,7 +62,7 @@ const getTodayStatus = catchAsync(async (req, res) => {
       wfh,
       notMarked: Math.max(0, totalStaff - present - half - absent)
     },
-    staffAttendance: allToday
+    staffAttendance: pubAll(allToday)
   });
 });
 
@@ -72,7 +76,7 @@ const getAttendanceList = catchAsync(async (req, res) => {
     records = await attendanceModel.listDayAttendance(date);
   }
 
-  return apiResponse.success(res, records);
+  return apiResponse.success(res, pubAll(records));
 });
 
 const updateAttendance = catchAsync(async (req, res) => {
@@ -87,7 +91,7 @@ const updateAttendance = catchAsync(async (req, res) => {
   if (updateData.fine_hours !== undefined) updateData.fine_hours = Number(updateData.fine_hours) || 0;
 
   const updated = await attendanceModel.update(id, updateData);
-  return apiResponse.success(res, updated, 'Attendance updated successfully');
+  return apiResponse.success(res, pub(updated), 'Attendance updated successfully');
 });
 
 /**
@@ -136,7 +140,7 @@ const markAttendance = catchAsync(async (req, res) => {
     });
   }
 
-  return apiResponse.success(res, record, record ? 'Attendance marked' : 'Attendance cleared');
+  return apiResponse.success(res, pub(record), record ? 'Attendance marked' : 'Attendance cleared');
 });
 
 const getEmployeeMonthStats = catchAsync(async (req, res) => {
@@ -164,3 +168,20 @@ const getTeamSummary = catchAsync(async (req, res) => {
   return apiResponse.success(res, summary);
 });
 module.exports.getTeamSummary = getTeamSummary;
+
+/** The stored selfie image for a punch (admins / managers, or the person themselves). */
+const getSelfie = catchAsync(async (req, res) => {
+  const { id, which } = req.params;
+  const row = await attendanceModel.findById(id);
+  if (!row) throw new AppError('Attendance entry not found', 404);
+  const allowed = req.user.role === 'admin' || req.user.role === 'manager' || req.user.id === row.emp;
+  if (!allowed) throw new AppError('Not allowed', 403);
+  const data = which === 'out' ? row.out_selfie : row.in_selfie;
+  if (!data) throw new AppError('No selfie stored for this punch', 404);
+  const m = String(data).match(/^data:(image\/[a-z]+);base64,(.+)$/);
+  if (!m) throw new AppError('Stored image is invalid', 500);
+  res.setHeader('Content-Type', m[1]);
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  return res.send(Buffer.from(m[2], 'base64'));
+});
+module.exports.getSelfie = getSelfie;

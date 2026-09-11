@@ -13,6 +13,7 @@ router.get('/today', optionalAuth, attendanceController.getTodayStatus);
 router.post('/mark', protect, restrictTo('admin', 'manager'), validate(manualAttendanceSchema), attendanceController.markAttendance);
 router.get('/team-summary', protect, restrictTo('admin', 'manager'), attendanceController.getTeamSummary);
 router.get('/stats/:empId', protect, attendanceController.getEmployeeMonthStats);
+router.get('/:id/selfie/:which', protect, attendanceController.getSelfie);
 router.get('/', protect, attendanceController.getAttendanceList);
 router.put('/:id', protect, restrictTo('admin', 'manager'), attendanceController.updateAttendance);
 

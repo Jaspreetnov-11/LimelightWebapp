@@ -27,7 +27,10 @@ const DEFAULTS = {
   extraAdminEmails: [],
   staffCanSeeTeamTasks: true,
   staffCanApplyLeave: true,
-  autoOvertime: true
+  autoOvertime: true,
+  selfieOnClockIn: true,
+  selfieOnClockOut: false,
+  selfieRetentionDays: 30
 };
 
 let current = { ...DEFAULTS };
@@ -54,7 +57,8 @@ function validate(patch) {
   if (patch.weekOff !== undefined) out.weekOff = (Array.isArray(patch.weekOff) ? patch.weekOff : []).map(Number).filter(n => n >= 0 && n <= 6);
   if (patch.defaultPassword !== undefined) { const p = String(patch.defaultPassword || '').trim(); if (p.length < 6) throw new AppError('Default password must be at least 6 characters', 400); out.defaultPassword = p; }
   if (patch.extraAdminEmails !== undefined) out.extraAdminEmails = (Array.isArray(patch.extraAdminEmails) ? patch.extraAdminEmails : String(patch.extraAdminEmails).split(',')).map(s => String(s).trim().toLowerCase()).filter(s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
-  for (const b of ['staffCanSeeTeamTasks', 'staffCanApplyLeave', 'autoOvertime']) if (patch[b] !== undefined) out[b] = Boolean(patch[b]);
+  for (const b of ['staffCanSeeTeamTasks', 'staffCanApplyLeave', 'autoOvertime', 'selfieOnClockIn', 'selfieOnClockOut']) if (patch[b] !== undefined) out[b] = Boolean(patch[b]);
+  if (patch.selfieRetentionDays !== undefined) out.selfieRetentionDays = Math.min(365, Math.max(1, Number(patch.selfieRetentionDays) || 30));
   return out;
 }
 
@@ -82,7 +86,7 @@ const service = {
   publicView() {
     const shifts = {};
     for (const [k, s] of Object.entries(current.shifts)) shifts[k] = { ...s, display: shiftLabel(s) };
-    return { companyName: current.companyName, shifts, graceMins: current.graceMins, hoursPerDay: current.hoursPerDay, otRate: current.otRate, weekOff: current.weekOff, staffCanSeeTeamTasks: current.staffCanSeeTeamTasks, staffCanApplyLeave: current.staffCanApplyLeave, autoOvertime: current.autoOvertime };
+    return { companyName: current.companyName, shifts, graceMins: current.graceMins, hoursPerDay: current.hoursPerDay, otRate: current.otRate, weekOff: current.weekOff, staffCanSeeTeamTasks: current.staffCanSeeTeamTasks, staffCanApplyLeave: current.staffCanApplyLeave, autoOvertime: current.autoOvertime, selfieOnClockIn: current.selfieOnClockIn, selfieOnClockOut: current.selfieOnClockOut, selfieRetentionDays: current.selfieRetentionDays };
   },
   adminView() { return { ...this.publicView(), defaultPassword: current.defaultPassword, extraAdminEmails: current.extraAdminEmails, adminEmails: env.ADMIN_EMAILS }; },
   isAdminEmail(email) { const e = String(email || '').toLowerCase(); return env.ADMIN_EMAILS.includes(e) || (current.extraAdminEmails || []).includes(e); },

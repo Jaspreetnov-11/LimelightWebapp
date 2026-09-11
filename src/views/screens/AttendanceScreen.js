@@ -58,11 +58,15 @@ export function AttendanceScreen() {
     send({ emp: e.id, status: attStatus(a), note: v.trim() });
   };
   const exportDay = () => saveCsv('attendance-' + date + '.csv', [['Employee', 'Emp ID', 'Date', 'Status', 'Clock In', 'Clock Out', 'OT hours', 'Fine hours', 'Note', 'In location', 'Out location']].concat(d.employees.map(e => { const a = rec[e.id] || {}; return [e.name, e.emp_id || '', date, attStatus(a) || 'not marked', a.clock_in || '', a.clock_out || '', a.ot_hours || 0, a.fine_hours || 0, a.note || '', a.in_addr || (a.in_lat ? a.in_lat + ',' + a.in_lng : ''), a.out_addr || (a.out_lat ? a.out_lat + ',' + a.out_lng : '')]; })));
+  const viewSelfie = async (id, which) => {
+    try { const blob = await AttendanceModel.selfie(id, which); const url = URL.createObjectURL(blob); window.open(url, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(url), 60000); }
+    catch (err) { toast(err.message); }
+  };
   const exportRegister = async () => { try { saveBlob(await ReportModel.download('attendance-register', { month: date.slice(0, 7) }), 'attendance-register-' + date.slice(0, 7) + '.csv'); } catch (err) { toast(err.message); } };
 
   const stLabel = (a, l) => {
     const st = attStatus(a);
-    if (st) return <span className="st" style={{ color: { present: 'var(--ok)', half: 'var(--warn)', absent: 'var(--danger)', leave: 'var(--info)' }[st] }}>{ATT[st][1]}{a.clock_in ? <> · in {a.clock_in} <GeoLink lat={a.in_lat} lng={a.in_lng} addr={a.in_addr || 'map'} /></> : null}{a.clock_out ? <> · out {a.clock_out} <GeoLink lat={a.out_lat} lng={a.out_lng} addr={a.out_addr || 'map'} /></> : null}{Number(a.late) ? <Chip tone="or" style={{ marginLeft: 6 }}>Late</Chip> : null}{Number(a.ot_hours) ? ' · OT ' + a.ot_hours + 'h' : ''}{Number(a.fine_hours) ? ' · Fine ' + a.fine_hours + 'h' : ''}</span>;
+    if (st) return <span className="st" style={{ color: { present: 'var(--ok)', half: 'var(--warn)', absent: 'var(--danger)', leave: 'var(--info)' }[st] }}>{ATT[st][1]}{a.clock_in ? <> · in {a.clock_in} <GeoLink lat={a.in_lat} lng={a.in_lng} addr={a.in_addr || 'map'} />{a.in_selfie && <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'in')} title="View clock-in selfie">📷</button>}</> : null}{a.clock_out ? <> · out {a.clock_out} <GeoLink lat={a.out_lat} lng={a.out_lng} addr={a.out_addr || 'map'} />{a.out_selfie && <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'out')} title="View clock-out selfie">📷</button>}</> : null}{Number(a.late) ? <Chip tone="or" style={{ marginLeft: 6 }}>Late</Chip> : null}{Number(a.ot_hours) ? ' · OT ' + a.ot_hours + 'h' : ''}{Number(a.fine_hours) ? ' · Fine ' + a.fine_hours + 'h' : ''}</span>;
     if (l) return <span className="st" style={{ color: 'var(--info)' }}>On leave ({l.reason || ''})</span>;
     return <span className="st" style={{ color: 'var(--danger)' }}>Not Marked</span>;
   };

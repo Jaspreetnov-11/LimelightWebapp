@@ -34,7 +34,7 @@ function ClockCard() {
           <small>
             {st === 'in' && <>Since {r.clock_in} <GeoLink lat={r.in_lat} lng={r.in_lng} addr={r.in_addr} acc={r.in_acc} /> · tap Clock Out when you leave</>}
             {st === 'done' && <>In {r.clock_in} <GeoLink lat={r.in_lat} lng={r.in_lng} addr={r.in_addr} acc={r.in_acc} /> · Out {r.clock_out} <GeoLink lat={r.out_lat} lng={r.out_lng} addr={r.out_addr} acc={r.out_acc} />{Number(r.ot_hours) ? ' · OT ' + r.ot_hours + 'h' : ''}</>}
-            {st === 'off' && <>{me.name.split(' ')[0]}, your shift is {me.shift === 'evening' ? '2 pm – 10 pm' : '11 am – 7 pm'} · 20 min grace · location is saved with each punch</>}
+            {st === 'off' && <>{me.name.split(' ')[0]}, your shift is {me.shift === 'evening' ? '2 pm – 10 pm' : '11 am – 7 pm'} · {clock.selfieIn ? 'selfie + location' : 'location'} is saved with each punch</>}
           </small>
         </div>
       </div>

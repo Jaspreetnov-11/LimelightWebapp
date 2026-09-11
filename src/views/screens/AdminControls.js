@@ -75,7 +75,7 @@ function WorkRules() {
   const save = async () => {
     setBusy(true);
     try {
-      await SettingsModel.update({ companyName: f.companyName, shifts: f.shifts, graceMins: Number(f.graceMins), hoursPerDay: Number(f.hoursPerDay), otRate: Number(f.otRate), weekOff: f.weekOff, defaultPassword: f.defaultPassword, extraAdminEmails: f.extraAdminEmails, staffCanApplyLeave: f.staffCanApplyLeave, autoOvertime: f.autoOvertime });
+      await SettingsModel.update({ companyName: f.companyName, shifts: f.shifts, graceMins: Number(f.graceMins), hoursPerDay: Number(f.hoursPerDay), otRate: Number(f.otRate), weekOff: f.weekOff, defaultPassword: f.defaultPassword, extraAdminEmails: f.extraAdminEmails, staffCanApplyLeave: f.staffCanApplyLeave, autoOvertime: f.autoOvertime, selfieOnClockIn: f.selfieOnClockIn, selfieOnClockOut: f.selfieOnClockOut, selfieRetentionDays: Number(f.selfieRetentionDays) || 30 });
       toast('Work rules saved. New clock-ins use them from now on.'); await d.reload('settings'); setF(null);
     } catch (err) { toast(err.message); } finally { setBusy(false); }
   };
@@ -109,6 +109,15 @@ function WorkRules() {
         <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
           <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={!!f.staffCanApplyLeave} onChange={e => set('staffCanApplyLeave', e.target.checked)} />Staff can apply for leave themselves</label>
           <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={!!f.autoOvertime} onChange={e => set('autoOvertime', e.target.checked)} />Count overtime automatically on clock-out</label>
+        </div>
+        <div>
+          <b style={{ fontSize: 13.5 }}>Selfie with clock-in</b>
+          <div style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 10px' }}>Photos are compressed to about 10–15 KB each and deleted automatically after the retention period (the attendance record stays).</div>
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+            <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={f.selfieOnClockIn !== false} onChange={e => set('selfieOnClockIn', e.target.checked)} />Require selfie to clock in</label>
+            <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13 }}><input type="checkbox" checked={!!f.selfieOnClockOut} onChange={e => set('selfieOnClockOut', e.target.checked)} />Require selfie to clock out</label>
+            <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 13 }}>Keep selfies for <input type="number" min={1} max={365} value={f.selfieRetentionDays || 30} onChange={e => set('selfieRetentionDays', e.target.value)} style={{ ...inp, width: 80 }} /> days</label>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}><button className="tb-btn" onClick={() => setF(null)} disabled={busy}>Discard</button><button className="tb-btn solid" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save work rules'}</button></div>
       </div>

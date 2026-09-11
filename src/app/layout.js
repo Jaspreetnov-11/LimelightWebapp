@@ -4,6 +4,7 @@ import { UiProvider } from '@/controllers/UiController';
 import { DataProvider } from '@/controllers/DataController';
 import { IconSprite } from '@/views/ui/Icons';
 import { FormModal, Toast } from '@/views/ui/FormModal';
+import { SelfieModal } from '@/views/ui/SelfieModal';
 
 export const metadata = {
   title: 'Limelight',
@@ -35,6 +36,7 @@ export default function RootLayout({ children }) {
             <DataProvider>
               {children}
               <FormModal />
+              <SelfieModal />
               <Toast />
             </DataProvider>
           </UiProvider>

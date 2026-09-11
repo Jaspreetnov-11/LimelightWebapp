@@ -68,6 +68,7 @@ export const AttendanceModel = {
   clockIn: body => data(api.post('/attendance/clock-in', body)),
   clockOut: body => data(api.post('/attendance/clock-out', body)),
   mark: body => data(api.post('/attendance/mark', body)),
+  selfie: async (id, which) => { const res = await api.download('/attendance/' + id + '/selfie/' + which); return res.blob(); },
   update: (id, body) => data(api.put('/attendance/' + id, body))
 };
 
