@@ -24,8 +24,8 @@ class TaskModel extends BaseModel {
     const params = [];
 
     if (assignee) {
-      sql += ` AND t.assignee = ?`;
-      params.push(assignee);
+      sql += ` AND (t.assignee = ? OR t.assignee LIKE ? OR t.assignee LIKE ? OR t.assignee LIKE ?)`;
+      params.push(assignee, `${assignee},%`, `%,${assignee}`, `%,${assignee},%`);
     }
     if (project) {
       sql += ` AND t.project = ?`;
@@ -50,8 +50,8 @@ class TaskModel extends BaseModel {
     let sql = `SELECT status, COUNT(*) as count FROM lh_tasks`;
     const params = [];
     if (assignee) {
-      sql += ` WHERE assignee = ?`;
-      params.push(assignee);
+      sql += ` WHERE (assignee = ? OR assignee LIKE ? OR assignee LIKE ? OR assignee LIKE ?)`;
+      params.push(assignee, `${assignee},%`, `%,${assignee}`, `%,${assignee},%`);
     }
     sql += ` GROUP BY status`;
     return db.all(sql, params);

@@ -110,7 +110,7 @@ class ReportService {
     const rows = tasks.map(t => [
       t.title,
       projMap[t.project] || 'Personal / Operational',
-      empMap[t.assignee] || 'Unassigned',
+      t.assignee ? t.assignee.split(',').map(id => empMap[id.trim()] || id.trim()).join(', ') : 'Unassigned',
       t.assigned || '',
       t.deadline || '',
       t.mins || 0,

@@ -77,11 +77,13 @@
   .link:hover{text-decoration:underline}
   .link:focus-visible,.btn:focus-visible,.eye:focus-visible,.pill:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
   .control{position:relative}
-  input,textarea,select{width:100%; height:48px; padding:0 14px; font:inherit; font-size:14px; color:var(--text); background:var(--field); border:1.5px solid var(--line); border-radius:var(--radius-field); outline:none; transition:border-color .15s, box-shadow .15s, background .15s}
+  input,textarea,select{width:100%; height:48px; padding:0 14px; font:inherit; font-size:14px; color:var(--text); background:var(--field); border:1.5px solid var(--line); border-radius:var(--radius-field); outline:none; transition:border-color .15s, box-shadow .15s, background .15s; color-scheme:dark !important}
   textarea{height:110px; padding:12px 14px; resize:vertical}
   input::placeholder,textarea::placeholder{color:var(--placeholder)}
   input:focus,textarea:focus,select:focus{border-color:var(--accent-line); box-shadow:0 0 0 4px var(--accent-dim); background:rgba(255,255,255,.07)}
-  input[type=date],input[type=time]{color-scheme:dark}
+  input[type=date],input[type=time],select{color-scheme:dark !important}
+  select option, select optgroup, option{background-color:#161619 !important; color:#F5F5F6 !important; font-size:14px; color-scheme:dark !important}
+  select option:checked, option:checked{background-color:#242429 !important; color:var(--accent) !important}
   input.pw{padding-right:48px}
   .field.invalid input,.field.invalid textarea,.field.invalid select{border-color:var(--danger); box-shadow:0 0 0 4px rgba(255,92,122,.14)}
   .error{display:none; font-size:11.5px; color:var(--danger); margin-top:-2px}
@@ -538,7 +540,47 @@
   .dialog .grid2 .span{grid-column:span 2}
   .dialog .field{margin-bottom:0}
   .dialog form{display:flex; flex-direction:column; gap:14px}
-  select{appearance:none; background:var(--field) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'><path d='M6 9l6 6 6-6' fill='none' stroke='%239C9CA6' stroke-width='2.5' stroke-linecap='round'/></svg>") no-repeat right 12px center; padding-right:34px; height:44px}
+  /* Dropdown contrast & dark theme popup fixes */
+  select{appearance:none; background:var(--field) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'><path d='M6 9l6 6 6-6' fill='none' stroke='%239C9CA6' stroke-width='2.5' stroke-linecap='round'/></svg>") no-repeat right 12px center; padding-right:34px; height:44px; color-scheme:dark !important; background-color:#161619 !important; color:#F5F5F6 !important}
+  select option, select optgroup{background-color:#161619 !important; color:#F5F5F6 !important; font-size:14px; padding:10px 12px; color-scheme:dark !important}
+  option{background-color:#161619 !important; color:#F5F5F6 !important}
+
+  /* Multi-Select Assignee Component */
+  .ms-wrap{position:relative; width:100%}
+  .ms-trigger{width:100%; min-height:44px; padding:6px 12px; font:inherit; font-size:13.5px; color:var(--text); background:var(--field); border:1.5px solid var(--line); border-radius:var(--radius-field); outline:none; display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer; text-align:left; transition:border-color .15s, box-shadow .15s, background .15s}
+  .ms-trigger:focus,.ms-trigger.open{border-color:var(--accent-line); box-shadow:0 0 0 4px var(--accent-dim); background:rgba(255,255,255,.07)}
+  .ms-val{display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex:1; min-width:0}
+  .ms-tag{display:inline-flex; align-items:center; gap:5px; background:rgba(255,210,31,.16); border:1px solid rgba(255,210,31,.35); color:var(--accent-2); font-size:12px; font-weight:500; padding:2px 8px; border-radius:100px; line-height:1.4}
+  .ms-tag .del{cursor:pointer; font-size:11px; opacity:.75; margin-left:2px; font-weight:700}
+  .ms-tag .del:hover{opacity:1; color:#fff}
+  .ms-caret{color:var(--muted); flex:0 0 auto; transition:transform .15s}
+  .ms-trigger.open .ms-caret{transform:rotate(180deg)}
+  .ms-pop{position:absolute; top:calc(100% + 6px); left:0; right:0; background:#16161a; border:1px solid var(--line-strong); border-radius:14px; box-shadow:0 18px 45px rgba(0,0,0,.85); z-index:99999; display:none; flex-direction:column; overflow:hidden; animation:popOpen .15s ease-out}
+  @keyframes popOpen{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+  .ms-pop.open{display:flex}
+  .ms-search-row{padding:8px 10px; border-bottom:1px solid var(--line-soft)}
+  .ms-search-input{width:100%; height:34px; padding:0 10px; font-size:12.5px; background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:8px; color:var(--text); outline:none}
+  .ms-search-input:focus{border-color:var(--accent); background:rgba(255,255,255,.08)}
+  .ms-actions{display:flex; justify-content:space-between; align-items:center; padding:6px 12px; font-size:11.5px; border-bottom:1px solid var(--line-soft); background:rgba(255,255,255,.02)}
+  .ms-action-btn{background:none; border:0; color:var(--accent); font:inherit; font-size:11.5px; font-weight:500; cursor:pointer; padding:0}
+  .ms-action-btn:hover{text-decoration:underline}
+  .ms-list{max-height:190px; overflow-y:auto; padding:4px 0}
+  .ms-item{display:flex; align-items:center; gap:10px; padding:7px 12px; cursor:pointer; user-select:none; transition:background .1s}
+  .ms-item:hover{background:rgba(255,255,255,.06)}
+  .ms-item.selected{background:rgba(255,210,31,.08)}
+  .ms-cb{width:16px; height:16px; border-radius:4px; border:1.5px solid var(--line-strong); display:grid; place-items:center; flex:0 0 auto; transition:all .1s}
+  .ms-item.selected .ms-cb{background:var(--accent); border-color:var(--accent)}
+  .ms-item.selected .ms-cb::after{content:'✓'; font-size:11px; font-weight:800; color:#0A0A0B}
+  .ms-info{flex:1; min-width:0; display:flex; flex-direction:column}
+  .ms-name{font-size:12.5px; font-weight:500; color:#F5F5F6}
+  .ms-sub{font-size:11px; color:var(--muted)}
+  .avatar-stack{display:inline-flex; align-items:center; margin-right:6px}
+  .avatar-stack .avatar-stacked{margin-left:-8px; border:2px solid #141416; border-radius:50%; display:inline-block}
+  .avatar-stack .avatar-stacked:first-child{margin-left:0}
+  .avatar-stack .avatar-plus{margin-left:-6px; background:#2A2A30; color:#E6E6EA; font-size:10px; font-weight:700; width:22px; height:22px; border-radius:50%; border:2px solid #141416; display:inline-grid; place-items:center; z-index:15}
+  .avatar-stack span{transition:transform .15s}
+  .avatar-stack:hover span{transform:translateX(2px)}
+
   input[type=date],input[type=time],input[type=number],.dialog input[type=text],.dialog input[type=email],.dialog input[type=tel],.dialog input[type=url]{height:44px}
   .dialog textarea{height:80px}
   .tcard{cursor:grab; transition:box-shadow .15s, transform .15s}
@@ -1055,7 +1097,31 @@ async function connectArtifactDb(){
 
 /* =================== DERIVED HELPERS =================== */
 const byId = (col,id) => S[col].find(x=>x.id===id);
-const empName = id => (byId('employees',id)||{}).name || '—';
+const taskAssigneeIds = t => {
+  if(!t) return [];
+  const val = typeof t === 'string' ? t : (t.assignee || '');
+  return String(val).split(',').map(s=>s.trim()).filter(Boolean);
+};
+const isTaskAssignedTo = (t, empId) => {
+  if(!t || !empId) return false;
+  return taskAssigneeIds(t).includes(String(empId));
+};
+const taskAssignees = t => {
+  const ids = taskAssigneeIds(t);
+  return ids.map(id => byId('employees', id)).filter(Boolean);
+};
+const taskAssigneeNames = t => {
+  const people = taskAssignees(t);
+  if(!people.length) return 'Unassigned';
+  return people.map(p => p.name).join(', ');
+};
+const empName = id => {
+  if(!id) return '—';
+  if(typeof id === 'string' && id.includes(',')){
+    return id.split(',').map(x => (byId('employees', x.trim())||{}).name || x.trim()).join(', ');
+  }
+  return (byId('employees',id)||{}).name || '—';
+};
 const projName = id => (byId('projects',id)||{name:'Personal / Operational'}).name;
 const consumedMins = pid => S.tasks.filter(t=>t.project===pid).reduce((a,t)=>a+(+t.mins||0),0);
 const pct = (a,b) => b>0 ? Math.round(a/b*100) : (a>0?100:0);
@@ -1105,12 +1171,147 @@ document.addEventListener('click',e=>{ if(!e.target.closest('.menu')) closeMenus
 $('#qa-menu').addEventListener('click',e=>{ const b=e.target.closest('[data-modal]'); if(b){ closeMenus(); window.openModal(b.dataset.modal); } });
 $('#reset-demo').addEventListener('click',()=>{ if(mode==='supabase'){ toast('Reset is only for demo mode. Manage live data in Supabase.'); return; } if(!confirm('Reset all demo data? This clears everything you added.')) return; S=seed(); COLS.forEach(persist); window.renderAll(); closeMenus(); toast('Demo data reset.'); });
 
-/* =================== GENERIC MODAL =================== */
+/* =================== GENERIC MODAL & MULTI-ASSIGNEE =================== */
+function renderMultiAssigneeField(employees, currentVal){
+  const selectedIds = new Set(String(currentVal || '').split(',').map(s=>s.trim()).filter(Boolean));
+  const selectedEmps = employees.filter(e => selectedIds.has(e.id));
+  const tagsHtml = selectedEmps.length 
+    ? selectedEmps.map(e => `<span class="ms-tag" data-id="${e.id}">${esc(e.name)} <span class="del" data-remove-id="${e.id}">✕</span></span>`).join('')
+    : `<span style="color:var(--muted);font-size:13px">Select assignees...</span>`;
+
+  return `
+    <div class="ms-wrap" id="ms-assignee-wrap">
+      <div class="ms-trigger" id="ms-assignee-trigger" tabindex="0" role="button" aria-haspopup="listbox">
+        <div class="ms-val" id="ms-assignee-tags">${tagsHtml}</div>
+        <svg class="ms-caret" width="12" height="12" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="ms-pop" id="ms-assignee-pop">
+        <div class="ms-search-row">
+          <input type="text" class="ms-search-input" id="ms-assignee-search" placeholder="Search team members..." autocomplete="off">
+        </div>
+        <div class="ms-actions">
+          <button type="button" class="ms-action-btn" id="ms-assignee-all">Select All</button>
+          <button type="button" class="ms-action-btn" id="ms-assignee-clear">Clear All</button>
+        </div>
+        <div class="ms-list" id="ms-assignee-items">
+          ${employees.map(e => {
+            const isSel = selectedIds.has(e.id);
+            return `
+              <div class="ms-item ${isSel ? 'selected' : ''}" data-emp-id="${e.id}" data-emp-name="${esc(e.name)}">
+                <div class="ms-cb"></div>
+                ${avatarHtml(e)}
+                <div class="ms-info">
+                  <span class="ms-name">${esc(e.name)}</span>
+                  <span class="ms-sub">${esc(e.role || '')}${e.dept ? ' · ' + esc(e.dept) : ''}</span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+      <input type="hidden" id="m-assignee" name="assignee" value="${esc(Array.from(selectedIds).join(','))}">
+    </div>
+  `;
+}
+
+function initMultiAssignee(){
+  const wrap=$('#ms-assignee-wrap'); if(!wrap) return;
+  const trigger=$('#ms-assignee-trigger');
+  const pop=$('#ms-assignee-pop');
+  const hiddenInp=$('#m-assignee');
+  const tagsBox=$('#ms-assignee-tags');
+  const searchInp=$('#ms-assignee-search');
+  const itemsBox=$('#ms-assignee-items');
+  const allBtn=$('#ms-assignee-all');
+  const clearBtn=$('#ms-assignee-clear');
+
+  function getSelectedIds(){
+    return new Set(String(hiddenInp.value||'').split(',').map(s=>s.trim()).filter(Boolean));
+  }
+
+  function setSelectedIds(set){
+    const arr=Array.from(set);
+    hiddenInp.value=arr.join(',');
+    $$('#ms-assignee-items .ms-item').forEach(it=>{
+      it.classList.toggle('selected', set.has(it.dataset.empId));
+    });
+    if(!arr.length){
+      tagsBox.innerHTML=`<span style="color:var(--muted);font-size:13px">Select assignees...</span>`;
+    } else {
+      tagsBox.innerHTML=arr.map(id=>{
+        const it=$(`#ms-assignee-items [data-emp-id="${id}"]`);
+        const name=it?it.dataset.empName:(empName(id)||id);
+        return `<span class="ms-tag" data-id="${id}">${esc(name)} <span class="del" data-remove-id="${id}">✕</span></span>`;
+      }).join('');
+    }
+  }
+
+  trigger.onclick=(e)=>{
+    e.stopPropagation();
+    const open=!pop.classList.contains('open');
+    pop.classList.toggle('open', open);
+    trigger.classList.toggle('open', open);
+    if(open && searchInp) searchInp.focus();
+  };
+
+  if(searchInp){
+    searchInp.oninput=()=>{
+      const q=searchInp.value.toLowerCase().trim();
+      $$('#ms-assignee-items .ms-item').forEach(it=>{
+        const match=(it.dataset.empName||'').toLowerCase().includes(q);
+        it.style.display=match?'':'none';
+      });
+    };
+  }
+
+  if(itemsBox){
+    itemsBox.onclick=(e)=>{
+      const it=e.target.closest('.ms-item'); if(!it) return;
+      const id=it.dataset.empId;
+      const set=getSelectedIds();
+      if(set.has(id)) set.delete(id);
+      else set.add(id);
+      setSelectedIds(set);
+    };
+  }
+
+  tagsBox.onclick=(e)=>{
+    const del=e.target.closest('[data-remove-id]'); if(!del) return;
+    e.stopPropagation();
+    const id=del.dataset.removeId;
+    const set=getSelectedIds();
+    set.delete(id);
+    setSelectedIds(set);
+  };
+
+  if(allBtn){
+    allBtn.onclick=()=>{
+      const set=new Set();
+      $$('#ms-assignee-items .ms-item').forEach(it=>set.add(it.dataset.empId));
+      setSelectedIds(set);
+    };
+  }
+
+  if(clearBtn){
+    clearBtn.onclick=()=>{
+      setSelectedIds(new Set());
+    };
+  }
+
+  document.addEventListener('click',function closePop(e){
+    if(!wrap.contains(e.target)){
+      pop.classList.remove('open');
+      trigger.classList.remove('open');
+    }
+  });
+}
+
 const modal=$('#modal'); let modalSubmit=null, lastFocus=null;
 function field(name,label,type='text',opts={}){
   const req=opts.required?' required':''; const span=opts.span?' span':''; const ph=opts.placeholder?` placeholder="${esc(opts.placeholder)}"`:'';
   let ctl;
-  if(type==='select') ctl=`<select id="m-${name}" name="${name}"${req}>${(opts.options||[]).map(o=>`<option value="${esc(o.v)}"${o.v===opts.value?' selected':''}>${esc(o.l)}</option>`).join('')}</select>`;
+  if(type==='custom') ctl=opts.html||'';
+  else if(type==='select') ctl=`<select id="m-${name}" name="${name}"${req}>${(opts.options||[]).map(o=>`<option value="${esc(o.v)}"${o.v===opts.value?' selected':''}>${esc(o.l)}</option>`).join('')}</select>`;
   else if(type==='textarea') ctl=`<textarea id="m-${name}" name="${name}"${ph}>${esc(opts.value||'')}</textarea>`;
   else ctl=`<input id="m-${name}" name="${name}" type="${type}"${ph}${req} value="${esc(opts.value==null?'':opts.value)}"${opts.min!=null?` min="${opts.min}"`:''}${opts.step?` step="${opts.step}"`:''}>`;
   return `<div class="field${span}"><label for="m-${name}">${esc(label)}${opts.required?'':' <span class="opt">(optional)</span>'}</label><div class="control">${ctl}</div><div class="error">${esc(opts.error||'This field is required.')}</div></div>`;
@@ -1118,7 +1319,9 @@ function field(name,label,type='text',opts={}){
 function showModal({title,sub,fields,ok,onSubmit}){
   lastFocus=document.activeElement;
   $('#modal-title').textContent=title; $('#modal-sub').textContent=sub||''; $('#modal-fields').innerHTML=fields; $('#modal-ok').textContent=ok||'Save';
-  modalSubmit=onSubmit; modal.classList.add('open'); setTimeout(()=>{ const f=modal.querySelector('input,select,textarea'); if(f) f.focus(); },30);
+  modalSubmit=onSubmit; modal.classList.add('open');
+  initMultiAssignee();
+  setTimeout(()=>{ const f=modal.querySelector('input,select,textarea'); if(f) f.focus(); },30);
 }
 function closeModal(){ modal.classList.remove('open'); modalSubmit=null; if(lastFocus) lastFocus.focus(); }
 $('#modal-cancel').addEventListener('click',closeModal);
@@ -1133,14 +1336,14 @@ $('#modal-form').addEventListener('submit',e=>{
 });
 modal.addEventListener('input',e=>{ const f=e.target.closest('.field'); if(f) f.classList.remove('invalid'); });
 
-window.__LH={ bind, $, $$, esc, uid, S:()=>S, setState:v=>{S=v}, persist, go, showModal, closeModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, hhmm, todayISO, avgHours, unaccounted, overdue, addActivity, onLeaveToday, nextOccurrence, daysUntil, whenLabel, minsBetween, monthKey, thisMonth, STATUSES, STATUS_LABEL, ATT, PAY_TYPES, DEMO, emailOk, urlOk, empAv, avFor, ini, inr, loadLocal, connectArtifactDb, connectSupabase, loadAllSupabase, apiSync, loadTableApi, loadAllApi, sbConfig, setSbConfig, SB_DEFAULT_URL, SB_DEFAULT_KEY, inArtifact, attStatus, monthStats, workdaysIn, earned, paid, pendingBal, isAdmin, COLS,
+window.__LH={ bind, $, $$, esc, uid, S:()=>S, setState:v=>{S=v}, persist, go, showModal, closeModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, hhmm, todayISO, avgHours, unaccounted, overdue, addActivity, onLeaveToday, nextOccurrence, daysUntil, whenLabel, minsBetween, monthKey, thisMonth, STATUSES, STATUS_LABEL, ATT, PAY_TYPES, DEMO, emailOk, urlOk, empAv, avFor, ini, inr, loadLocal, connectArtifactDb, connectSupabase, loadAllSupabase, apiSync, loadTableApi, loadAllApi, sbConfig, setSbConfig, SB_DEFAULT_URL, SB_DEFAULT_KEY, inArtifact, attStatus, monthStats, workdaysIn, earned, paid, pendingBal, isAdmin, COLS, taskAssigneeIds, isTaskAssignedTo, taskAssignees, taskAssigneeNames, renderMultiAssigneeField, initMultiAssignee,
   get ME(){ return ME; }, set ME(v){ ME=v; }, get mode(){ return mode; }, set mode(v){ mode=v; }, get sb(){ return sb; }, get db(){ return db; }, setSync, sbSession:null, flush };
 })();
 </script>
 <script>
 (function(){
 'use strict';
-const L=window.__LH; const {$, $$, esc, uid, persist, showModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, todayISO, avgHours, unaccounted, overdue, addActivity, onLeaveToday, nextOccurrence, daysUntil, whenLabel, minsBetween, monthKey, thisMonth, STATUSES, STATUS_LABEL, ATT, inr, attStatus, monthStats, pendingBal, earned, paid, ini}=L;
+const L=window.__LH; const {$, $$, esc, uid, persist, showModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, todayISO, avgHours, unaccounted, overdue, addActivity, onLeaveToday, nextOccurrence, daysUntil, whenLabel, minsBetween, monthKey, thisMonth, STATUSES, STATUS_LABEL, ATT, inr, attStatus, monthStats, pendingBal, earned, paid, ini, taskAssigneeIds, isTaskAssignedTo, taskAssignees, taskAssigneeNames, renderMultiAssigneeField}=L;
 const S=()=>L.S(); const ME=()=>L.ME;
 
 function donutHtml(parts,center,size=120){
@@ -1155,14 +1358,14 @@ function statusBars(tasks){
   const rows=[['Completed','completed','#4ADE95'],['Pending Approval','approval','#B48CFF'],['In Progress','progress','#FFB84D'],['In Pipeline','pipeline','#6FA8FF'],['On Hold','hold','#6A6A74']];
   return `<div class="bars">${rows.map(([l,s,c])=>`<div class="bar-row"><div class="l"><span>${l}</span><span>${n(s)}</span></div><div class="t"><div class="f" style="width:${Math.round(n(s)/tot*100)}%;background:${c}"></div></div></div>`).join('')}</div>`;
 }
-function taskMini(t){ const e=byId('employees',t.assignee); return `<div class="row" style="align-items:flex-start;gap:8px"><span class="chip ${overdue(t)?'pk':'gy'}" style="flex:0 0 auto">${esc(fmtD(t.deadline))}</span><div style="flex:1;min-width:0"><div style="font-weight:500">${esc(t.title)}</div><small style="color:var(--muted)">${esc(projName(t.project))} · ${esc(e?e.name:'—')}</small></div><button class="link-btn" data-open-task="${t.id}">Open</button></div>`; }
+function taskMini(t){ const names=taskAssigneeNames(t); return `<div class="row" style="align-items:flex-start;gap:8px"><span class="chip ${overdue(t)?'pk':'gy'}" style="flex:0 0 auto">${esc(fmtD(t.deadline))}</span><div style="flex:1;min-width:0"><div style="font-weight:500">${esc(t.title)}</div><small style="color:var(--muted)">${esc(projName(t.project))} · ${esc(names)}</small></div><button class="link-btn" data-open-task="${t.id}">Open</button></div>`; }
 const pillState={dash:'all',over:'all'};
 const chipCls={completed:'gr',progress:'or',pipeline:'bl',approval:'pu',hold:'gy'};
 
 /* =================== DASHBOARD =================== */
 window.renderDashboard=function(){
   const s=S(), me=ME().id, d=new Date(), h=d.getHours();
-  const myTasks=s.tasks.filter(t=>t.assignee===me && t.status!=='completed');
+  const myTasks=s.tasks.filter(t=>isTaskAssignedTo(t, me) && t.status!=='completed');
   const filt=k=>k==='all'?myTasks:myTasks.filter(t=>t.status===k);
   const allOpen=s.tasks.filter(t=>t.status!=='completed');
   const filtAll=k=>k==='all'?allOpen:allOpen.filter(t=>t.status===k);
@@ -1179,7 +1382,7 @@ window.renderDashboard=function(){
   const totalPending=s.employees.reduce((a,e)=>a+pendingBal(e.id),0);
   const pills=(group,cur,src)=>`<div class="pill-tabs" data-pills="${group}">${[['all','All'],['pipeline','Pipeline'],['progress','In progress'],['approval','Pending approval']].map(([k,l])=>`<button class="pill ${cur===k?'on':''}" data-k="${k}">${l} <span class="n">${src(k).length}</span></button>`).join('')}</div>`;
   const listOr=arr=>arr.length?`<div class="list" style="margin-top:10px">${arr.slice(0,6).map(taskMini).join('')}</div>`:`<div class="empty" style="padding:36px 10px"><svg style="width:30px;height:30px;color:#55555E"><use href="#i-circle-check"/></svg>No tasks in this category</div>`;
-  const topProj=(()=>{ const m={}; s.tasks.filter(t=>t.assignee===me&&t.project&&monthKey(t.assigned)===thisMonth).forEach(t=>m[t.project]=(m[t.project]||0)+(+t.mins||0)); const arr=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,4); return arr.length?`<div class="list">${arr.map(([p,mins])=>`<div class="row"><span style="flex:1">${esc(projName(p))}</span><b>${hm(mins)}</b></div>`).join('')}</div>`:`<div class="empty"><svg style="width:26px;height:26px;color:#55555E"><use href="#i-folder"/></svg>No projects logged this month</div>`; })();
+  const topProj=(()=>{ const m={}; s.tasks.filter(t=>isTaskAssignedTo(t, me)&&t.project&&monthKey(t.assigned)===thisMonth).forEach(t=>m[t.project]=(m[t.project]||0)+(+t.mins||0)); const arr=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,4); return arr.length?`<div class="list">${arr.map(([p,mins])=>`<div class="row"><span style="flex:1">${esc(projName(p))}</span><b>${hm(mins)}</b></div>`).join('')}</div>`:`<div class="empty"><svg style="width:26px;height:26px;color:#55555E"><use href="#i-folder"/></svg>No projects logged this month</div>`; })();
   const orgTop=(()=>{ const arr=s.projects.map(p=>[p.name,consumedMins(p.id)]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,4); return arr.length?`<div class="list">${arr.map(([n,mins])=>`<div class="row"><span style="flex:1">${esc(n)}</span><b>${hm(mins)}</b></div>`).join('')}</div>`:'<div style="font-size:12.5px;color:var(--muted)">No data yet.</div>'; })();
   $('#dash').innerHTML=`
     <div class="welcome"><div><div class="eyebrow">${h<12?'Good morning':h<17?'Good afternoon':'Good evening'}</div><h1>Welcome back, ${esc(ME().name.split(' ')[0])}.</h1></div>
@@ -1206,7 +1409,7 @@ window.renderDashboard=function(){
       <div class="panel stat click" data-go="alerts"><span class="ic pk"><svg><use href="#i-flag"/></svg></span><div><b>${alerts}</b><span>Task alerts</span></div></div>
       <div class="panel open"><div class="panel-h">Open tasks <button class="link-btn" data-modal="task">+ Add</button></div><div class="panel-b">${pills('dash',pillState.dash,filt)}${listOr(filt(pillState.dash))}</div></div>
       <div class="panel" style="grid-column:span 2"><div class="panel-h">Attendance today</div><div class="panel-b" style="display:flex;flex-direction:column;align-items:center;gap:14px">${donutHtml([['#4ADE95',present],['#FF5C7A',absent],['#2A2A30',Math.max(0,s.employees.length-present-absent)]],present+'|Present')}<div class="legend" style="width:100%;justify-content:space-between"><span><i style="background:#4ADE95"></i>Present <b style="margin-left:10px">${present}</b></span><span><i style="background:#FF5C7A"></i>Absent <b style="margin-left:10px">${absent}</b></span><span><i style="background:#2A2A30"></i>Not marked <b style="margin-left:10px">${Math.max(0,s.employees.length-present-absent)}</b></span></div></div></div>
-      <div class="panel"><div class="panel-h">Task Status <span class="chip gr">${s.tasks.filter(t=>t.assignee===me).length} total</span></div><div class="panel-b">${statusBars(s.tasks.filter(t=>t.assignee===me))}</div></div>
+      <div class="panel"><div class="panel-h">Task Status <span class="chip gr">${s.tasks.filter(t=>isTaskAssignedTo(t, me)).length} total</span></div><div class="panel-b">${statusBars(s.tasks.filter(t=>isTaskAssignedTo(t, me)))}</div></div>
       <div class="panel"><div class="panel-h">Your Top Worked Projects</div><div class="panel-b">${topProj}</div></div>
     </div>
     <h2 class="sec-title">My To-Do List <span class="i">i</span></h2>
@@ -1247,7 +1450,7 @@ window.renderEmployees=function(){
     return;
   }
   const e=byId('employees',empState.sel);
-  const myTasks=s.tasks.filter(t=>t.assignee===e.id);
+  const myTasks=s.tasks.filter(t=>isTaskAssignedTo(t, e.id));
   const projIds=[...new Set(myTasks.filter(t=>t.project).map(t=>t.project))];
   const projs=projIds.map(id=>byId('projects',id)).filter(Boolean).filter(p=>empState.tab==='all'||(empState.tab==='bill'?p.billable:!p.billable));
   const st=monthStats(e.id,thisMonth);
@@ -1283,7 +1486,7 @@ window.renderEmployees=function(){
   L.bind($('#emp'),'click',e=>{
     const it=e.target.closest('[data-emp]'); if(it){ empState.sel=it.dataset.emp; window.renderEmployees(); return; }
     const t=e.target.closest('#emp-ptabs button'); if(t){ empState.tab=t.dataset.t; window.renderEmployees(); return; }
-    const del=e.target.closest('[data-del-emp]'); if(del){ const id=del.dataset.delEmp; if(id===ME().id){ toast('You cannot remove yourself.'); return; } if(!confirm('Remove '+empName(id)+'? Their tasks stay unassigned.')) return; const s2=S(); const nm=empName(id); s2.employees=s2.employees.filter(x=>x.id!==id); s2.tasks.forEach(tk=>{ if(tk.assignee===id) tk.assignee=''; }); persist('employees'); persist('tasks'); addActivity(nm+' was removed'); empState.sel=null; empState.view='list'; window.renderEmployees(); toast('Staff removed.'); return; }
+    const del=e.target.closest('[data-del-emp]'); if(del){ const id=del.dataset.delEmp; if(id===ME().id){ toast('You cannot remove yourself.'); return; } if(!confirm('Remove '+empName(id)+'? Their tasks stay unassigned.')) return; const s2=S(); const nm=empName(id); s2.employees=s2.employees.filter(x=>x.id!==id); s2.tasks.forEach(tk=>{ if(isTaskAssignedTo(tk, id)){ const ids=taskAssigneeIds(tk).filter(x=>x!==id); tk.assignee=ids.join(','); } }); persist('employees'); persist('tasks'); addActivity(nm+' was removed'); empState.sel=null; empState.view='list'; window.renderEmployees(); toast('Staff removed.'); return; }
     const ed=e.target.closest('[data-edit-emp]'); if(ed){ window.openModal('employee',ed.dataset.editEmp); }
   });
 };
@@ -1347,17 +1550,17 @@ window.renderProjects=function(){
   const s=S(); if(!prjState.sel||!byId('projects',prjState.sel)) prjState.sel=s.projects[0]?s.projects[0].id:null;
   const list=s.projects.filter(p=>p.name.toLowerCase().includes(prjState.q.toLowerCase())).filter(p=>prjState.tab==='all'||(prjState.tab==='bill'?p.billable:!p.billable));
   const p=byId('projects',prjState.sel); const tasks=p?s.tasks.filter(t=>t.project===p.id):[]; const used=p?consumedMins(p.id):0; const pc=p?pct(used,+p.alloc):0; const over=p&&+p.alloc>0&&used>+p.alloc;
-  const members=[...new Set(tasks.map(t=>t.assignee).filter(Boolean))].map(id=>byId('employees',id)).filter(Boolean);
-  const depts=(()=>{ const m={}; tasks.forEach(t=>{ const e=byId('employees',t.assignee); const d=e?e.dept:'Unassigned'; m[d]=(m[d]||0)+(+t.mins||0); }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })();
+  const members=[...new Set(tasks.flatMap(t=>taskAssigneeIds(t)).filter(Boolean))].map(id=>byId('employees',id)).filter(Boolean);
+  const depts=(()=>{ const m={}; tasks.forEach(t=>{ const es=taskAssignees(t); if(!es.length){ m['Unassigned']=(m['Unassigned']||0)+(+t.mins||0); } else { const share=(+t.mins||0)/es.length; es.forEach(e=>{ const d=e.dept||'Unassigned'; m[d]=(m[d]||0)+share; }); } }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); })();
   const maxD=Math.max(1,...depts.map(x=>x[1]),p?+p.alloc:0);
   const tstat=STATUSES.map(k=>[{completed:'#4ADE95',progress:'#FFB84D',pipeline:'#6FA8FF',approval:'#B48CFF',hold:'#6A6A74'}[k],tasks.filter(t=>t.status===k).length]);
   const colFor=n=>({p:'#B48CFF',g:'#4ADE95',r:'#FF7AB3',b:'#6FA8FF',br:'#D9A066',o:'#FFD21F',t:'#5EE0D6'})[L.avFor(n)];
   const card=x=>{ const u=consumedMins(x.id), c=pct(u,+x.alloc), ov=+x.alloc>0&&u>+x.alloc, col=ov?'#FF5C7A':c>0?'#4ADE95':'#2A2A30'; return `<div class="proj-item ${x.id===prjState.sel?'on':''}" data-proj="${x.id}"><div class="top"><span class="ini" style="background:${colFor(x.name)}">${esc(ini(x.name))}</span><div style="flex:1;min-width:0"><span class="nm">${esc(x.name)}</span><small>${esc(x.client||'')}</small></div><span class="chip ${x.billable?'gr':'gy'}">${x.billable?'Billable':'Non-bill'}</span></div><div class="bar-row"><div class="t"><div class="f" style="width:${Math.min(100,c)}%;background:${col}"></div></div><div class="l"><span style="color:var(--muted)">${hm(u)} / ${hm(x.alloc)}</span><span class="pct" style="color:${col}">${c}%</span></div></div></div>`; };
   const viewBody=()=>{
     if(!p) return '<div class="empty">Add a project to get started</div>';
-    if(prjState.view==='tasks') return `<div class="panel"><div class="panel-h">Tasks (${tasks.length}) <button class="link-btn" data-modal="task" data-project="${p.id}">+ Add task</button></div><div style="overflow-x:auto"><table><thead><tr><th>Task</th><th>Assignee</th><th>Assigned</th><th>Deadline</th><th>Time</th><th>Status</th></tr></thead><tbody>${tasks.map(t=>`<tr><td><button class="link-btn" style="text-align:left" data-open-task="${t.id}">${esc(t.title)}</button></td><td>${esc(empName(t.assignee))}</td><td>${fmtD(t.assigned)}</td><td style="${overdue(t)?'color:var(--danger)':''}">${fmtD(t.deadline)}</td><td>${hm(t.mins)}</td><td><span class="chip ${chipCls[t.status]}">${STATUS_LABEL[t.status]}</span></td></tr>`).join('')}</tbody></table>${tasks.length?'':'<div class="empty">No tasks yet</div>'}</div></div>`;
+    if(prjState.view==='tasks') return `<div class="panel"><div class="panel-h">Tasks (${tasks.length}) <button class="link-btn" data-modal="task" data-project="${p.id}">+ Add task</button></div><div style="overflow-x:auto"><table><thead><tr><th>Task</th><th>Assignee</th><th>Assigned</th><th>Deadline</th><th>Time</th><th>Status</th></tr></thead><tbody>${tasks.map(t=>`<tr><td><button class="link-btn" style="text-align:left" data-open-task="${t.id}">${esc(t.title)}</button></td><td>${esc(taskAssigneeNames(t))}</td><td>${fmtD(t.assigned)}</td><td style="${overdue(t)?'color:var(--danger)':''}">${fmtD(t.deadline)}</td><td>${hm(t.mins)}</td><td><span class="chip ${chipCls[t.status]}">${STATUS_LABEL[t.status]}</span></td></tr>`).join('')}</tbody></table>${tasks.length?'':'<div class="empty">No tasks yet</div>'}</div></div>`;
     if(prjState.view==='files'){ const fs=s.files.filter(f=>f.project===p.id); return `<div class="panel"><div class="panel-h">Files (${fs.length}) <button class="link-btn" data-modal="file" data-project="${p.id}">+ Add file</button></div>${fs.map(f=>`<div class="file-row"><span class="ic pu" style="display:grid;place-items:center"><svg style="width:14px;height:14px"><use href="#i-file"/></svg></span><span>${esc(f.name)}</span><span class="r"><span>${esc(empName(f.by))}</span><span>${esc(f.size)}</span><span>${fmtD(f.date)}</span></span></div>`).join('')||'<div class="empty">No files yet</div>'}</div>`; }
-    if(prjState.view==='members') return `<div class="panel"><div class="panel-h">Members (${members.length})</div><div class="list" style="padding:0 16px 12px">${members.map(e=>`<div class="row">${avatarHtml(e)}<div><div>${esc(e.name)}</div><small style="color:var(--muted)">${esc(e.role||'')} · ${esc(e.dept||'')}</small></div><span class="r"><b>${hm(tasks.filter(t=>t.assignee===e.id).reduce((a,t)=>a+(+t.mins||0),0))}</b></span></div>`).join('')||'<div class="empty">No members yet. Assign a task to add someone.</div>'}</div></div>`;
+    if(prjState.view==='members') return `<div class="panel"><div class="panel-h">Members (${members.length})</div><div class="list" style="padding:0 16px 12px">${members.map(e=>`<div class="row">${avatarHtml(e)}<div><div>${esc(e.name)}</div><small style="color:var(--muted)">${esc(e.role||'')} · ${esc(e.dept||'')}</small></div><span class="r"><b>${hm(tasks.filter(t=>isTaskAssignedTo(t,e.id)).reduce((a,t)=>a+(+t.mins||0),0))}</b></span></div>`).join('')||'<div class="empty">No members yet. Assign a task to add someone.</div>'}</div></div>`;
     return `<div class="grid" style="grid-template-columns:1fr 1fr">
       <div class="panel"><div class="panel-h" style="font-size:16px">Project Health</div><div class="health">${donutHtml([[over?'#FF5C7A':pc>0?'#4ADE95':'#2A2A30',Math.min(100,pc)],['#2A2A30',Math.max(0,100-Math.min(100,pc))]],pc+'%|',110)}<div><span class="chip ${over?'pk':pc>0?'gr':'gy'}">${over?'Overrun':pc>0?'On Track':'Not started'}</span><div style="font-weight:600;margin-top:10px">${hm(used)} / ${hm(p.alloc)}</div><small style="color:var(--muted)">Consumed / Allocated</small></div></div></div>
       <div class="panel"><div class="panel-h" style="font-size:16px">Tasks Status</div><div class="health" style="gap:24px">${donutHtml(tstat,tasks.length+'|Total Tasks',110)}<div style="flex:1;font-size:12.5px;display:flex;flex-direction:column;gap:6px">${STATUSES.map((k,i)=>`<span style="display:flex;justify-content:space-between"><span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tstat[i][0]};margin-right:8px"></i>${STATUS_LABEL[k]}</span><b>${tstat[i][1]}</b></span>`).join('')}</div></div></div></div>
@@ -1389,7 +1592,7 @@ window.donutHtml=donutHtml; window.statusBars=statusBars;
 <script>
 (function(){
 'use strict';
-const L=window.__LH; const {$, $$, esc, uid, persist, showModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, todayISO, overdue, addActivity, STATUSES, STATUS_LABEL, PAY_TYPES, ini, inr, monthStats, pendingBal}=L;
+const L=window.__LH; const {$, $$, esc, uid, persist, showModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, todayISO, overdue, addActivity, STATUSES, STATUS_LABEL, PAY_TYPES, ini, inr, monthStats, pendingBal, taskAssigneeIds, isTaskAssignedTo, taskAssignees, taskAssigneeNames, renderMultiAssigneeField}=L;
 const S=()=>L.S(); const ME=()=>L.ME; const donutHtml=window.donutHtml;
 
 /* =================== TASKS BOARD =================== */
@@ -1397,18 +1600,33 @@ const tskState={tab:'org',member:'',view:'board',dept:''};
 window.renderTasks=function(){
   const s=S(); const me=ME();
   let tasks=s.tasks.slice();
-  if(tskState.tab==='me') tasks=tasks.filter(t=>t.assignee===me.id);
+  if(tskState.tab==='me') tasks=tasks.filter(t=>isTaskAssignedTo(t, me.id));
   else if(tskState.tab==='byme') tasks=tasks.filter(t=>t.by===me.id);
   else if(tskState.tab==='proj'){ const mine=new Set(s.projects.filter(p=>p.manager===me.id).map(p=>p.id)); tasks=tasks.filter(t=>mine.has(t.project)); }
-  else if(tskState.tab==='team') tasks=tasks.filter(t=>{ const e=byId('employees',t.assignee); return e&&e.dept===me.dept; });
-  if(tskState.member) tasks=tasks.filter(t=>t.assignee===tskState.member);
-  if(tskState.dept) tasks=tasks.filter(t=>{ const e=byId('employees',t.assignee); return e&&e.dept===tskState.dept; });
+  else if(tskState.tab==='team') tasks=tasks.filter(t=>taskAssignees(t).some(e=>e.dept===me.dept));
+  if(tskState.member) tasks=tasks.filter(t=>isTaskAssignedTo(t, tskState.member));
+  if(tskState.dept) tasks=tasks.filter(t=>taskAssignees(t).some(e=>e.dept===tskState.dept));
   const emps=s.employees.filter(e=>!tskState.dept||e.dept===tskState.dept);
   const chipCls={completed:'gr',progress:'or',pipeline:'bl',approval:'pu',hold:'gy'};
-  const card=t=>{ const e=byId('employees',t.assignee); const od=overdue(t); return `<div class="tcard" draggable="true" data-task="${t.id}"><div class="p"><span>${esc(projName(t.project))}</span><span style="display:flex;gap:2px;align-items:center"><i class="${od?'r':''}" title="${od?'Overdue':''}"><svg style="width:14px;height:14px"><use href="#i-flag"/></svg></i><button data-open-task="${t.id}" aria-label="Edit"><svg><use href="#i-file"/></svg></button><button data-del-task="${t.id}" aria-label="Delete">✕</button></span></div><small>${esc(t.type||'Other')}${+t.mins?' · '+hm(t.mins):''}</small><div>${esc(t.title)}</div><div class="dates"><div><small>Assigned</small>${fmtD(t.assigned)}</div><div class="${t.status==='completed'?'ok':''}" style="${od?'border-color:rgba(255,92,122,.5)':''}"><small>${t.status==='completed'?'Completed':'Deadline'}</small>${fmtD(t.status==='completed'?(t.completed||t.deadline):t.deadline)}</div></div><div class="who">${avatarHtml(e)}${esc(e?e.name:'Unassigned')}</div><div class="move">${STATUSES.filter(k=>k!==t.status).map(k=>`<button data-move="${t.id}" data-to="${k}">→ ${STATUS_LABEL[k]}</button>`).join('')}</div></div>`; };
+  const card=t=>{
+    const assignees=taskAssignees(t);
+    const od=overdue(t);
+    let whoHtml='';
+    if(!assignees.length){
+      whoHtml=`<div class="who"><span class="avatar sm gy">?</span>Unassigned</div>`;
+    } else if(assignees.length===1){
+      whoHtml=`<div class="who">${avatarHtml(assignees[0])}${esc(assignees[0].name)}</div>`;
+    } else {
+      const top3=assignees.slice(0,3);
+      const extra=assignees.length-3;
+      const stack=`<div class="avatar-stack">${top3.map((e,idx)=>`<span class="avatar-stacked" style="z-index:${10-idx}">${avatarHtml(e,'sm')}</span>`).join('')}${extra>0?`<span class="avatar-plus">+${extra}</span>`:''}</div>`;
+      whoHtml=`<div class="who">${stack}<span>${esc(assignees.map(e=>e.name.split(' ')[0]).join(', '))}</span></div>`;
+    }
+    return `<div class="tcard" draggable="true" data-task="${t.id}"><div class="p"><span>${esc(projName(t.project))}</span><span style="display:flex;gap:2px;align-items:center"><i class="${od?'r':''}" title="${od?'Overdue':''}"><svg style="width:14px;height:14px"><use href="#i-flag"/></svg></i><button data-open-task="${t.id}" aria-label="Edit"><svg><use href="#i-file"/></svg></button><button data-del-task="${t.id}" aria-label="Delete">✕</button></span></div><small>${esc(t.type||'Other')}${+t.mins?' · '+hm(t.mins):''}</small><div>${esc(t.title)}</div><div class="dates"><div><small>Assigned</small>${fmtD(t.assigned)}</div><div class="${t.status==='completed'?'ok':''}" style="${od?'border-color:rgba(255,92,122,.5)':''}"><small>${t.status==='completed'?'Completed':'Deadline'}</small>${fmtD(t.status==='completed'?(t.completed||t.deadline):t.deadline)}</div></div>${whoHtml}<div class="move">${STATUSES.filter(k=>k!==t.status).map(k=>`<button data-move="${t.id}" data-to="${k}">→ ${STATUS_LABEL[k]}</button>`).join('')}</div></div>`;
+  };
   const colCls={pipeline:'',progress:'ip',approval:'pa',completed:'cp',hold:'oh'};
   const board=`<div class="board" id="board">${STATUSES.map(k=>{ const ts=tasks.filter(t=>t.status===k); return `<div class="col ${colCls[k]}" data-col="${k}"><div class="col-h">${STATUS_LABEL[k]}<span>${ts.length}</span></div>${ts.map(card).join('')}${ts.length?'':'<div class="empty" style="padding:30px 0">Drop tasks here</div>'}</div>`; }).join('')}</div>`;
-  const list=`<div class="content"><div class="panel"><div class="task-row head"><span>Task</span><span>Project</span><span>Assignee</span><span>Assigned</span><span>Deadline</span><span>Time</span><span>Status</span></div>${tasks.map(t=>`<div class="task-row"><button class="link-btn" style="text-align:left" data-open-task="${t.id}">${esc(t.title)}</button><span>${esc(projName(t.project))}</span><span>${esc(empName(t.assignee))}</span><span>${fmtD(t.assigned)}</span><span style="${overdue(t)?'color:var(--danger)':''}">${fmtD(t.deadline)}</span><span>${hm(t.mins)}</span><span class="chip ${chipCls[t.status]}">${STATUS_LABEL[t.status]}</span></div>`).join('')||'<div class="empty">No tasks</div>'}</div></div>`;
+  const list=`<div class="content"><div class="panel"><div class="task-row head"><span>Task</span><span>Project</span><span>Assignee</span><span>Assigned</span><span>Deadline</span><span>Time</span><span>Status</span></div>${tasks.map(t=>`<div class="task-row"><button class="link-btn" style="text-align:left" data-open-task="${t.id}">${esc(t.title)}</button><span>${esc(projName(t.project))}</span><span>${esc(taskAssigneeNames(t))}</span><span>${fmtD(t.assigned)}</span><span style="${overdue(t)?'color:var(--danger)':''}">${fmtD(t.deadline)}</span><span>${hm(t.mins)}</span><span class="chip ${chipCls[t.status]}">${STATUS_LABEL[t.status]}</span></div>`).join('')||'<div class="empty">No tasks</div>'}</div></div>`;
   $('#tsk').innerHTML=`
     <div class="task-top"><div class="tabs" id="tsk-tabs">${[['me','i-file','Assigned to me'],['byme','i-check','Assigned by me'],['proj','i-brief','My Projects'],['team','i-folder','My Team'],['org','i-circle-check','Org Tasks']].map(([k,ic,l])=>`<button class="${tskState.tab===k?'on':''}" data-t="${k}"><svg style="width:14px;height:14px;vertical-align:-2px;margin-right:6px"><use href="#${ic}"/></svg>${l}</button>`).join('')}</div>
       <div style="display:flex;gap:8px;align-items:center"><div class="seg" id="tsk-view"><button class="${tskState.view==='board'?'on':''}" data-v="board">▦ Board</button><button class="${tskState.view==='list'?'on':''}" data-v="list">☰ List</button></div><button class="sq" style="border:0" id="tsk-export" aria-label="Export CSV"><svg><use href="#i-down"/></svg></button><button class="tb-btn solid" style="height:34px" data-modal="task">+ Add task</button></div></div>
@@ -1419,7 +1637,7 @@ window.renderTasks=function(){
   $('#tsk-tabs').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b){ tskState.tab=b.dataset.t; window.renderTasks(); } });
   $('#tsk-view').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b){ tskState.view=b.dataset.v; window.renderTasks(); } });
   $('#tsk-dept').addEventListener('change',e=>{ tskState.dept=e.target.value; tskState.member=''; window.renderTasks(); });
-  $('#tsk-export').addEventListener('click',()=>window.exportCsv('tasks.csv',[['Title','Project','Assignee','Assigned','Deadline','Minutes','Status']].concat(tasks.map(t=>[t.title,projName(t.project),empName(t.assignee),t.assigned,t.deadline,t.mins,STATUS_LABEL[t.status]]))));
+  $('#tsk-export').addEventListener('click',()=>window.exportCsv('tasks.csv',[['Title','Project','Assignee','Assigned','Deadline','Minutes','Status']].concat(tasks.map(t=>[t.title,projName(t.project),taskAssigneeNames(t),t.assigned,t.deadline,t.mins,STATUS_LABEL[t.status]]))));
   L.bind($('#tsk'),'click',e=>{
     const m=e.target.closest('[data-mem]'); if(m){ tskState.member=m.dataset.mem; window.renderTasks(); return; }
     const mv=e.target.closest('[data-move]'); if(mv){ window.moveTask(mv.dataset.move,mv.dataset.to); return; }
@@ -1437,7 +1655,7 @@ window.renderDepartments=function(){
   const s=S(); if(!depState.sel||!byId('departments',depState.sel)) depState.sel=s.departments[0]?s.departments[0].id:null;
   const list=s.departments.filter(d=>d.name.toLowerCase().includes(depState.q.toLowerCase()));
   const d=byId('departments',depState.sel); const members=d?s.employees.filter(e=>e.dept===d.name):[];
-  const mIds=new Set(members.map(e=>e.id)); const tasks=s.tasks.filter(t=>mIds.has(t.assignee)); const consumed=tasks.reduce((a,t)=>a+(+t.mins||0),0);
+  const mIds=new Set(members.map(e=>e.id)); const tasks=s.tasks.filter(t=>taskAssignees(t).some(e=>mIds.has(e.id))); const consumed=tasks.reduce((a,t)=>a+(+t.mins||0),0);
   const projIds=[...new Set(tasks.map(t=>t.project).filter(Boolean))]; const alloc=projIds.reduce((a,p)=>a+(+((byId('projects',p)||{}).alloc)||0),0);
   const avg=members.length?members.reduce((a,e)=>a+L.avgHours(e.id),0)/members.length:0;
   const stats=members.map(e=>monthStats(e.id,L.thisMonth)); const unacc=stats.reduce((a,x)=>a+x.unaccounted,0); const presentDays=stats.reduce((a,x)=>a+x.present+x.half,0); const wd=stats.reduce((a,x)=>a+x.workdays,0);
@@ -1445,7 +1663,7 @@ window.renderDepartments=function(){
   const bill=tasks.filter(t=>{ const p=byId('projects',t.project); return p&&p.billable; }).reduce((a,t)=>a+(+t.mins||0),0), nonbill=consumed-bill;
   const payroll=members.reduce((a,e)=>a+(+e.salary||0),0), pend=members.reduce((a,e)=>a+pendingBal(e.id),0);
   const tstat=STATUSES.map(k=>[{completed:'#4ADE95',progress:'#FFB84D',pipeline:'#6FA8FF',approval:'#B48CFF',hold:'#6A6A74'}[k],tasks.filter(t=>t.status===k).length]);
-  const share=x=>{ const tot=s.tasks.reduce((a,t)=>a+(+t.mins||0),0)||1; const ids=new Set(s.employees.filter(e=>e.dept===x.name).map(e=>e.id)); return Math.round(s.tasks.filter(t=>ids.has(t.assignee)).reduce((a,t)=>a+(+t.mins||0),0)/tot*100); };
+  const share=x=>{ const tot=s.tasks.reduce((a,t)=>a+(+t.mins||0),0)||1; const ids=new Set(s.employees.filter(e=>e.dept===x.name).map(e=>e.id)); return Math.round(s.tasks.filter(t=>taskAssignees(t).some(e=>ids.has(e.id))).reduce((a,t)=>a+(+t.mins||0),0)/tot*100); };
   const tabBody=()=>{
     if(depState.tab==='projects') return `<div class="panel" style="margin:0 20px"><div class="panel-h">Projects (${projIds.length})</div><div class="list" style="padding:0 16px 12px">${projIds.map(id=>byId('projects',id)).filter(Boolean).map(p=>`<div class="row"><span class="avatar sm p">${esc(ini(p.name))}</span><span style="flex:1">${esc(p.name)}</span><b>${hm(tasks.filter(t=>t.project===p.id).reduce((a,t)=>a+(+t.mins||0),0))}</b></div>`).join('')||'<div class="empty">No projects yet</div>'}</div></div>`;
     if(depState.tab==='files'){ const fs=s.files.filter(f=>mIds.has(f.by)); return `<div class="panel" style="margin:0 20px"><div class="panel-h">Files (${fs.length})</div>${fs.map(f=>`<div class="file-row"><span class="ic pu" style="display:grid;place-items:center"><svg style="width:14px;height:14px"><use href="#i-file"/></svg></span><span>${esc(f.name)}</span><span class="r"><span>${esc(empName(f.by))}</span><span>${esc(f.size)}</span></span></div>`).join('')||'<div class="empty">No files</div>'}</div>`; }
@@ -1486,7 +1704,7 @@ window.renderDepartments=function(){
 window.renderAlerts=function(){
   const s=S(); const items=[];
   s.projects.filter(p=>+p.alloc>0&&consumedMins(p.id)>+p.alloc).forEach(p=>items.push({c:'var(--danger)',t:`${p.name} is ${pct(consumedMins(p.id),+p.alloc)}% of its allocated hours`,m:'Projects',go:'projects'}));
-  s.tasks.filter(overdue).forEach(t=>items.push({c:'var(--warn)',t:`Overdue: "${t.title}" (${empName(t.assignee)}) was due ${fmtD(t.deadline)}`,m:'Tasks',go:'tasks'}));
+  s.tasks.filter(overdue).forEach(t=>items.push({c:'var(--warn)',t:`Overdue: "${t.title}" (${taskAssigneeNames(t)}) was due ${fmtD(t.deadline)}`,m:'Tasks',go:'tasks'}));
   const unmarked=s.employees.filter(e=>!s.attendance.find(a=>a.emp===e.id&&a.date===todayISO())).length; if(unmarked) items.push({c:'var(--warn)',t:`${unmarked} staff not marked for today's attendance`,m:'Attendance',go:'attendance'});
   const pend=s.employees.filter(e=>pendingBal(e.id)>0).length; if(pend) items.push({c:'var(--info)',t:`${pend} staff have pending salary this month`,m:'Payroll',go:'payroll'});
   $('#alr').innerHTML=`<h2 class="sec-title">Alerts <span class="i">i</span></h2><div class="panel panel-b list simple-list" style="padding-top:4px">${items.map(i=>`<div class="row"><i class="dot" style="background:${i.c}"></i><div>${esc(i.t)}<small>${i.m}</small></div><button class="link-btn r" data-go="${i.go}">Open</button></div>`).join('')||'<div class="empty"><span class="ring"><svg><use href="#i-circle-check"/></svg></span><b>All clear</b>No alerts right now</div>'}</div>`;
@@ -1509,12 +1727,13 @@ window.openModal=function(kind,id,preset={}){
   if(kind==='task'){ const t=id?byId('tasks',id):null;
     showModal({title:t?'Edit task':'Add task',sub:'Tasks show on the board, the dashboard and the assignee\'s profile.',ok:t?'Save changes':'Add task',fields:
       field('title','Task title','text',{required:true,span:true,value:t?t.title:'',placeholder:'What needs to be done?'})+
-      field('project','Project','select',{options:projOpts,value:t?t.project:(preset.project||'')})+field('assignee','Assignee','select',{options:empOpts,value:t?t.assignee:(preset.assignee||me.id)})+
+      field('project','Project','select',{options:projOpts,value:t?t.project:(preset.project||'')})+
+      field('assignee','Assignees (select one or more)','custom',{span:false,html:renderMultiAssigneeField(s.employees, t?t.assignee:(preset.assignee||me.id))})+
       field('assigned','Assigned on','date',{required:true,value:t?t.assigned:todayISO()})+field('deadline','Deadline','date',{required:true,value:t?t.deadline:todayISO()})+
       field('status','Status','select',{options:STATUSES.map(k=>({v:k,l:STATUS_LABEL[k]})),value:t?t.status:'pipeline'})+field('mins','Time spent (minutes)','number',{value:t?t.mins:0,min:0,step:15})+
       field('type','Task type','select',{options:['Other','Shoot','Edit','Design','Content','Personal'].map(x=>({v:x,l:x})),value:t?t.type:'Other'}),
       onSubmit:d=>{ if(t){ Object.assign(t,{title:d.title,project:d.project,assignee:d.assignee,assigned:d.assigned,deadline:d.deadline,status:d.status,mins:+d.mins||0,type:d.type}); if(d.status==='completed'&&!t.completed) t.completed=todayISO(); addActivity('Task updated: '+t.title); toast('Task updated.'); }
-        else { const n={id:uid(),title:d.title,project:d.project,assignee:d.assignee,by:me.id,assigned:d.assigned,deadline:d.deadline,status:d.status,mins:+d.mins||0,type:d.type,flag:false,completed:d.status==='completed'?todayISO():''}; s.tasks.unshift(n); addActivity(me.name+' assigned "'+n.title+'" to '+empName(n.assignee)); toast('Task added.'); }
+        else { const n={id:uid(),title:d.title,project:d.project,assignee:d.assignee,by:me.id,assigned:d.assigned,deadline:d.deadline,status:d.status,mins:+d.mins||0,type:d.type,flag:false,completed:d.status==='completed'?todayISO():''}; s.tasks.unshift(n); addActivity(me.name+' assigned "'+n.title+'" to '+taskAssigneeNames(n)); toast('Task added.'); }
         persist('tasks'); window.renderAll(); }});
   }
   else if(kind==='project'){ const p=id?byId('projects',id):null;
