@@ -100,8 +100,8 @@ const blank = () => ({ seq: 1, users: [], attendance: [], leaves: [], regs: [], 
 /* ---------- backend (Supabase) ----------
    Setup: run supabase/schema.sql once in the Supabase SQL editor, then paste the project's
    "anon public" key below (Dashboard → Project settings → API). */
-const SUPABASE_URL = 'https://qvsvbnsswtvxhhayuout.supabase.co';
-const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY_HERE';
+const SUPABASE_URL = 'https://lwpueuxyuokszeflgyfv.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_HX3OFYXKbLL9F2ylHmMdKQ_0bgNHF3W';
 const TABLES = ['users', 'attendance', 'leaves', 'regs', 'expenses', 'worklogs', 'tasks', 'comments', 'announcements', 'acks', 'notifications', 'holidays', 'todos'];
 const sb = window.supabase && SUPABASE_ANON_KEY !== 'PASTE_YOUR_ANON_KEY_HERE' ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 let DB = blank(), me = null, online = false;
