@@ -90,6 +90,55 @@ const updateAttendance = catchAsync(async (req, res) => {
   return apiResponse.success(res, updated, 'Attendance updated successfully');
 });
 
+/**
+ * Admin/manager marks a day for any employee (P / HD / A / L, overtime, fine, note).
+ * Creates the record when missing, updates it otherwise. Empty status clears the mark.
+ */
+const markAttendance = catchAsync(async (req, res) => {
+  const { emp, date, status = '', mode, ot_hours, fine_hours, note, clock_in, clock_out } = req.body;
+  const employee = employeeModel.findById(emp);
+  if (!employee) {
+    throw new AppError('Employee not found', 404);
+  }
+
+  const existing = attendanceModel.findByEmpAndDate(emp, date);
+  const patch = { status };
+  if (mode !== undefined) patch.mode = mode;
+  if (ot_hours !== undefined) patch.ot_hours = Number(ot_hours) || 0;
+  if (fine_hours !== undefined) patch.fine_hours = Number(fine_hours) || 0;
+  if (note !== undefined) patch.note = String(note);
+  if (clock_in !== undefined) patch.clock_in = clock_in;
+  if (clock_out !== undefined) patch.clock_out = clock_out;
+
+  let record;
+  if (existing) {
+    record = attendanceModel.update(existing.id, patch);
+    // A record with nothing left in it is removed so the day shows as "not marked" again
+    if (!record.status && !record.clock_in && !record.clock_out && !Number(record.ot_hours) && !Number(record.fine_hours) && !record.note) {
+      attendanceModel.delete(existing.id);
+      record = null;
+    }
+  } else {
+    if (!status && !Number(patch.ot_hours) && !Number(patch.fine_hours) && !patch.note) {
+      return apiResponse.success(res, null, 'Nothing to record');
+    }
+    record = attendanceModel.create({
+      id: 'a_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4),
+      emp,
+      date,
+      clock_in: clock_in || '',
+      clock_out: clock_out || '',
+      mode: mode || 'office',
+      status,
+      ot_hours: Number(ot_hours) || 0,
+      fine_hours: Number(fine_hours) || 0,
+      note: note || ''
+    });
+  }
+
+  return apiResponse.success(res, record, record ? 'Attendance marked' : 'Attendance cleared');
+});
+
 const getEmployeeMonthStats = catchAsync(async (req, res) => {
   const { empId } = req.params;
   const { month = thisMonth() } = req.query;
@@ -104,5 +153,6 @@ module.exports = {
   getTodayStatus,
   getAttendanceList,
   updateAttendance,
+  markAttendance,
   getEmployeeMonthStats
 };

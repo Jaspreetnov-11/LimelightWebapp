@@ -96,7 +96,8 @@ const optionalAuth = (req, res, next) => {
     const decoded = jwt.verify(token, env.JWT_SECRET);
     const user = db.get('SELECT id, email, role, employee_id FROM lh_users WHERE id = ?', [decoded.id]);
     if (user) {
-      req.user = user;
+      // Same shape as `protect` so controllers can rely on req.user.employeeId
+      req.user = { id: user.id, email: user.email, role: user.role, employeeId: user.employee_id, access: user.role };
     }
   } catch (err) {
     // Ignore invalid optional tokens

@@ -1,94 +1,65 @@
 # Limelight Workspace
 
-Attendance, work reports, leaves, payroll, expenses, tasks and announcements for the Limelight team.
-Features a responsive frontend (`index.html`) backed by a production-grade **MVC (Model-View-Controller) REST API backend** compatible with both local execution and **Vercel** serverless hosting.
+Staff, GPS attendance, payroll, projects, kanban tasks, departments and reports for the Limelight team.
 
----
+- **Frontend (View):** Next.js 15 / React 19 (App Router) in `src/`
+- **Backend (Model + Controller):** Express on Node.js in `backend/` — REST API under `/api`
+- **Database:** SQLite (`node:sqlite`, Node 22.5+) for local/dev, schema in `backend/database/schema.sql`
 
-## 🚀 Running Locally
+## Run locally
 
-1. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-2. **Start the application**:
-   ```bash
-   npm start
-   ```
-   This command starts the Express server at **`http://localhost:5000`** and serves:
-   - The full REST API at `http://localhost:5000/api`
-   - The single-page web app at `http://localhost:5000/`
-
-3. **Run automated verification tests**:
-   ```bash
-   npm test
-   ```
-
----
-
-## 🌐 Vercel Deployment
-
-The project is structured to deploy directly to **Vercel** from this repository without breaking any existing live URLs:
-- **`vercel.json`** routes all `/api/*` endpoints to the serverless function in `api/index.js`.
-- Root paths (`/`, `/index.html`, `/logo.png`, etc.) are served statically by Vercel's Edge Network.
-- In production on Vercel, the database connects to the managed Supabase PostgreSQL instance (`lh_*` tables), ensuring full persistence across ephemeral serverless invocations.
-
----
-
-## 🏛️ Backend Architecture (MVC Pattern)
-
-```
-LimelightWebapp/
-├── api/
-│   └── index.js                  # Vercel Serverless Function entrypoint
-├── backend/
-│   ├── config/
-│   │   ├── db.js                 # SQLite (with WAL mode) + Supabase cloud fallback
-│   │   └── env.js                # Environment configuration loader
-│   ├── database/
-│   │   ├── schema.sql            # Normalized DDL schema with explicit indexes
-│   │   ├── init.js               # Auto-migration runner on startup
-│   │   └── seed.js               # Initial seed dataset (departments, admin, tasks)
-│   ├── middleware/
-│   │   ├── auth.middleware.js    # JWT authentication & RBAC (admin, manager, staff)
-│   │   ├── error.middleware.js   # Global error handling middleware (standardized JSON)
-│   │   ├── validate.middleware.js# Generic validation runner (DRY)
-│   │   └── upload.middleware.js  # Multer file upload handler
-│   ├── utils/
-│   │   ├── apiResponse.js        # Standardized API response formatters
-│   │   ├── appError.js           # Custom operational error class
-│   │   ├── catchAsync.js         # Async error wrapper (eliminates try/catch boilerplate)
-│   │   ├── calculations.js       # Shared payroll, working days & hours math
-│   │   └── logger.js             # Formatted request/debug logger
-│   ├── validators/               # Input validation schemas per section
-│   ├── models/                   # Data access layer (M in MVC)
-│   ├── services/                 # Business logic layer
-│   ├── controllers/              # HTTP request handlers (C in MVC)
-│   ├── routes/                   # Routing layer (12 section modules + master router)
-│   ├── app.js                    # Express app configuration & middleware pipeline
-│   └── server.js                 # Local server entrypoint (port 5000)
-├── index.html                    # Frontend web application (pixel-perfect UI preserved)
-└── vercel.json                   # Vercel routing configuration
+```bash
+npm install
+npm run dev
 ```
 
----
+`npm run dev` starts both servers: the API on http://localhost:5000 and the web app on http://localhost:3000
+(Next.js proxies `/api/*` to the backend). Seeded admin: `admin@lighthouse.io` / `Lighthouse@123`.
 
-## 📋 API Section Overview
+Other scripts: `npm run dev:api`, `npm run dev:web`, `npm run build`, `npm start` (Next.js), `npm run start:api`, `npm test`.
 
-| Section | Base Route | Key Operations |
-|---|---|---|
-| **Auth** | `/api/auth` | Register, login (JWT + bcrypt), session `/me`, forgot password |
-| **Employees** | `/api/employees` | Full CRUD, search, department filtering, calculated pending balance |
-| **Departments**| `/api/departments` | Full CRUD, daily standard hours, billable rules |
-| **Projects** | `/api/projects` | Full CRUD, allocated minutes vs. consumed minutes aggregation |
-| **Tasks** | `/api/tasks` | Kanban status (`pipeline` → `progress` → `approval` → `completed` → `hold`), hours tracking |
-| **Attendance** | `/api/attendance` | Clock-in & Clock-out with GPS coordinates, daily register, monthly stats |
-| **Leaves** | `/api/leaves` | Apply, view today's leaves, approvals |
-| **Payments** | `/api/payments` | Ledger for Salary, Advance, Bonus, Reimbursement, Fine |
-| **Payroll** | `/api/payroll` | Auto monthly payroll formula calculation, batch payout |
-| **Holidays** | `/api/holidays` | Company and public holidays |
-| **To-Dos** | `/api/todos` | Personal task management with toggle |
-| **Files** | `/api/files` | File upload with Multer, metadata, streaming download |
-| **Activity** | `/api/activity` | Live audit logs, notifications, overdue task alerts |
-| **Reports** | `/api/reports` | CSV exports (Attendance Register, Payroll, Payments, Staff, Tasks, Projects) |
+## Deploy (Vercel)
+
+The repo deploys as a Next.js project; `/api/*` is served by the Express app through the serverless
+entry `api/index.js` (see `vercel.json`). Set `JWT_SECRET` in the project environment.
+Note: SQLite on Vercel is ephemeral — point `DATABASE_TYPE`/Supabase keys at a hosted database for production data.
+
+## Folder structure (MVC)
+
+```
+backend/                     Node.js / Express — Model + Controller
+├── models/                  data access (BaseModel + one model per table)
+├── controllers/             request handlers
+├── services/                business logic (attendance, payroll, auth, reports)
+├── routes/                  REST routes → controllers
+├── middleware/              auth (JWT), validation, security, uploads, errors
+├── validators/              request schemas
+├── database/                schema.sql, init + seed
+└── utils/                   calculations, responses, logger
+
+src/                         Next.js — View layer with a client-side MVC split
+├── app/                     routes (pages): login, signup, (app)/dashboard, staff, staff/[id],
+│                            attendance, projects, tasks, departments, payments, payroll,
+│                            reports, alerts, notifications, files, settings
+├── models/                  API client + one model object per backend resource
+├── controllers/             state & actions: AuthController, DataController, UiController,
+│                            useClock (GPS clock-in), useModals (add/edit forms)
+├── views/
+│   ├── layout/              AppShell (sidebar, topbar, mobile bottom nav)
+│   ├── ui/                  reusable components (Panel, Donut, Chip, FormModal, …)
+│   └── screens/             one component per screen
+└── lib/                     formatting, calculations, downloads
+
+api/index.js                 Vercel serverless entry → backend/app.js
+public/                      logo.png, icon.svg, manifest.json (installable PWA)
+legacy/                      previous single-file apps (kept for reference)
+```
+
+## API overview
+
+`/api/auth` (register, login, me, forgot-password) · `/api/employees` · `/api/departments` · `/api/projects` ·
+`/api/tasks` (+ `PATCH /:id/status`) · `/api/attendance` (clock-in/out with GPS, today, stats, update) ·
+`/api/leaves` · `/api/payments` · `/api/payroll` (+ `pay-all`) · `/api/holidays` · `/api/todos` ·
+`/api/files` (upload/download) · `/api/activity` (+ alerts) · `/api/reports/*` (CSV)
+
+All write routes need `Authorization: Bearer <JWT>`; admin-only routes use `restrictTo('admin')`.

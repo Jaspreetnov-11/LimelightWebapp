@@ -7,16 +7,16 @@ const env = require('./config/env');
 const logger = require('./utils/logger');
 
 
-// Serve static frontend files (index.html, logo.png, etc.) from project root
-const rootDir = path.resolve(__dirname, '..');
-app.use(express.static(rootDir));
-
-// SPA fallback: any non-api route serves index.html
+// The Next.js frontend (View layer) is served separately: `npm run dev` (port 3000) or Vercel.
+// Any non-API request here points people to the frontend instead of serving files from the repo root.
 app.get('*', (req, res, next) => {
   if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
     return next();
   }
-  res.sendFile(path.join(rootDir, 'index.html'));
+  res.status(200).json({
+    service: 'Limelight Workspace API',
+    hint: 'This is the backend. Open the Next.js app (npm run dev → http://localhost:3000). API base: /api'
+  });
 });
 
 // Start local server

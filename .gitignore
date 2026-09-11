@@ -18,3 +18,12 @@ uploads/*
 # OS
 Thumbs.db
 .DS_Store
+
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Claude Code local launch config
+.claude/
