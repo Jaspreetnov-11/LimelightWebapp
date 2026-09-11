@@ -9,10 +9,25 @@ const AppError = require('./utils/appError');
 const env = require('./config/env');
 const { initDatabase } = require('./database/init');
 
-// Initialize database schema (async). Requests wait for it to finish once per process.
-const dbReady = initDatabase()
-  .then(mode => { console.log('[DB] ready:', mode); return true; })
-  .catch(err => { console.error('[DB-INIT-ERROR]', err.message); return false; });
+// Initialize database schema (async). Requests wait for it; a failed attempt is retried on
+// the next request instead of poisoning the whole process (cold starts can hit a transient
+// network error on the way to Supabase).
+const db = require('./config/db');
+let dbReadyPromise = null;
+function ensureDb() {
+  if (!dbReadyPromise) {
+    dbReadyPromise = initDatabase()
+      .then(mode => { db.initError = null; console.log('[DB] ready:', mode); return true; })
+      .catch(err => {
+        db.initError = String(err && err.message || err).replace(/:[^:@\/]+@/, ':***@');
+        console.error('[DB-INIT-ERROR]', db.initError);
+        dbReadyPromise = null;
+        return false;
+      });
+  }
+  return dbReadyPromise;
+}
+ensureDb();
 
 const { securityHeaders, sanitizeInput } = require('./middleware/security.middleware');
 
@@ -20,9 +35,9 @@ const app = express();
 
 // Hold requests until the schema check has run (no-op after the first request per process)
 app.use(async (req, res, next) => {
-  const ok = await dbReady;
+  const ok = await ensureDb();
   if (!ok && req.path.startsWith('/api') && !req.path.endsWith('/health')) {
-    return res.status(503).json({ success: false, error: { message: 'Database is not available. Check DATABASE_URL.', statusCode: 503 } });
+    return res.status(503).json({ success: false, error: { message: 'Database is not available right now (' + (db.initError || 'connection failed') + '). Please try again in a moment.', statusCode: 503 } });
   }
   next();
 });

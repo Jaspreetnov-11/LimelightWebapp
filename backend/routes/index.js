@@ -30,7 +30,8 @@ router.get('/health', (req, res) => {
     commit: env.GIT_COMMIT || null,
     db: env.DATABASE_TYPE === 'postgres' ? 'postgres (supabase)' : 'sqlite: ' + env.DATABASE_PATH,
     auth: 'supabase',
-    adminApi: Boolean(env.SUPABASE_SERVICE_ROLE_KEY)
+    adminApi: Boolean(env.SUPABASE_SERVICE_ROLE_KEY),
+    dbError: require('../config/db').initError || null
   });
 });
 

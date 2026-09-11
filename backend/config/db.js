@@ -65,6 +65,7 @@ function toPgSql(sql) {
 // ---------------------------------------------------------------- Unified API
 const db = {
   isPostgres,
+  initError: null,
   getSqlite,
   getPool,
 
