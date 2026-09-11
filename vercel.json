@@ -3,6 +3,9 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "npm install",
+  "functions": {
+    "api/index.js": { "includeFiles": "backend/database/schema.sql" }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/backend/(.*)", "destination": "/404" }
