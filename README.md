@@ -32,3 +32,17 @@ The app signs in to Supabase with the public anon key and enforces roles itself,
 security policies allow the anon key full access. That is fine for an internal team tool whose URL is
 not public. If you need stricter control, move sign-in to Supabase Auth and tighten the policies in
 `schema.sql`.
+
+---
+
+## Lighthouse app (`lighthouse.html`)
+
+A second, standalone version of the workspace in the Limelight look (black stage, yellow accent):
+staff list with pending balances, day-wise attendance marking (P / HD / A / L / Fine / Overtime),
+payments, payroll, projects, kanban tasks, departments and CSV reports.
+
+- Open `lighthouse.html` directly in a browser. It starts in demo mode (login `admin@lighthouse.io` / `Lighthouse@123`).
+- To use Supabase: run [`supabase/lighthouse-schema.sql`](supabase/lighthouse-schema.sql) once in the SQL editor
+  (its tables are prefixed `lh_`, so they do not touch the tables used by `index.html`), create a user under
+  **Authentication → Users**, then in the app go to **Settings** and paste the anon public key.
+- Uses Supabase Auth (email/password, optional Google) and realtime sync across open browsers.
