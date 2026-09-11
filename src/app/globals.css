@@ -767,3 +767,22 @@ td{padding:13px 16px}
   .two > aside{padding:14px}
   .clock-card{padding:16px 18px}
 }
+
+/* ---------- Mobile tasks: simple list instead of the kanban board ---------- */
+.mtasks{gap:14px}
+.mtasks-head{display:flex; align-items:center; justify-content:space-between; gap:10px}
+.mtasks-head .tabs{flex:1; gap:16px} .mtasks-head .tabs button{padding:8px 2px; font-size:13px; white-space:nowrap}
+.mtask-list{display:flex; flex-direction:column; gap:10px}
+.mtask{background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:14px 16px; display:flex; flex-direction:column; gap:10px}
+.mtask.late{border-color:rgba(255,92,122,.35)}
+.mtask.done{opacity:.72}
+.mtask-top{display:flex; justify-content:space-between; align-items:center; gap:10px}
+.mtask-proj{font-size:12px; color:var(--muted); font-weight:500}
+.mtask-title{font-size:14.5px; font-weight:600; line-height:1.35}
+.mtask.done .mtask-title{text-decoration:line-through; color:var(--muted)}
+.mtask-row{display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:12px}
+.mtask-mins{color:var(--muted)}
+.mtask-actions{display:flex; align-items:center; gap:8px; padding-top:4px; border-top:1px solid var(--line-soft)}
+.mtask-actions select{flex:1; height:36px; font-size:12.5px; border-radius:100px; padding-left:12px}
+.mtask-done{height:36px; padding:0 14px; border-radius:100px; border:0; background:var(--accent); color:var(--ink); font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap}
+.mtask-actions .mini-btn{width:36px; height:36px; border:1px solid var(--line); border-radius:50%; color:#C9C9D1}

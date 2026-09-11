@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/controllers/AuthController';
 import { useData } from '@/controllers/DataController';
 import { useUi } from '@/controllers/UiController';
@@ -24,6 +24,14 @@ export function TasksScreen() {
   const [view, setView] = useState('board');
   const [dragId, setDragId] = useState(null);
   const [overCol, setOverCol] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+  const [mStatus, setMStatus] = useState('open');
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const apply = () => setIsMobile(mq.matches);
+    apply(); mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
 
   const tasks = useMemo(() => {
     let list = d.tasks.slice();
@@ -51,6 +59,39 @@ export function TasksScreen() {
       <Assignees task={t} />
       <div className="move">{STATUSES.filter(k => k !== t.status).map(k => <button key={k} onClick={() => move(t.id, k)}>→ {STATUS_LABEL[k]}</button>)}</div>
     </div>); };
+
+  // ---- Mobile: a simple list with a status picker per task (the kanban board is desktop-only) ----
+  if (isMobile) {
+    const mList = tasks.filter(t => mStatus === 'all' ? true : mStatus === 'open' ? t.status !== 'completed' : t.status === mStatus);
+    const mCounts = { open: tasks.filter(t => t.status !== 'completed').length, all: tasks.length };
+    STATUSES.forEach(k => { mCounts[k] = tasks.filter(t => t.status === k).length; });
+    return (
+      <div className="content mtasks">
+        <div className="mtasks-head">
+          <div className="tabs" style={{ overflowX: 'auto', border: 0, padding: 0 }}>{[['me', 'Mine'], ['byme', 'By me'], ['team', 'Team'], ['org', 'All']].map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
+          <button className="tb-btn solid" style={{ height: 36 }} onClick={() => modals.open('task')}>+ Task</button>
+        </div>
+        <div className="pill-tabs" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
+          {[['open', 'Open'], ...STATUSES.map(k => [k, STATUS_LABEL[k]]), ['all', 'All']].map(([k, l]) => <button key={k} className={'pill' + (mStatus === k ? ' on' : '')} style={{ flex: '0 0 auto' }} onClick={() => setMStatus(k)}>{l} <span className="n">{mCounts[k]}</span></button>)}
+        </div>
+        <div className="mtask-list">
+          {mList.map(t => { const od = overdue(t); return (
+            <div className={'mtask' + (t.status === 'completed' ? ' done' : od ? ' late' : '')} key={t.id}>
+              <div className="mtask-top"><span className="mtask-proj">{t.project_name || d.projName(t.project)}</span><span className={'chip ' + (od ? 'pk' : t.status === 'completed' ? 'gr' : 'gy')}>{t.status === 'completed' ? 'Done ' + fmtD(t.completed || t.deadline) : 'Due ' + fmtD(t.deadline)}</span></div>
+              <div className="mtask-title">{t.title}</div>
+              <div className="mtask-row"><Assignees task={t} /><span className="mtask-mins">{Number(t.mins) ? hm(t.mins) : ''}</span></div>
+              <div className="mtask-actions">
+                <select value={t.status} onChange={e => move(t.id, e.target.value)} aria-label="Status">{STATUSES.map(k => <option key={k} value={k}>{STATUS_LABEL[k]}</option>)}</select>
+                {t.status !== 'completed' && <button className="mtask-done" onClick={() => move(t.id, t.status === 'pipeline' ? 'progress' : 'completed')}>{t.status === 'pipeline' ? 'Start' : '✓ Done'}</button>}
+                <button className="mini-btn" onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="file" /></button>
+                <button className="mini-btn" onClick={() => del(t)} aria-label="Delete">✕</button>
+              </div>
+            </div>); })}
+          {!mList.length && <Empty>No tasks here</Empty>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
