@@ -2,7 +2,7 @@
 // Data controller: in-memory store of every collection the screens need, loaded from the backend.
 // Screens read from here and call `reload(...)` after a write so all views stay consistent.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityModel, AttendanceModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, ProjectModel, TaskModel, TodoModel } from '@/models';
+import { ActivityModel, AttendanceModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, ProjectModel, TaskModel, TodoModel } from '@/models';
 import { useAuth } from './AuthController';
 import { thisMonth } from '@/lib/format';
 
@@ -24,9 +24,10 @@ const LOADERS = {
 // Loaders that depend on who is logged in
 const USER_LOADERS = {
   myStats: me => AttendanceModel.stats(me.id, thisMonth()),
-  teamSummary: (me, isAdmin) => (isAdmin || me.access === 'manager' ? AttendanceModel.teamSummary(thisMonth()) : Promise.resolve(null))
+  teamSummary: (me, isAdmin) => (isAdmin || me.access === 'manager' ? AttendanceModel.teamSummary(thisMonth()) : Promise.resolve(null)),
+  clients: (me, isAdmin) => (isAdmin || me.access === 'manager' ? ClientModel.list().then(r => r.data || []) : Promise.resolve([]))
 };
-const EMPTY = { employees: [], departments: [], projects: [], tasks: [], today: null, leaves: [], holidays: [], todos: [], files: [], activity: { items: [], unread: 0 }, alerts: null, myStats: null, teamSummary: null };
+const EMPTY = { employees: [], departments: [], projects: [], tasks: [], today: null, leaves: [], holidays: [], todos: [], files: [], activity: { items: [], unread: 0 }, alerts: null, myStats: null, teamSummary: null, clients: [] };
 
 export function DataProvider({ children }) {
   const { isAuthed, me, isAdmin } = useAuth();

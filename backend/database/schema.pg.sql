@@ -175,3 +175,19 @@ ALTER TABLE lh_holidays ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lh_todos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lh_files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lh_activity ENABLE ROW LEVEL SECURITY;
+
+-- Clients (admin): revenue side of the monthly profit / loss per client
+CREATE TABLE IF NOT EXISTS lh_clients (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  contact_name TEXT DEFAULT '',
+  phone TEXT DEFAULT '',
+  email TEXT DEFAULT '',
+  billing TEXT DEFAULT 'billable',
+  retainer NUMERIC DEFAULT 0,
+  notes TEXT DEFAULT '',
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (now())::text,
+  updated_at TEXT DEFAULT (now())::text
+);
+ALTER TABLE lh_clients ENABLE ROW LEVEL SECURITY;

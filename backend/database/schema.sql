@@ -199,3 +199,17 @@ CREATE INDEX IF NOT EXISTS idx_payments_type ON lh_payments(type);
 CREATE INDEX IF NOT EXISTS idx_todos_owner_done ON lh_todos(owner, done);
 CREATE INDEX IF NOT EXISTS idx_files_project ON lh_files(project);
 CREATE INDEX IF NOT EXISTS idx_activity_created ON lh_activity(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS lh_clients (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  contact_name TEXT DEFAULT '',
+  phone TEXT DEFAULT '',
+  email TEXT DEFAULT '',
+  billing TEXT DEFAULT 'billable',
+  retainer REAL DEFAULT 0,
+  notes TEXT DEFAULT '',
+  active INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);

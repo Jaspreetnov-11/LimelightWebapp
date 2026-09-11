@@ -19,6 +19,7 @@ const todoRoutes = require('./todo.routes');
 const fileRoutes = require('./file.routes');
 const activityRoutes = require('./activity.routes');
 const reportRoutes = require('./report.routes');
+const clientRoutes = require('./client.routes');
 
 // Healthcheck
 router.get('/health', (req, res) => {
@@ -50,5 +51,6 @@ router.use('/todos', todoRoutes);
 router.use('/files', fileRoutes);
 router.use('/activity', activityRoutes);
 router.use('/reports', reportRoutes);
+router.use('/clients', clientRoutes);
 
 module.exports = router;

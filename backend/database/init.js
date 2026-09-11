@@ -17,6 +17,7 @@ const env = require('../config/env');
 const EXTRA_COLUMNS = {
   lh_employees: [['shift', "TEXT DEFAULT 'day'"], ['active', 'INTEGER DEFAULT 1']],
   lh_tasks: [['dept', "TEXT DEFAULT ''"], ['started_at', 'TEXT'], ['completed_at', 'TEXT'], ['taken_mins', 'NUMERIC DEFAULT 0']],
+  lh_projects: [['client_id', "TEXT DEFAULT ''"], ['fee', 'NUMERIC DEFAULT 0']],
   lh_attendance: [['late', 'INTEGER DEFAULT 0']],
   lh_activity: [['user_id', "TEXT DEFAULT ''"], ['kind', "TEXT DEFAULT 'info'"], ['link', "TEXT DEFAULT ''"]]
 };

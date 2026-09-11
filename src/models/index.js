@@ -36,6 +36,14 @@ export const ProjectModel = {
   remove: id => api.del('/projects/' + id)
 };
 
+export const ClientModel = {
+  list: month => full(api.get('/clients', month ? { month } : undefined)),
+  get: (id, month) => data(api.get('/clients/' + id, month ? { month } : undefined)),
+  create: body => data(api.post('/clients', body)),
+  update: (id, body) => data(api.put('/clients/' + id, body)),
+  remove: id => api.del('/clients/' + id)
+};
+
 export const TaskModel = {
   list: params => full(api.get('/tasks', { limit: 500, ...(params || {}) })),
   get: id => data(api.get('/tasks/' + id)),

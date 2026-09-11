@@ -4,12 +4,12 @@ import { useCallback } from 'react';
 import { useAuth } from './AuthController';
 import { useData } from './DataController';
 import { useUi } from './UiController';
-import { AttendanceModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
+import { AttendanceModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
 import { ACCESS_LABEL, avFor, ini, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO } from '@/lib/format';
 
 export function useModals() {
   const { me, isAdmin } = useAuth();
-  const { employees, departments, projects, tasks, assignableProjects, reload } = useData();
+  const { employees, departments, projects, tasks, clients, assignableProjects, reload } = useData();
   const { openModal, toast } = useUi();
 
   const open = useCallback((kind, id, preset = {}) => {
@@ -44,21 +44,42 @@ export function useModals() {
       });
     } else if (kind === 'project') {
       const p = id ? projects.find(x => x.id === id) : null;
+      const clientOpts = clients.map(c => ({ v: c.id, l: c.name + (c.billing === 'non-billable' ? ' · non-billable' : '') }));
       openModal({
-        title: p ? 'Edit project' : 'Add project', sub: 'The team leader assigns and approves the tasks of this project. Allocated hours drive the overrun alerts.', ok: p ? 'Save changes' : 'Add project',
+        title: p ? 'Edit project' : 'Add project', sub: 'Pick the client: billing follows the client and the project counts in that client\'s monthly profit. The team leader assigns and approves its tasks.', ok: p ? 'Save changes' : 'Add project',
         fields: [
           { name: 'name', label: 'Project name', required: true, value: p ? p.name : '', placeholder: 'e.g. Bihar Project' },
-          { name: 'client', label: 'Client', required: true, value: p ? p.client : '', placeholder: 'Client name' },
+          { name: 'client_id', label: 'Client', type: 'select', required: true, placeholder: clientOpts.length ? 'Select client' : 'No clients yet — add one under Clients', options: clientOpts, value: p ? (p.client_id || '') : (preset.client_id || ''), onChange: v => { const c = clients.find(x => x.id === v); return c ? { billable: c.billing === 'non-billable' ? '0' : '1' } : {}; } },
           { name: 'manager', label: 'Team leader', type: 'select', required: true, options: isAdmin ? empOnly : empOnly.filter(o => o.v === meId), value: p ? p.manager : meId },
-          { name: 'billable', label: 'Billing', type: 'select', options: [{ v: '1', l: 'Billable' }, { v: '0', l: 'Non-billable' }], value: p ? (p.billable ? '1' : '0') : '1' },
+          { name: 'billable', label: 'Billing', type: 'select', options: [{ v: '1', l: 'Billable' }, { v: '0', l: 'Non-billable' }], value: p ? (p.billable ? '1' : '0') : '1', help: 'Set from the client; change only for an exception.' },
+          { name: 'fee', label: 'Project fee (₹, one-time)', type: 'number', value: p ? (Number(p.fee) || 0) : 0, min: 0, step: 500, help: 'Counted as revenue in the month the project starts. Leave 0 for retainer clients.' },
           { name: 'start', label: 'Start date', type: 'date', required: true, value: p ? (p.start || '') : todayISO() },
           { name: 'alloc', label: 'Allocated hours', type: 'number', required: true, value: p ? Math.round((Number(p.alloc) || 0) / 60) : 40, min: 0, step: 1 },
           { name: 'status', label: 'Status', type: 'select', options: ['Draft', 'Approved', 'On Hold', 'Closed'].map(x => ({ v: x, l: x })), value: p ? p.status : 'Approved' }
         ],
         onSubmit: async d => {
-          const body = { name: d.name, client: d.client, manager: d.manager, billable: d.billable === '1', start: d.start, alloc: Math.round(Number(d.alloc) * 60), status: d.status };
+          const body = { name: d.name, client_id: d.client_id, manager: d.manager, billable: d.billable === '1', fee: Number(d.fee) || 0, start: d.start, alloc: Math.round(Number(d.alloc) * 60), status: d.status };
           if (p) { await ProjectModel.update(p.id, body); toast('Project updated.'); } else { await ProjectModel.create(body); toast('Project added.'); }
-          await reload('projects', 'activity');
+          await reload('projects', 'clients', 'activity');
+        }
+      });
+    } else if (kind === 'client') {
+      const c = id ? clients.find(x => x.id === id) : null;
+      openModal({
+        title: c ? 'Edit client' : 'Add client', sub: 'Monthly retainer is the revenue side; staff time on the client\'s projects is the cost side. Profit = retainer + project fees − cost.', ok: c ? 'Save changes' : 'Add client',
+        fields: [
+          { name: 'name', label: 'Client name', required: true, value: c ? c.name : '', placeholder: 'e.g. Bihar Government' },
+          { name: 'billing', label: 'Billing', type: 'select', required: true, options: [{ v: 'billable', l: 'Billable' }, { v: 'non-billable', l: 'Non-billable (internal / pro bono)' }], value: c ? c.billing : 'billable' },
+          { name: 'retainer', label: 'Monthly retainer (₹)', type: 'number', value: c ? (Number(c.retainer) || 0) : 0, min: 0, step: 1000, help: 'Fixed monthly amount the client pays. 0 if project-wise only.' },
+          { name: 'contact_name', label: 'Contact person', value: c ? c.contact_name : '' },
+          { name: 'phone', label: 'Phone', type: 'tel', value: c ? c.phone : '' },
+          { name: 'email', label: 'Email', type: 'email', value: c ? c.email : '' },
+          { name: 'notes', label: 'Notes', type: 'textarea', span: true, value: c ? c.notes : '' }
+        ],
+        onSubmit: async d => {
+          const body = { name: d.name, billing: d.billing, retainer: Number(d.retainer) || 0, contact_name: d.contact_name, phone: d.phone, email: d.email, notes: d.notes };
+          if (c) { await ClientModel.update(c.id, body); toast('Client updated.'); } else { await ClientModel.create(body); toast('Client added.'); }
+          await reload('clients', 'projects');
         }
       });
     } else if (kind === 'employee') {
@@ -178,7 +199,7 @@ export function useModals() {
         }
       });
     }
-  }, [employees, departments, projects, tasks, assignableProjects, me, isAdmin, openModal, toast, reload]);
+  }, [employees, departments, projects, tasks, clients, assignableProjects, me, isAdmin, openModal, toast, reload]);
 
   return { open };
 }
