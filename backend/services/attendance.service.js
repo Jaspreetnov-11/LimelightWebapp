@@ -5,10 +5,9 @@ const employeeModel = require('../models/employee.model');
 const leaveModel = require('../models/leave.model');
 const activityModel = require('../models/activity.model');
 const AppError = require('../utils/appError');
-const { todayISO, thisMonth, minsBetween, workdaysIn, isLate, otHoursFor, shiftOf, HOURS_PER_DAY } = require('../utils/calculations');
+const { todayISO, thisMonth, nowHHMM, minsBetween, workdaysIn, isLate, otHoursFor, shiftOf, HOURS_PER_DAY } = require('../utils/calculations');
 
 const newId = p => p + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
-const hhmm = d => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 
 /** Pure computation: month stats from preloaded rows. */
 function computeMonthStats(rows, leaves, month) {
@@ -34,7 +33,7 @@ function computeMonthStats(rows, leaves, month) {
     const start = new Date(String(l.from_date).slice(0, 10) + 'T00:00:00');
     const end = new Date(String(l.to_date).slice(0, 10) + 'T00:00:00');
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const iso = d.toISOString().slice(0, 10);
+      const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       if (iso.slice(0, 7) === month && d.getDay() !== 0) leaveDays++;
     }
   }
@@ -60,8 +59,7 @@ class AttendanceService {
     if (existing && existing.clock_in && !existing.clock_out) throw new AppError('Already clocked in for today.', 400);
     if (existing && existing.clock_out) throw new AppError('Already completed attendance for today.', 400);
 
-    const now = new Date();
-    const timeStr = hhmm(now);
+    const timeStr = nowHHMM();
     const shift = emp ? emp.shift : 'day';
     const late = isLate(shift, timeStr) ? 1 : 0;
 
@@ -91,7 +89,7 @@ class AttendanceService {
     if (!existing || !existing.clock_in) throw new AppError('You have not clocked in yet today.', 400);
     if (existing.clock_out) throw new AppError('Already clocked out today.', 400);
 
-    const timeStr = hhmm(new Date());
+    const timeStr = nowHHMM();
     const shift = emp ? emp.shift : 'day';
     // Overtime is automatic: hours after the shift's OT threshold (8 pm day / 11 pm evening)
     const ot = Math.max(Number(existing.ot_hours) || 0, otHoursFor(shift, timeStr));

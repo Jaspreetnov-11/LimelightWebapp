@@ -9,7 +9,7 @@ import { AttendanceModel, ReportModel } from '@/models';
 import { saveBlob, saveCsv } from '@/lib/download';
 import { Avatar, Chip, Empty, GeoLink, LinkBtn, Search, Seg, Sq } from '@/views/ui';
 import { Pager, usePager } from '@/views/ui/Pager';
-import { ATT, attStatus, fmtD, fmtDY, todayISO } from '@/lib/format';
+import { ATT, attStatus, fmtD, fmtDY, isoLocal, todayISO } from '@/lib/format';
 
 const hrs = n => { const m = Math.round((Number(n) || 0) * 60); return Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; };
 
@@ -38,7 +38,7 @@ export function AttendanceScreen() {
   const groups = {}; pager.items.forEach(e => { (groups[e.dept || 'Other'] = groups[e.dept || 'Other'] || []).push(e); });
   const unmarked = d.employees.length - rows.length;
 
-  const shift = n => { const dd = new Date(date + 'T00:00:00'); dd.setDate(dd.getDate() + n); const iso = dd.toISOString().slice(0, 10); if (iso <= todayISO()) setDate(iso); };
+  const shift = n => { const dd = new Date(date + 'T00:00:00'); dd.setDate(dd.getDate() + n); const iso = isoLocal(dd); if (iso <= todayISO()) setDate(iso); };
 
   // Marking goes through POST /attendance/mark (admin/manager): creates or updates the day's record.
   const send = async body => {

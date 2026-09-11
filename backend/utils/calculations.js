@@ -5,7 +5,17 @@
  * Single source of truth for business rules across backend modules.
  */
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+// All "wall clock" values (today, clock-in time, shifts) are in the company timezone,
+// regardless of where the server runs (Vercel functions run in UTC).
+const APP_TZ = process.env.APP_TZ || 'Asia/Kolkata';
+const partsFmt = new Intl.DateTimeFormat('en-GB', { timeZone: APP_TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+const nowParts = (d = new Date()) => {
+  const p = {};
+  for (const x of partsFmt.formatToParts(d)) p[x.type] = x.value;
+  return { y: p.year, m: p.month, d: p.day, hh: p.hour === '24' ? '00' : p.hour, mm: p.minute };
+};
+const todayISO = () => { const p = nowParts(); return `${p.y}-${p.m}-${p.d}`; };
+const nowHHMM = () => { const p = nowParts(); return `${p.hh}:${p.mm}`; };
 const thisMonth = () => todayISO().slice(0, 7);
 
 // Shifts (24h clock). OT is counted only after `otAfter`, paid at 1x of the hourly rate.
@@ -52,7 +62,7 @@ const workdaysIn = (month, upToToday = true) => {
   const [y, mo] = month.split('-').map(Number);
   const last = new Date(y, mo, 0).getDate();
   const isCurrentMonth = month === thisMonth();
-  const limit = (upToToday && isCurrentMonth) ? new Date().getDate() : last;
+  const limit = (upToToday && isCurrentMonth) ? Number(todayISO().slice(8, 10)) : last;
   let count = 0;
   for (let d = 1; d <= limit; d++) {
     if (new Date(y, mo - 1, d).getDay() !== 0) count++; // Mon–Sat work week
@@ -74,6 +84,9 @@ const calculateEarnedSalary = (salary, workdaysFull, presentDays, halfDays, leav
 const formatINR = val => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Math.round(val || 0));
 
 module.exports = {
+  APP_TZ,
+  nowParts,
+  nowHHMM,
   todayISO,
   thisMonth,
   SHIFTS,

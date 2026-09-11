@@ -12,7 +12,10 @@ export const SHIFTS = { day: 'Day · 11 am – 7 pm', evening: 'Evening · 2 pm 
 export const ACCESS_LABEL = { admin: 'Admin (full access)', manager: 'Team leader (projects + tasks)', staff: 'Staff (own work)' };
 const AV = ['p', 'g', 'r', 'b', 'br', 'o', 't'];
 
-export const todayISO = () => new Date().toISOString().slice(0, 10);
+const pad2 = n => String(n).padStart(2, '0');
+/** Local calendar date (never UTC), so it matches the server's Asia/Kolkata day. */
+export const isoLocal = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+export const todayISO = () => isoLocal(new Date());
 export const thisMonth = () => todayISO().slice(0, 7);
 export const monthKey = iso => (iso || '').slice(0, 7);
 export const fmtD = iso => (iso ? new Date(iso.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—');
