@@ -11,11 +11,13 @@ const { todayISO } = require('../utils/calculations');
 const getAllLeaves = catchAsync(async (req, res) => {
   const { empId, month } = req.query;
 
+  // Admins see everyone; others only their own
+  const scopeEmp = req.user.role === 'admin' ? empId : req.user.id;
   let leaves;
-  if (empId) {
-    leaves = await leaveModel.getEmployeeLeaves(empId, month);
+  if (scopeEmp) {
+    leaves = await leaveModel.getEmployeeLeaves(scopeEmp, month);
   } else {
-    leaves = await leaveModel.findAll({}, { orderBy: 'from_date DESC', limit: 100 });
+    leaves = await leaveModel.findAll({}, { orderBy: 'from_date DESC', limit: 300 });
   }
 
   return apiResponse.success(res, leaves);
@@ -54,7 +56,8 @@ const applyLeave = catchAsync(async (req, res) => {
   const detail = `${span}${reason ? ' · ' + reason : ''}${leave.remarks ? ' · ' + leave.remarks : ''}`;
   if (status === 'pending') {
     const admins = await employeeModel.findAll({ access: 'admin' });
-    await activityModel.notify(admins.map(a => a.id).filter(x => x !== req.user.id), `${name} requested ${what}: ${detail}`, { kind: 'leave', link: '/notifications', ref_type: 'leave', ref_id: leave.id });
+    // Approvers open the Leaves page where every pending request lives
+    await activityModel.notify(admins.map(a => a.id).filter(x => x !== req.user.id), `${name} requested ${what}: ${detail}`, { kind: 'leave', link: '/leaves', ref_type: 'leave', ref_id: leave.id });
     await activityModel.log(`${name} requested ${what} (${span}) · awaiting approval`);
   } else {
     await activityModel.log(`${name} ${kind === 'wfh' ? 'will work from home' : 'is on leave'} (${detail})`);
