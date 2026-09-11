@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "npm install",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/backend/(.*)", "destination": "/404" }
