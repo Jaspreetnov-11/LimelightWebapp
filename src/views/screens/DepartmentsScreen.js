@@ -5,6 +5,7 @@ import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
 import { DepartmentModel } from '@/models';
 import { Avatar, Chip, DateBtn, Donut, Empty, Icon, Search, Sq, Stat } from '@/views/ui';
+import { Pager, usePager } from '@/views/ui/Pager';
 import { assigneeIds, hm, ini, inr, overdue, pct, STATUSES, STATUS_COLOR } from '@/lib/format';
 
 export function DepartmentsScreen() {
@@ -17,6 +18,7 @@ export function DepartmentsScreen() {
 
   useEffect(() => { if ((!sel || !d.departments.find(x => x.id === sel)) && d.departments.length) setSel(d.departments[0].id); }, [d.departments, sel]);
   const list = useMemo(() => d.departments.filter(x => x.name.toLowerCase().includes(q.toLowerCase())), [d.departments, q]);
+  const listPager = usePager(list, 10);
   const dep = d.departments.find(x => x.id === sel);
   const members = dep ? d.employees.filter(e => e.dept === dep.name) : [];
   const mIds = new Set(members.map(e => e.id));
@@ -61,7 +63,8 @@ export function DepartmentsScreen() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><DateBtn>{new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</DateBtn><button className="tb-btn solid" style={{ height: 32, padding: '0 12px', fontSize: 12.5 }} onClick={() => modals.open('dept')}>+ Add Dept</button></div>
         <b style={{ fontSize: 14 }}>Departments ({d.departments.length}) <i style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: 'var(--ok)' }}></i></b>
         <Search value={q} onChange={setQ} />
-        <div className="list" style={{ gap: 10 }}>{list.map(x => <div className={'dept-item' + (x.id === sel ? ' on' : '')} key={x.id} onClick={() => setSel(x.id)}><div className="top"><span className="ini">{x.name.slice(0, 2).toUpperCase()}</span><span className="nm">{x.name}</span><Chip tone={x.billable ? 'gr' : 'gy'}>{x.billable ? 'Billable' : 'Non-billable'}</Chip></div><div className="t"><div className="f" style={{ width: share(x) + '%' }}></div></div><div className="pct">{share(x)}% · {x.staff_count || 0} staff</div></div>)}{!list.length && <Empty>No departments match</Empty>}</div>
+        <div className="list" style={{ gap: 10 }}>{listPager.items.map(x => <div className={'dept-item' + (x.id === sel ? ' on' : '')} key={x.id} onClick={() => setSel(x.id)}><div className="top"><span className="ini">{x.name.slice(0, 2).toUpperCase()}</span><span className="nm">{x.name}</span><Chip tone={x.billable ? 'gr' : 'gy'}>{x.billable ? 'Billable' : 'Non-billable'}</Chip></div><div className="t"><div className="f" style={{ width: share(x) + '%' }}></div></div><div className="pct">{share(x)}% · {x.staff_count || 0} staff</div></div>)}{!list.length && <Empty>No departments match</Empty>}</div>
+        <Pager pager={listPager} compact />
       </aside>
       <div className="content" style={{ padding: '0 0 30px' }}>
         {dep ? (

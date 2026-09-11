@@ -5,6 +5,7 @@ import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
 import { ProjectModel } from '@/models';
 import { Avatar, Chip, DateBtn, Donut, Empty, Icon, LinkBtn, Panel, Search, Sq, TaskChip, Tabs } from '@/views/ui';
+import { Pager, usePager } from '@/views/ui/Pager';
 import { avFor, fmtD, fmtDY, hm, ini, overdue, pct, STATUSES, STATUS_COLOR, STATUS_LABEL } from '@/lib/format';
 
 const colFor = n => ({ p: '#B48CFF', g: '#4ADE95', r: '#FF7AB3', b: '#6FA8FF', br: '#D9A066', o: '#FFD21F', t: '#5EE0D6' })[avFor(n)];
@@ -23,8 +24,10 @@ export function ProjectsScreen() {
   useEffect(() => { if (!sel) return; let alive = true; ProjectModel.get(sel).then(p => { if (alive) setDetail(p); }).catch(() => {}); return () => { alive = false; }; }, [sel, d.tasks]);
 
   const list = useMemo(() => d.projects.filter(p => p.name.toLowerCase().includes(q.toLowerCase())).filter(p => tab === 'all' || (tab === 'bill' ? p.billable : !p.billable)), [d.projects, q, tab]);
+  const listPager = usePager(list, 10);
   const p = d.projById[sel];
-  const tasks = (detail && detail.id === sel && detail.tasks) || d.tasks.filter(t => t.project === sel);
+  const tasks = useMemo(() => (detail && detail.id === sel && detail.tasks) || d.tasks.filter(t => t.project === sel), [detail, sel, d.tasks]);
+  const taskPager = usePager(tasks, 10);
   const used = p ? Number(p.consumed_mins) || 0 : 0, alloc = p ? Number(p.alloc) || 0 : 0, pc = pct(used, alloc), over = alloc > 0 && used > alloc;
   const members = [...new Set(tasks.flatMap(t => String(t.assignee || '').split(',')).map(s => s.trim()).filter(Boolean))].map(id => d.empById[id]).filter(Boolean);
   const depts = Object.entries(tasks.reduce((m, t) => { const e = d.empById[String(t.assignee || '').split(',')[0]]; const k = e ? e.dept : 'Unassigned'; m[k] = (m[k] || 0) + (Number(t.mins) || 0); return m; }, {})).sort((a, b) => b[1] - a[1]);
@@ -35,7 +38,7 @@ export function ProjectsScreen() {
 
   const body = () => {
     if (!p) return <Empty>Add a project to get started</Empty>;
-    if (view === 'tasks') return <div className="panel"><div className="panel-h">Tasks ({tasks.length}) <LinkBtn onClick={() => modals.open('task', null, { project: p.id })}>+ Add task</LinkBtn></div><div style={{ overflowX: 'auto' }}><table><thead><tr><th>Task</th><th>Assignee</th><th>Assigned</th><th>Deadline</th><th>Time</th><th>Status</th></tr></thead><tbody>{tasks.map(t => <tr key={t.id}><td><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn></td><td>{d.taskAssigneeNames(t)}</td><td>{fmtD(t.assigned)}</td><td style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</td><td>{hm(t.mins)}</td><td><TaskChip status={t.status} /></td></tr>)}</tbody></table>{!tasks.length && <Empty>No tasks yet</Empty>}</div></div>;
+    if (view === 'tasks') return <div className="panel"><div className="panel-h">Tasks ({tasks.length}) <LinkBtn onClick={() => modals.open('task', null, { project: p.id })}>+ Add task</LinkBtn></div><div style={{ overflowX: 'auto' }}><table><thead><tr><th>Task</th><th>Assignee</th><th>Assigned</th><th>Deadline</th><th>Time</th><th>Status</th></tr></thead><tbody>{taskPager.items.map(t => <tr key={t.id}><td><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn></td><td>{d.taskAssigneeNames(t)}</td><td>{fmtD(t.assigned)}</td><td style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</td><td>{hm(t.mins)}</td><td><TaskChip status={t.status} /></td></tr>)}</tbody></table>{!tasks.length && <Empty>No tasks yet</Empty>}</div><Pager pager={taskPager} /></div>;
     if (view === 'files') return <div className="panel"><div className="panel-h">Files ({files.length}) <LinkBtn onClick={() => modals.open('file', null, { project: p.id })}>+ Upload file</LinkBtn></div>{files.map(f => <div className="file-row" key={f.id}><span className="ic pu" style={{ display: 'grid', placeItems: 'center' }}><Icon name="file" size={14} /></span><a href={'/api/files/' + f.id + '/download'} style={{ color: 'inherit' }}>{f.name}</a><span className="r"><span>{f.uploader_name || ''}</span><span>{f.size}</span><span>{fmtD(f.date)}</span></span></div>)}{!files.length && <Empty>No files yet</Empty>}</div>;
     if (view === 'members') return <div className="panel"><div className="panel-h">Members ({members.length})</div><div className="list" style={{ padding: '0 16px 12px' }}>{members.map(e => <div className="row" key={e.id}><Avatar e={e} /><div><div>{e.name}</div><small style={{ color: 'var(--muted)' }}>{e.role || ''} · {e.dept || ''}</small></div><span className="r"><b>{hm(tasks.filter(t => String(t.assignee || '').includes(e.id)).reduce((a, t) => a + (Number(t.mins) || 0), 0))}</b></span></div>)}{!members.length && <Empty>No members yet. Assign a task to add someone.</Empty>}</div></div>;
     return (<>
@@ -54,13 +57,14 @@ export function ProjectsScreen() {
         <Search value={q} onChange={setQ} />
         <Tabs items={[['all', 'All (' + d.projects.length + ')'], ['bill', 'Billable'], ['non', 'Non-billable']]} value={tab} onChange={setTab} style={{ fontSize: 12 }} />
         <div className="list" style={{ gap: 10 }}>
-          {list.map(x => { const u = Number(x.consumed_mins) || 0, al = Number(x.alloc) || 0, c = pct(u, al), ov = al > 0 && u > al, col = ov ? '#FF5C7A' : c > 0 ? '#4ADE95' : '#2A2A30'; return (
+          {listPager.items.map(x => { const u = Number(x.consumed_mins) || 0, al = Number(x.alloc) || 0, c = pct(u, al), ov = al > 0 && u > al, col = ov ? '#FF5C7A' : c > 0 ? '#4ADE95' : '#2A2A30'; return (
             <div className={'proj-item' + (x.id === sel ? ' on' : '')} key={x.id} onClick={() => { setSel(x.id); setView('overview'); }}>
               <div className="top"><span className="ini" style={{ background: colFor(x.name) }}>{ini(x.name)}</span><div style={{ flex: 1, minWidth: 0 }}><span className="nm">{x.name}</span><small>{x.client || ''}</small></div><Chip tone={x.billable ? 'gr' : 'gy'}>{x.billable ? 'Billable' : 'Non-bill'}</Chip></div>
               <div className="bar-row"><div className="t"><div className="f" style={{ width: Math.min(100, c) + '%', background: col }}></div></div><div className="l"><span style={{ color: 'var(--muted)' }}>{hm(u)} / {hm(al)}</span><span className="pct" style={{ color: col }}>{c}%</span></div></div>
             </div>); })}
           {!list.length && <Empty>No projects match</Empty>}
         </div>
+        <Pager pager={listPager} compact />
       </aside>
       <div className="content">
         {p && (<>

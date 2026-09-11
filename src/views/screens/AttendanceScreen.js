@@ -8,6 +8,7 @@ import { useModals } from '@/controllers/useModals';
 import { AttendanceModel, ReportModel } from '@/models';
 import { saveBlob, saveCsv } from '@/lib/download';
 import { Avatar, Chip, Empty, GeoLink, LinkBtn, Search, Seg, Sq } from '@/views/ui';
+import { Pager, usePager } from '@/views/ui/Pager';
 import { ATT, attStatus, fmtD, fmtDY, todayISO } from '@/lib/format';
 
 const hrs = n => { const m = Math.round((Number(n) || 0) * 60); return Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; };
@@ -33,7 +34,8 @@ export function AttendanceScreen() {
   const ot = rows.reduce((x, a) => x + (Number(a.ot_hours) || 0), 0), fine = rows.reduce((x, a) => x + (Number(a.fine_hours) || 0), 0);
   const punchedIn = rows.filter(a => a.clock_in).length, punchedOut = rows.filter(a => a.clock_out).length;
   const leaveCount = d.employees.filter(lv).length + cnt('leave');
-  const groups = {}; emps.forEach(e => { (groups[e.dept || 'Other'] = groups[e.dept || 'Other'] || []).push(e); });
+  const pager = usePager(emps, 10);
+  const groups = {}; pager.items.forEach(e => { (groups[e.dept || 'Other'] = groups[e.dept || 'Other'] || []).push(e); });
   const unmarked = d.employees.length - rows.length;
 
   const shift = n => { const dd = new Date(date + 'T00:00:00'); dd.setDate(dd.getDate() + n); const iso = dd.toISOString().slice(0, 10); if (iso <= todayISO()) setDate(iso); };
@@ -98,6 +100,7 @@ export function AttendanceScreen() {
           </div>
         ))}
         {!emps.length && <div className="panel"><Empty>No staff match</Empty></div>}
+        <div className="panel"><Pager pager={pager} /></div>
         <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Showing {fmtDY(date)}. Staff clock in themselves with GPS; admins can adjust status, overtime, fines and notes here.</p>
       </div>
     </>

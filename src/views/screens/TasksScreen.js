@@ -8,6 +8,7 @@ import { TaskModel } from '@/models';
 import { saveCsv } from '@/lib/download';
 import { Avatar, Empty, Icon, LinkBtn, Seg, Sq, TaskChip } from '@/views/ui';
 import { Assignees } from '@/views/ui/Assignees';
+import { Pager, usePager } from '@/views/ui/Pager';
 import { assigneeIds, fmtD, hm, overdue, STATUSES, STATUS_LABEL } from '@/lib/format';
 
 const COL_CLS = { pipeline: '', progress: 'ip', approval: 'pa', completed: 'cp', hold: 'oh' };
@@ -35,6 +36,7 @@ export function TasksScreen() {
     return list;
   }, [d.tasks, d.projects, d.empById, tab, member, dept, me]);
   const emps = d.employees.filter(e => !dept || e.dept === dept);
+  const listPager = usePager(tasks, 20);
 
   const move = async (id, to) => { const t = d.tasks.find(x => x.id === id); if (!t || t.status === to) return; try { await TaskModel.setStatus(id, to); toast('Moved to ' + STATUS_LABEL[to]); await d.reload('tasks', 'projects', 'activity', 'alerts'); } catch (err) { toast(err.message); } };
   const del = async t => { if (!confirm('Delete "' + t.title + '"?')) return; try { await TaskModel.remove(t.id); toast('Task deleted.'); await d.reload('tasks', 'projects'); } catch (err) { toast(err.message); } };
@@ -75,8 +77,9 @@ export function TasksScreen() {
         ) : (
           <div className="content"><div className="panel">
             <div className="task-row head"><span>Task</span><span>Project</span><span>Assignee</span><span>Assigned</span><span>Deadline</span><span>Time</span><span>Status</span></div>
-            {tasks.map(t => <div className="task-row" key={t.id}><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn><span>{t.project_name || d.projName(t.project)}</span><span>{d.taskAssigneeNames(t)}</span><span>{fmtD(t.assigned)}</span><span style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</span><span>{hm(t.mins)}</span><TaskChip status={t.status} /></div>)}
+            {listPager.items.map(t => <div className="task-row" key={t.id}><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn><span>{t.project_name || d.projName(t.project)}</span><span>{d.taskAssigneeNames(t)}</span><span>{fmtD(t.assigned)}</span><span style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</span><span>{hm(t.mins)}</span><TaskChip status={t.status} /></div>)}
             {!tasks.length && <Empty>No tasks</Empty>}
+            <Pager pager={listPager} />
           </div></div>
         )}
       </div>

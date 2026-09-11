@@ -9,6 +9,7 @@ import { useModals } from '@/controllers/useModals';
 import { AttendanceModel, EmployeeModel, PaymentModel } from '@/models';
 import { saveCsv } from '@/lib/download';
 import { Avatar, Chip, DateBtn, Donut, Empty, Icon, Legend, LinkBtn, Panel, Search, Sq, Stat, TaskChip, Tabs } from '@/views/ui';
+import { Pager, usePager } from '@/views/ui/Pager';
 import { assigneeIds, avFor, fmtD, fmtDY, hm, ini, inr, overdue, STATUSES, STATUS_COLOR, STATUS_LABEL, thisMonth } from '@/lib/format';
 
 export function StaffListScreen() {
@@ -16,7 +17,8 @@ export function StaffListScreen() {
   const modals = useModals();
   const [q, setQ] = useState('');
   const list = useMemo(() => { const s = q.toLowerCase(); return d.employees.filter(e => e.name.toLowerCase().includes(s) || (e.emp_id || '').toLowerCase().includes(s) || (e.phone || '').includes(s)); }, [d.employees, q]);
-  const groups = useMemo(() => { const g = {}; list.forEach(e => { (g[e.dept || 'Other'] = g[e.dept || 'Other'] || []).push(e); }); return g; }, [list]);
+  const pager = usePager(list, 20);
+  const groups = useMemo(() => { const g = {}; pager.items.forEach(e => { (g[e.dept || 'Other'] = g[e.dept || 'Other'] || []).push(e); }); return g; }, [pager.items]);
   const totalPending = d.employees.reduce((a, e) => a + (Number(e.pendingBal) || 0), 0);
   const exportStaff = () => saveCsv('staff.csv', [['Name', 'Emp ID', 'Role', 'Department', 'Email', 'Phone', 'Joined', 'Salary', 'Pending']].concat(d.employees.map(e => [e.name, e.emp_id, e.role, e.dept, e.email, e.phone || '', e.joined, e.salary || 0, Math.round(e.pendingBal || 0)])));
 
@@ -46,6 +48,7 @@ export function StaffListScreen() {
           </div>
         ))}
         {!list.length && <Empty>No staff match</Empty>}
+        <Pager pager={pager} />
       </div>
     </div>
   );
@@ -62,6 +65,9 @@ export function StaffProfileScreen({ id }) {
   const [pays, setPays] = useState([]);
   const [tab, setTab] = useState('all');
   const e = d.employees.find(x => x.id === id);
+  const sidePager = usePager(d.employees, 15);
+  const myTasksAll = useMemo(() => (detail && detail.tasks) || d.tasks.filter(t => assigneeIds(t).includes(id)), [detail, d.tasks, id]);
+  const taskPager = usePager(myTasksAll, 10);
 
   useEffect(() => {
     let alive = true;
@@ -70,8 +76,8 @@ export function StaffProfileScreen({ id }) {
   }, [id, d.employees, toast]);
 
   if (!e) return <div className="content"><Empty>Staff member not found. <LinkBtn href="/staff">Back to list</LinkBtn></Empty></div>;
-  const myTasks = (detail && detail.tasks) || d.tasks.filter(t => assigneeIds(t).includes(id));
-  const pr = (detail && detail.payroll) || { earned: e.earned, paid: e.paid, pending: e.pendingBal };
+  const myTasks = myTasksAll;
+  const pr =(detail && detail.payroll) || { earned: e.earned, paid: e.paid, pending: e.pendingBal };
   const pb = Number(pr.pending) || 0;
   const st = stats || { present: 0, half: 0, absent: 0, leave: 0, unaccounted: 0, workdaysSoFar: 0, avgWorkingMinutes: 0 };
   const projIds = [...new Set(myTasks.filter(t => t.project).map(t => t.project))];
@@ -88,7 +94,8 @@ export function StaffProfileScreen({ id }) {
     <div className="two">
       <aside>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><Link href="/staff" className="date-btn">‹ Staff list</Link><button className="tb-btn solid" style={{ height: 34, padding: '0 12px', fontSize: 12.5 }} onClick={() => modals.open('employee')}>+ Add</button></div>
-        <div className="list">{d.employees.map(x => { const b = Number(x.pendingBal) || 0; return <Link key={x.id} href={'/staff/' + x.id} className={'emp-item' + (x.id === id ? ' on' : '')} style={{ textDecoration: 'none', color: 'inherit' }}><Avatar e={x} cls="" /><div><span className="nm">{x.name}</span><small>{x.role || ''}</small></div><span className={'hrs money' + (b > 0 ? ' neg' : '')}>{inr(b)}</span></Link>; })}</div>
+        <div className="list">{sidePager.items.map(x => { const b = Number(x.pendingBal) || 0; return <Link key={x.id} href={'/staff/' + x.id} className={'emp-item' + (x.id === id ? ' on' : '')} style={{ textDecoration: 'none', color: 'inherit' }}><Avatar e={x} cls="" /><div><span className="nm">{x.name}</span><small>{x.role || ''}</small></div><span className={'hrs money' + (b > 0 ? ' neg' : '')}>{inr(b)}</span></Link>; })}</div>
+        <Pager pager={sidePager} compact />
       </aside>
       <div className="content">
         <div className="panel profile"><Avatar e={e} cls="lg" />
@@ -111,7 +118,7 @@ export function StaffProfileScreen({ id }) {
         </div>
         <div className="emp-bottom">
           <div className="panel"><div className="panel-h">All Projects ({projIds.length})</div><Tabs items={[['all', 'All'], ['bill', 'Billable'], ['non', 'Non-billable']]} value={tab} onChange={setTab} style={{ padding: '0 12px' }} /><div className="list" style={{ padding: '8px 12px' }}>{projs.map(p => <div className="row" key={p.id}><span className="avatar sm p">{ini(p.name)}</span><span style={{ flex: 1 }}>{p.name}</span><Chip tone={p.billable ? 'gr' : 'gy'}>{p.billable ? 'Billable' : 'Non-billable'}</Chip></div>)}{!projs.length && <Empty>No projects</Empty>}{topP.length > 0 && <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 8, paddingTop: 8 }}>{topP.map(([p, m]) => <div className="row" key={p}><span style={{ flex: 1, fontSize: 12.5 }}>{d.projName(p)}</span><b>{hm(m)}</b></div>)}</div>}</div></div>
-          <div className="panel"><div className="panel-h">Tasks ({myTasks.length})</div><div style={{ overflowX: 'auto' }}><table><thead><tr><th>Task</th><th>Project</th><th>Assigned</th><th>Deadline</th><th>Time</th><th>Status</th></tr></thead><tbody>{myTasks.map(t => <tr key={t.id}><td><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn></td><td>{t.project_name || d.projName(t.project)}</td><td>{fmtD(t.assigned)}</td><td style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</td><td>{hm(t.mins)}</td><td><TaskChip status={t.status} /></td></tr>)}</tbody></table>{!myTasks.length && <Empty icon="file">No tasks found</Empty>}</div></div>
+          <div className="panel"><div className="panel-h">Tasks ({myTasks.length})</div><div style={{ overflowX: 'auto' }}><table><thead><tr><th>Task</th><th>Project</th><th>Assigned</th><th>Deadline</th><th>Time</th><th>Status</th></tr></thead><tbody>{taskPager.items.map(t => <tr key={t.id}><td><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn></td><td>{t.project_name || d.projName(t.project)}</td><td>{fmtD(t.assigned)}</td><td style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</td><td>{hm(t.mins)}</td><td><TaskChip status={t.status} /></td></tr>)}</tbody></table>{!myTasks.length && <Empty icon="file">No tasks found</Empty>}</div><Pager pager={taskPager} /></div>
         </div>
       </div>
     </div>
