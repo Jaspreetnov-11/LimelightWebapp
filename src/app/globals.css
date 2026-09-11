@@ -140,7 +140,7 @@
   .main{display:flex; flex-direction:column; min-width:0; position:relative}
   .main::before{content:""; position:fixed; left:220px; right:0; top:0; height:60vh; background:radial-gradient(60% 60% at 30% 0%, var(--ov-07), transparent 70%), radial-gradient(40% 50% at 90% 10%, var(--ac-10), transparent 70%); pointer-events:none; z-index:0}
   .main > *{position:relative; z-index:1}
-  .topbar{height:66px; background:rgba(12,12,14,.85); backdrop-filter:blur(14px); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; padding:0 20px; position:sticky; top:0; z-index:5}
+  .topbar{height:66px; background:var(--chrome); backdrop-filter:blur(14px); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; padding:0 20px; position:sticky; top:0; z-index:5}
   .topbar .mark{width:26px;height:26px; margin-right:auto}
   .tb-btn{height:38px; border:1.5px solid var(--line); background:var(--ov-05); color:var(--t1); border-radius:100px; font:inherit; font-size:13px; font-weight:500; padding:0 14px; display:inline-flex; align-items:center; gap:8px; cursor:pointer}
   .tb-btn:hover{background:var(--ov-01); border-color:var(--line-strong)}
