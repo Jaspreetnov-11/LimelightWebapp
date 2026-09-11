@@ -13,7 +13,7 @@ module.exports = {
   PORT: parseInt(process.env.PORT || '5000', 10),
   IS_VERCEL: isVercel,
   JWT_SECRET: process.env.JWT_SECRET || 'limelight_super_secret_jwt_key_2026_change_in_production',
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '365d', // one login per device
 
   // Data lives in Supabase Postgres when DATABASE_URL is set; otherwise a local SQLite file
   // (on Vercel the bundle is read-only, so that file goes under /tmp and is ephemeral).

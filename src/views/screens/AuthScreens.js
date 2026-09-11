@@ -91,10 +91,9 @@ export function LoginScreen() {
         </div>
         <div className="actions">
           <button className={'btn btn-primary' + (busy ? ' loading' : '')} type="submit" disabled={busy}><span className="spinner"></span>Login</button>
-          <div className="foot">Don&apos;t have an account? <Link href="/signup" className="link">Sign up</Link></div>
           <div className="demo">
             <div className="demo-title">Limelight workspace</div>
-            <div className="auth-note" style={{ textAlign: 'left' }}>Sign in with the email and password your admin created for you. The first account registered becomes the admin.</div>
+            <div className="auth-note" style={{ textAlign: 'left' }}>Sign in with the email and password your admin created for you. You stay signed in on this device.</div>
           </div>
         </div>
       </form>

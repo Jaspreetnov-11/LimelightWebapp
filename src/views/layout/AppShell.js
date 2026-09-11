@@ -1,6 +1,6 @@
 'use client';
 // Authenticated application shell: sidebar, topbar (clock, quick actions, user menu), mobile bottom nav + sheet.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/controllers/AuthController';
@@ -10,6 +10,7 @@ import { useClock } from '@/controllers/useClock';
 import { useModals } from '@/controllers/useModals';
 import { Icon } from '@/views/ui/Icons';
 import { Avatar } from '@/views/ui';
+import { ClockSplash, SPLASH_KEY } from '@/views/layout/ClockSplash';
 
 // [key, label, icon, who] — who: 'all' | 'admin'
 export const NAV = [
@@ -30,6 +31,9 @@ export function AppShell({ children }) {
   const [menu, setMenu] = useState(''); // 'qa' | 'user' | ''
   const [sheet, setSheet] = useState(false);
   const current = (pathname || '').split('/')[1] || 'dashboard';
+  // Opening splash (slide to clock in) once per app open
+  const [splash, setSplash] = useState(() => { try { return !sessionStorage.getItem(SPLASH_KEY); } catch (e) { return false; } });
+  const closeSplash = useCallback(() => { try { sessionStorage.setItem(SPLASH_KEY, '1'); } catch (e) { /* ignore */ } setSplash(false); if (current !== 'dashboard') router.replace('/dashboard'); }, [current, router]);
 
   useEffect(() => { setMenu(''); setSheet(false); }, [pathname]);
   useEffect(() => { if (!isAdmin && ADMIN_ONLY.has(current)) router.replace('/dashboard'); }, [current, isAdmin, router]);
@@ -49,6 +53,8 @@ export function AppShell({ children }) {
     isAdmin && ['payment', 'file', 'Add payment'],
     ['file', 'file', 'Upload file']
   ].filter(Boolean);
+
+  if (splash) return <ClockSplash onDone={closeSplash} />;
 
   return (
     <div className="app" style={{ display: 'grid' }}>
