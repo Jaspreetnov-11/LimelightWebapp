@@ -28,12 +28,10 @@ const getLeavesToday = catchAsync(async (req, res) => {
 });
 
 const applyLeave = catchAsync(async (req, res) => {
-  const { from_date, to_date, reason = '', emp } = req.body;
-  const targetEmpId = emp || (req.user ? req.user.employeeId : null);
-
-  if (!targetEmpId) {
-    throw new AppError('Employee ID is required to apply for leave.', 400);
-  }
+  const { from_date, to_date, reason = '', emp, remarks = '' } = req.body;
+  const kind = req.body.kind === 'wfh' ? 'wfh' : 'leave';
+  // Staff can only apply for themselves; admins / team leaders for anyone
+  const targetEmpId = (req.user.role === 'admin' || req.user.role === 'manager') && emp ? emp : req.user.id;
 
   const id = 'l_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
   const leave = await leaveModel.create({
@@ -42,19 +40,17 @@ const applyLeave = catchAsync(async (req, res) => {
     from_date,
     to_date,
     reason,
+    kind,
+    remarks: String(remarks || '').trim().slice(0, 500),
     status: 'approved'
   });
 
   const empRecord = await employeeModel.findById(targetEmpId);
   const name = empRecord ? empRecord.name : 'Staff';
-  await activityModel.create({
-    id: 'act_' + Date.now(),
-    text: `${name} applied for leave (${from_date} to ${to_date})`,
-    at: new Date().toISOString(),
-    read: 0
-  });
+  const span = from_date === to_date ? from_date : `${from_date} to ${to_date}`;
+  await activityModel.log(`${name} ${kind === 'wfh' ? 'will work from home' : 'applied for leave'} (${span})${reason ? ' · ' + reason : ''}${leave.remarks ? ' · ' + leave.remarks : ''}`);
 
-  return apiResponse.created(res, leave, 'Leave recorded successfully');
+  return apiResponse.created(res, leave, kind === 'wfh' ? 'Work from home recorded' : 'Leave recorded successfully');
 });
 
 const deleteLeave = catchAsync(async (req, res) => {

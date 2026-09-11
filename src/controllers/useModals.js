@@ -127,15 +127,22 @@ export function useModals() {
         }
       });
     } else if (kind === 'leave') {
+      const canPickOthers = isAdmin || (me && me.access === 'manager');
       openModal({
-        title: 'Apply leave', sub: 'Leave days count as paid days in payroll and are excluded from unaccounted days.', ok: 'Apply',
+        title: 'Apply leave / work from home', sub: 'Leave days count as paid days in payroll. Work-from-home days are normal working days: clock in as usual and the punch is marked WFH.', ok: 'Apply',
         fields: [
-          { name: 'emp', label: 'Employee', type: 'select', options: isAdmin ? empOnly : empOnly.filter(o => o.v === meId), value: preset.emp || meId },
-          { name: 'reason', label: 'Reason', type: 'select', options: ['Casual', 'Sick', 'Personal', 'Vacation'].map(x => ({ v: x, l: x })) },
+          { name: 'kind', label: 'Type', type: 'select', required: true, options: [{ v: 'leave', l: 'Leave' }, { v: 'wfh', l: 'Work from home' }], value: preset.kind || 'leave', onChange: v => ({ reason: v === 'wfh' ? 'Client visit' : 'Casual' }) },
+          { name: 'emp', label: 'Employee', type: 'select', required: true, options: canPickOthers ? empOnly : empOnly.filter(o => o.v === meId), value: preset.emp || meId },
           { name: 'from_date', label: 'From', type: 'date', required: true, value: todayISO() },
-          { name: 'to_date', label: 'To', type: 'date', required: true, value: todayISO(), validate: (v, all) => v >= all.from_date || 'End date must be after start date.' }
+          { name: 'to_date', label: 'To', type: 'date', required: true, value: todayISO(), validate: (v, all) => v >= all.from_date || 'End date must be after start date.' },
+          { name: 'reason', label: 'Reason', type: 'select', required: true, optionsFor: v => (v.kind === 'wfh' ? ['Client visit', 'Field work', 'Health', 'Weather / travel', 'Other'] : ['Casual', 'Sick', 'Personal', 'Vacation', 'Other']).map(x => ({ v: x, l: x })), value: 'Casual' },
+          { name: 'remarks', label: 'Remarks', type: 'textarea', span: true, value: '', placeholder: 'Anything the team should know (optional)' }
         ],
-        onSubmit: async d => { await LeaveModel.apply({ emp: d.emp, from_date: d.from_date, to_date: d.to_date, reason: d.reason }); toast('Leave applied.'); await reload('leaves', 'employees', 'activity'); }
+        onSubmit: async d => {
+          await LeaveModel.apply({ kind: d.kind, emp: d.emp, from_date: d.from_date, to_date: d.to_date, reason: d.reason, remarks: d.remarks });
+          toast(d.kind === 'wfh' ? 'Work from home recorded.' : 'Leave applied.');
+          await reload('leaves', 'employees', 'activity', 'myStats');
+        }
       });
     } else if (kind === 'payment') {
       openModal({

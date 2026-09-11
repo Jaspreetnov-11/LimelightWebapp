@@ -58,6 +58,7 @@ function computeMonthStats(rows, leaves, month) {
   let leaveDays = 0;
   for (const l of leaves) {
     if (l.status && l.status !== 'approved') continue;
+    if (l.kind === 'wfh') continue; // work-from-home days are working days, not leave
     const start = new Date(String(l.from_date).slice(0, 10) + 'T00:00:00');
     const end = new Date(String(l.to_date).slice(0, 10) + 'T00:00:00');
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
@@ -89,6 +90,10 @@ class AttendanceService {
     const inSelfie = cleanSelfie(selfie, settingsService.get().selfieOnClockIn, 'clock in');
     purgeOldSelfies();
 
+    // An approved work-from-home request for today switches the punch to WFH mode
+    const wfh = await db.get("SELECT id FROM lh_leaves WHERE emp = ? AND kind = 'wfh' AND from_date <= ? AND to_date >= ? AND (status = 'approved' OR status = '' OR status IS NULL) LIMIT 1", [empId, today, today]);
+    if (wfh) mode = 'wfh';
+
     const timeStr = nowHHMM();
     const shift = emp ? emp.shift : 'day';
     const late = isLate(shift, timeStr) ? 1 : 0;
@@ -109,7 +114,7 @@ class AttendanceService {
       in_selfie: inSelfie
     });
 
-    await activityModel.log(`${emp ? emp.name : 'Employee'} clocked in at ${timeStr}${late ? ' (late)' : ''}${addr ? ' from ' + addr : ''}`);
+    await activityModel.log(`${emp ? emp.name : 'Employee'} clocked in at ${timeStr}${late ? ' (late)' : ''}${mode === 'wfh' ? ' · work from home' : ''}${addr ? ' from ' + addr : ''}`);
     return record;
   }
 

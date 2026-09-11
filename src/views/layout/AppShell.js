@@ -49,7 +49,7 @@ export function AppShell({ children }) {
     canCreateProject && ['project', 'brief', 'Add project'],
     isAdmin && ['employee', 'users', 'Add staff'],
     isAdmin && ['dept', 'build', 'Add department'],
-    ['leave', 'leaf', 'Apply leave'],
+    ['leave', 'leaf', 'Apply leave / WFH'],
     isAdmin && ['payment', 'file', 'Add payment'],
     ['file', 'file', 'Upload file']
   ].filter(Boolean);

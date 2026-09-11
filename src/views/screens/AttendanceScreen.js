@@ -30,10 +30,11 @@ export function AttendanceScreen() {
   const rec = useMemo(() => Object.fromEntries(rows.map(a => [a.emp, a])), [rows]);
   const emps = (tab === 'me' ? d.employees.filter(e => e.id === me.id) : d.employees).filter(e => { const s = q.toLowerCase(); return e.name.toLowerCase().includes(s) || (e.emp_id || '').toLowerCase().includes(s) || (e.phone || '').includes(s); });
   const lv = e => d.leaves.find(l => l.emp === e.id && l.from_date <= date && l.to_date >= date);
+  const onLeave = e => { const l = lv(e); return l && l.kind !== 'wfh'; };
   const cnt = k => rows.filter(a => attStatus(a) === k).length;
   const ot = rows.reduce((x, a) => x + (Number(a.ot_hours) || 0), 0), fine = rows.reduce((x, a) => x + (Number(a.fine_hours) || 0), 0);
   const punchedIn = rows.filter(a => a.clock_in).length, punchedOut = rows.filter(a => a.clock_out).length;
-  const leaveCount = d.employees.filter(lv).length + cnt('leave');
+  const leaveCount = d.employees.filter(onLeave).length + cnt('leave');
   const pager = usePager(emps, 10);
   const groups = {}; pager.items.forEach(e => { (groups[e.dept || 'Other'] = groups[e.dept || 'Other'] || []).push(e); });
   const unmarked = d.employees.length - rows.length;
@@ -67,7 +68,7 @@ export function AttendanceScreen() {
   const stLabel = (a, l) => {
     const st = attStatus(a);
     if (st) return <span className="st" style={{ color: { present: 'var(--ok)', half: 'var(--warn)', absent: 'var(--danger)', leave: 'var(--info)' }[st] }}>{ATT[st][1]}{a.clock_in ? <> · in {a.clock_in} <GeoLink lat={a.in_lat} lng={a.in_lng} addr={a.in_addr || 'map'} />{a.in_selfie && <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'in')} title="View clock-in selfie">📷</button>}</> : null}{a.clock_out ? <> · out {a.clock_out} <GeoLink lat={a.out_lat} lng={a.out_lng} addr={a.out_addr || 'map'} />{a.out_selfie && <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'out')} title="View clock-out selfie">📷</button>}</> : null}{Number(a.late) ? <Chip tone="or" style={{ marginLeft: 6 }}>Late</Chip> : null}{Number(a.ot_hours) ? ' · OT ' + a.ot_hours + 'h' : ''}{Number(a.fine_hours) ? ' · Fine ' + a.fine_hours + 'h' : ''}</span>;
-    if (l) return <span className="st" style={{ color: 'var(--info)' }}>On leave ({l.reason || ''})</span>;
+    if (l) return <span className="st" style={{ color: l.kind === 'wfh' ? 'var(--ok)' : 'var(--info)' }}>{l.kind === 'wfh' ? 'Work from home' : 'On leave'} ({l.reason || ''}){l.remarks ? ' · ' + l.remarks : ''}</span>;
     return <span className="st" style={{ color: 'var(--danger)' }}>Not Marked</span>;
   };
 
@@ -85,7 +86,7 @@ export function AttendanceScreen() {
           </div>
           <div className="sum" style={{ borderTop: '1px solid var(--line)' }}><div><span>Total Staff</span><b>{d.employees.length}</b></div><div><span>Present</span><b style={{ color: 'var(--ok)' }}>{cnt('present')}</b></div><div><span>Absent</span><b style={{ color: 'var(--danger)' }}>{cnt('absent')}</b></div><div><span>Half Day</span><b>{cnt('half')}</b></div><div><span>Overtime</span><b>{hrs(ot)}</b></div><div><span>Fine hours</span><b>{hrs(fine)}</b></div><div><span>Leave</span><b>{leaveCount}</b></div><div><span>Punched In</span><b>{punchedIn}</b></div><div><span>Punched Out</span><b>{punchedOut}</b></div></div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}><button className="date-btn" onClick={() => modals.open('leave')}>☂ Leaves</button><button className="date-btn" onClick={() => modals.open('payment', null, { type: 'Fine' })}>₹ Fine</button><Search value={q} onChange={setQ} placeholder="Search staff by name, phone or ID" style={{ flex: 1, minWidth: 220, maxWidth: 380 }} /></div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}><button className="date-btn" onClick={() => modals.open('leave')}>☂ Leave / WFH</button><button className="date-btn" onClick={() => modals.open('payment', null, { type: 'Fine' })}>₹ Fine</button><Search value={q} onChange={setQ} placeholder="Search staff by name, phone or ID" style={{ flex: 1, minWidth: 220, maxWidth: 380 }} /></div>
         {Object.keys(groups).sort().map(g => (
           <div key={g}>
             <div className="group-h">{g} <span className="n">{groups[g].length}</span></div>
