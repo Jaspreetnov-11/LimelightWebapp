@@ -68,14 +68,14 @@ export function AppShell({ children }) {
         <header className="topbar">
           <svg className="mark"><use href="#i-mark" /></svg>
           <span className={'sync ' + (error ? 'err' : 'on')}><i></i><span>{error ? 'Connection problem' : 'Live · Limelight API'}</span></span>
-          <button className="tb-btn" onClick={clock.act} disabled={clock.busy}><Icon name="clock" /><span className="tb-text">{clock.label}</span></button>
-          <div className="rel">
+          <button className="tb-btn tb-clock" onClick={clock.act} disabled={clock.busy}><Icon name="clock" /><span className="tb-text">{clock.label}</span></button>
+          <div className="rel tb-qa">
             <button className="tb-btn solid" data-menu-btn onClick={() => setMenu(m => (m === 'qa' ? '' : 'qa'))} aria-haspopup="true" aria-expanded={menu === 'qa'} aria-label="Quick actions"><span className="tb-text">Quick Actions</span><span className="tb-plus">+</span><Icon name="chev" /></button>
             <div className={'menu' + (menu === 'qa' ? ' open' : '')}>
               {quick.map(([kind, icon, label]) => <button key={kind} onClick={() => { setMenu(''); modals.open(kind); }}><Icon name={icon} />{label}</button>)}
             </div>
           </div>
-          <Link href="/notifications" className="tb-btn tb-icon rel" aria-label="Notifications"><Icon name="bell" /><span className="badge" hidden={!activity.unread}>{activity.unread}</span></Link>
+          <Link href="/notifications" className="tb-btn tb-icon rel tb-bell" aria-label="Notifications"><Icon name="bell" /><span className="badge" hidden={!activity.unread}>{activity.unread}</span></Link>
           <div className="rel">
             <button className="tb-btn tb-avatar" data-menu-btn onClick={() => setMenu(m => (m === 'user' ? '' : 'user'))} aria-haspopup="true"><Avatar e={me} cls="" /><Icon name="chev" /></button>
             <div className={'menu' + (menu === 'user' ? ' open' : '')}>
@@ -91,8 +91,8 @@ export function AppShell({ children }) {
 
         <nav className="bnav" aria-label="Main">
           <Link href="/dashboard" className={current === 'dashboard' ? 'active' : ''}><Icon name="grid" /><span>Home</span></Link>
-          <Link href="/tasks" className={current === 'tasks' ? 'active' : ''}><Icon name="check" /><span>Tasks</span></Link>
-          <button className={'bnav-clock ' + (clock.state === 'in' ? 'out' : clock.state === 'done' ? 'done' : '') + (clock.busy ? ' busy' : '')} onClick={clock.act}><span className="ring"><Icon name="clock" /></span><span>{clock.label}</span></button>
+          <Link href="/attendance" className={current === 'attendance' ? 'active' : ''}><Icon name="cal" /><span>Attendance</span></Link>
+          <Link href="/tasks" className={'bnav-clock' + (current === 'tasks' ? ' active' : '')}><span className="ring"><Icon name="check" /></span><span>Tasks</span></Link>
           <Link href="/notifications" className={current === 'notifications' ? 'active' : ''}><Icon name="bell" /><span>Alerts</span></Link>
           <button className={sheet ? 'active' : ''} onClick={() => setSheet(s => !s)}><Icon name="dots" /><span>More</span></button>
         </nav>
@@ -100,7 +100,7 @@ export function AppShell({ children }) {
           <div className="bsheet-in">
             <div className="bsheet-h">Menu <button className="mini-btn" onClick={() => setSheet(false)} aria-label="Close">✕</button></div>
             <div className="bsheet-grid">
-              {nav.filter(([k]) => !['dashboard', 'notifications', 'tasks'].includes(k)).map(([key, label, icon]) => (
+              {nav.filter(([k]) => !['dashboard', 'attendance', 'notifications', 'tasks'].includes(k)).map(([key, label, icon]) => (
                 <Link key={key} href={'/' + key} className={current === key ? 'active' : ''} style={{ textDecoration: 'none' }}><Icon name={icon} />{label}</Link>
               ))}
             </div>

@@ -831,3 +831,13 @@ td{padding:13px 16px}
 .field .help{font-size:11.5px; color:var(--muted); margin-top:4px}
 .ms-box.locked{display:grid; place-items:center; min-height:70px}
 .notif-alert{border-left:3px solid var(--danger)}
+
+/* ---------- Mobile app chrome: only the avatar stays in the top bar; Tasks is the centre button ---------- */
+@media (max-width:768px){
+  .topbar .tb-clock, .topbar .tb-qa, .topbar .tb-bell{display:none !important}
+  .topbar .sync{margin-right:auto}
+  .bnav a.bnav-clock{color:#fff; margin-top:-22px}
+  .bnav a.bnav-clock .ring{width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--ink);display:grid;place-items:center;box-shadow:0 10px 24px -8px rgba(255,210,31,.8), 0 0 0 6px #0C0C0E}
+  .bnav a.bnav-clock .ring svg{width:24px;height:24px}
+  .bnav a.bnav-clock.active span:last-child{color:var(--accent)}
+}

@@ -76,9 +76,8 @@ export function DashboardScreen() {
   // Upcoming events (next 30 days)
   const bdays = d.employees.filter(e => e.dob).map(e => ({ k: 'bd', label: 'Birthday', e, d: nextOccurrence(String(e.dob).slice(5, 10)) })).filter(x => daysUntil(x.d) <= 30);
   const anniv = d.employees.filter(e => e.joined && String(e.joined).slice(0, 4) !== String(now.getFullYear())).map(e => ({ k: 'an', label: 'Work anniversary', e, d: nextOccurrence(String(e.joined).slice(5, 10)) })).filter(x => daysUntil(x.d) <= 30);
-  const joiners = d.employees.filter(e => e.joined && daysUntil(new Date(String(e.joined).slice(0, 10) + 'T00:00:00')) >= -30).map(e => ({ k: 'nj', label: 'New joiner', e, d: new Date(String(e.joined).slice(0, 10) + 'T00:00:00') }));
   const hols = d.holidays.filter(h => h.date >= today).map(h => ({ k: 'ho', label: 'Holiday', name: h.name, d: new Date(h.date + 'T00:00:00') }));
-  const events = [...bdays, ...anniv, ...joiners, ...hols].sort((a, b) => a.d - b.d).slice(0, 10);
+  const events = [...bdays, ...anniv, ...hols].sort((a, b) => a.d - b.d).slice(0, 10);
 
   const projects = d.projects.filter(p => isAdmin || p.manager === me.id).slice().sort((a, b) => Number(b.consumed_mins) - Number(a.consumed_mins)).slice(0, 6);
   const todos = d.todos;
@@ -106,7 +105,7 @@ export function DashboardScreen() {
             {x.e ? <Avatar e={x.e} /> : <span className="ic or"><Icon name="cal" size={13} /></span>}
             <div><span className="k">{x.label} · {whenLabel(x.d)}</span>{x.e ? x.e.name : x.name}</div>
           </div>
-        )) : <div className="empty-ev">No birthdays, anniversaries, joiners or holidays in the next 30 days.</div>}
+        )) : <div className="empty-ev">No birthdays, anniversaries or holidays in the next 30 days.</div>}
       </div>
 
       <ClockCard />
