@@ -28,7 +28,9 @@ export function AttendanceScreen() {
   useEffect(() => { load(); }, [load, d.today]);
 
   const rec = useMemo(() => Object.fromEntries(rows.map(a => [a.emp, a])), [rows]);
-  const emps = (tab === 'me' ? d.employees.filter(e => e.id === me.id) : d.employees).filter(e => { const s = q.toLowerCase(); return e.name.toLowerCase().includes(s) || (e.emp_id || '').toLowerCase().includes(s) || (e.phone || '').includes(s); });
+  // Punched-in staff float to the top: currently clocked in first, then clocked out, then not punched yet
+  const rank = e => { const a = rec[e.id]; if (!a || !a.clock_in) return 2; return a.clock_out ? 1 : 0; };
+  const emps = (tab === 'me' ? d.employees.filter(e => e.id === me.id) : d.employees).filter(e => { const s = q.toLowerCase(); return e.name.toLowerCase().includes(s) || (e.emp_id || '').toLowerCase().includes(s) || (e.phone || '').includes(s); }).sort((x, y) => rank(x) - rank(y) || String((rec[x.id] || {}).clock_in || '').localeCompare(String((rec[y.id] || {}).clock_in || '')) || x.name.localeCompare(y.name));
   const lv = e => d.leaves.find(l => l.emp === e.id && l.from_date <= date && l.to_date >= date && l.status !== 'rejected');
   const onLeave = e => { const l = lv(e); return l && l.kind !== 'wfh'; };
   const cnt = k => rows.filter(a => attStatus(a) === k).length;
@@ -87,7 +89,7 @@ export function AttendanceScreen() {
           <div className="sum" style={{ borderTop: '1px solid var(--line)' }}><div><span>Total Staff</span><b>{d.employees.length}</b></div><div><span>Present</span><b style={{ color: 'var(--ok)' }}>{cnt('present')}</b></div><div><span>Absent</span><b style={{ color: 'var(--danger)' }}>{cnt('absent')}</b></div><div><span>Half Day</span><b>{cnt('half')}</b></div><div><span>Overtime</span><b>{hrs(ot)}</b></div><div><span>Fine hours</span><b>{hrs(fine)}</b></div><div><span>Leave</span><b>{leaveCount}</b></div><div><span>Punched In</span><b>{punchedIn}</b></div><div><span>Punched Out</span><b>{punchedOut}</b></div></div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}><button className="date-btn" onClick={() => modals.open('leave')}>☂ Leave / WFH</button><button className="date-btn" onClick={() => modals.open('payment', null, { type: 'Fine' })}>₹ Fine</button><Search value={q} onChange={setQ} placeholder="Search staff by name, phone or ID" style={{ flex: 1, minWidth: 220, maxWidth: 380 }} /></div>
-        {Object.keys(groups).sort().map(g => (
+        {Object.keys(groups).sort((x, y) => Math.min(...groups[x].map(rank)) - Math.min(...groups[y].map(rank)) || x.localeCompare(y)).map(g => (
           <div key={g}>
             <div className="group-h">{g} <span className="n">{groups[g].length}</span></div>
             <div className="panel">
