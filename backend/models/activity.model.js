@@ -45,6 +45,20 @@ class ActivityModel extends BaseModel {
     return row ? Number(row.count) || 0 : 0;
   }
 
+  /** Delete one notification if it is in the caller's scope. */
+  async deleteFor(id, userId, isAdmin) {
+    const s = this.scopeSql(userId, isAdmin);
+    const r = await db.run(`DELETE FROM lh_activity WHERE id = ? AND ${s.sql}`, [id, ...s.params]);
+    return r.changes > 0;
+  }
+
+  /** Delete every notification in the caller's scope. */
+  async clearFor(userId, isAdmin) {
+    const s = this.scopeSql(userId, isAdmin);
+    const r = await db.run(`DELETE FROM lh_activity WHERE ${s.sql}`, s.params);
+    return r.changes;
+  }
+
   async markAllAsReadFor(userId, isAdmin) {
     const s = this.scopeSql(userId, isAdmin);
     await db.run(`UPDATE lh_activity SET read = 1 WHERE read = 0 AND ${s.sql}`, s.params);

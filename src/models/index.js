@@ -98,6 +98,8 @@ export const FileModel = {
 export const ActivityModel = {
   list: limit => full(api.get('/activity', { limit: limit || 60 })),
   markAllRead: () => api.post('/activity/read-all'),
+  remove: id => api.del('/activity/' + id),
+  clear: () => api.del('/activity'),
   alerts: () => data(api.get('/activity/alerts'))
 };
 

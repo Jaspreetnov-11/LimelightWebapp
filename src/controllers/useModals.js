@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { useAuth } from './AuthController';
 import { useData } from './DataController';
 import { useUi } from './UiController';
-import { AttendanceModel, DepartmentModel, EmployeeModel, FileModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
+import { AttendanceModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
 import { ACCESS_LABEL, avFor, ini, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO } from '@/lib/format';
 
 export function useModals() {
@@ -153,6 +153,15 @@ export function useModals() {
           await reload('today', 'employees');
           if (preset.after) preset.after();
         }
+      });
+    } else if (kind === 'holiday') {
+      openModal({
+        title: 'Add holiday', sub: 'Holidays show under Events for everyone.', ok: 'Add holiday',
+        fields: [
+          { name: 'name', label: 'Holiday name', required: true, span: true, value: '', placeholder: 'e.g. Diwali' },
+          { name: 'date', label: 'Date', type: 'date', required: true, value: todayISO() }
+        ],
+        onSubmit: async d => { await HolidayModel.create({ name: d.name, date: d.date }); toast('Holiday added.'); await reload('holidays'); }
       });
     } else if (kind === 'file') {
       const projOpts = [{ v: '', l: 'General' }].concat(projects.map(p => ({ v: p.id, l: p.name })));

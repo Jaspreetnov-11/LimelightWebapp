@@ -20,7 +20,10 @@ export function NotificationsScreen() {
     ...a.overshotProjects.map(p => ({ c: 'var(--danger)', t: p.name + ' is at ' + pct(Number(p.consumed_mins), Number(p.alloc)) + '% of its allocated hours', m: 'Project overrun', go: '/projects' })),
     ...a.overdueTasks.map(t => ({ c: 'var(--warn)', t: '"' + t.title + '" (' + d.taskAssigneeNames(t) + ') was due ' + fmtD(t.deadline), m: 'Overdue task', go: '/tasks' }))
   ];
+  const { confirm } = useUi();
   const markAll = async () => { try { await ActivityModel.markAllRead(); await d.reload('activity'); } catch (err) { toast(err.message); } };
+  const removeOne = async id => { try { await ActivityModel.remove(id); await d.reload('activity'); } catch (err) { toast(err.message); } };
+  const clearAll = async () => { if (!confirm('Delete all notifications?')) return; try { await ActivityModel.clear(); await d.reload('activity'); toast('Notifications cleared.'); } catch (err) { toast(err.message); } };
   const pager = usePager(d.activity.items, 20);
   const when = at => (at ? new Date(at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
   return (
@@ -31,9 +34,9 @@ export function NotificationsScreen() {
           {alerts.map((i, k) => <div className="row" key={k}><i className="dot" style={{ background: i.c }}></i><div>{i.t}<small>{i.m}</small></div><LinkBtn href={i.go} style={{ marginLeft: 'auto' }}>Open</LinkBtn></div>)}
         </div>
       </>)}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><SectionTitle>Notifications {d.activity.unread > 0 && <Chip tone="pu">{d.activity.unread} new</Chip>}</SectionTitle>{d.activity.unread > 0 && <LinkBtn onClick={markAll}>Mark all read</LinkBtn>}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><SectionTitle>Notifications {d.activity.unread > 0 && <Chip tone="pu">{d.activity.unread} new</Chip>}</SectionTitle><span style={{ display: 'flex', gap: 14 }}>{d.activity.unread > 0 && <LinkBtn onClick={markAll}>Mark all read</LinkBtn>}{d.activity.items.length > 0 && <LinkBtn onClick={clearAll} style={{ color: 'var(--danger)' }}>Clear all</LinkBtn>}</span></div>
       <div className="panel panel-b list simple-list" style={{ paddingTop: 4 }}>
-        {pager.items.map(x => <div className="row" key={x.id} style={x.read ? undefined : { background: 'rgba(255,255,255,.04)', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}><i className="dot" style={{ background: x.read ? 'var(--dim)' : x.kind === 'task' ? 'var(--accent)' : x.kind === 'project' ? 'var(--violet)' : 'var(--info)' }}></i><div>{x.text}<small>{when(x.at)}</small></div>{x.link && <LinkBtn href={x.link} style={{ marginLeft: 'auto' }}>Open</LinkBtn>}</div>)}
+        {pager.items.map(x => <div className="row" key={x.id} style={x.read ? undefined : { background: 'var(--ov-04)', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}><i className="dot" style={{ background: x.read ? 'var(--dim)' : x.kind === 'task' ? 'var(--accent)' : x.kind === 'project' ? 'var(--violet)' : 'var(--info)' }}></i><div style={{ flex: 1, minWidth: 0 }}>{x.text}<small>{when(x.at)}</small></div>{x.link && <LinkBtn href={x.link}>Open</LinkBtn>}<button className="mini-btn" onClick={() => removeOne(x.id)} aria-label="Delete notification" title="Delete">✕</button></div>)}
         {!d.activity.items.length && !alerts.length && <Empty ring title="All clear">Nothing needs your attention</Empty>}
         {!d.activity.items.length && alerts.length > 0 && <Empty>No notifications yet</Empty>}
         <Pager pager={pager} compact />

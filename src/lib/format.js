@@ -23,7 +23,14 @@ export const fmtDY = iso => (iso ? new Date(iso.slice(0, 10) + 'T00:00:00').toLo
 export const monthLabel = m => new Date(m + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 export const shiftMonth = (m, n) => { const [y, mo] = m.split('-').map(Number); const d = new Date(y, mo - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
 export const hm = mins => { mins = Math.round(mins || 0); return String(Math.floor(mins / 60)).padStart(2, '0') + 'h ' + String(mins % 60).padStart(2, '0') + 'm'; };
-export const hrs1 = mins => (Math.round(((Number(mins) || 0) / 60) * 10) / 10) + 'h';
+/** Hours + minutes, e.g. "8h 20m" (no leading zero on hours). */
+export const hrs1 = mins => { const m = Math.max(0, Math.round(Number(mins) || 0)); return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
+/** Minutes worked so far today from a punch (live while clocked in). */
+export const workedToday = (punch, now = new Date()) => {
+  if (!punch || !punch.clock_in) return 0;
+  if (punch.clock_out) return minsBetween(punch.clock_in, punch.clock_out);
+  return minsBetween(punch.clock_in, String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'));
+};
 export const hhmm = d => { let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, '0'); const ap = h >= 12 ? 'pm' : 'am'; h = h % 12 || 12; return h + ':' + m + ' ' + ap; };
 export const nowHHMM = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 export const ini = n => String(n || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');

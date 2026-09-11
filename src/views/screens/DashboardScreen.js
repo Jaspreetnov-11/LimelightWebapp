@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/controllers/AuthController';
 import { useData } from '@/controllers/DataController';
@@ -7,8 +7,8 @@ import { useUi } from '@/controllers/UiController';
 import { useClock } from '@/controllers/useClock';
 import { useModals } from '@/controllers/useModals';
 import { TaskModel, TodoModel } from '@/models';
-import { Avatar, Chip, Empty, GeoLink, Icon, LinkBtn, Panel, Pills, SectionTitle } from '@/views/ui';
-import { assigneeIds, daysUntil, fmtD, greeting, hhmm, hm, hrs1, inr, minsBetween, nextOccurrence, overdue, pct, thisMonth, todayISO, whenLabel } from '@/lib/format';
+import { Chip, Empty, GeoLink, Icon, LinkBtn, Panel, Pills, SectionTitle } from '@/views/ui';
+import { assigneeIds, fmtD, greeting, hhmm, hm, hrs1, inr, minsBetween, overdue, pct, thisMonth, workedToday } from '@/lib/format';
 
 function TaskMini({ t, onOpen, onAccept }) {
   const { taskAssigneeNames } = useData();
@@ -54,9 +54,13 @@ export function DashboardScreen() {
   const modals = useModals();
   const [pill, setPill] = useState('all');
   const [todoText, setTodoText] = useState('');
+  const [tick, setTick] = useState(0);
+  useEffect(() => { const t = setInterval(() => setTick(x => x + 1), 60000); return () => clearInterval(t); }, []); // live "worked today"
   const now = new Date();
-  const today = todayISO();
   const month = thisMonth();
+  const myPunch = d.today ? d.today.myPunch : null;
+  const todayMins = workedToday(myPunch, now);
+  void tick;
 
   const my = useMemo(() => d.tasks.filter(t => assigneeIds(t).includes(me.id)), [d.tasks, me.id]);
   const myOpen = my.filter(t => t.status !== 'completed');
@@ -72,12 +76,6 @@ export function DashboardScreen() {
   const deliveredAll = d.tasks.filter(t => t.status === 'completed' && String(t.completed || '').slice(0, 7) === month);
   const totalPending = d.employees.reduce((a, e) => a + (Number(e.pendingBal) || 0), 0);
   const overdueAll = d.tasks.filter(overdue);
-
-  // Upcoming events (next 30 days)
-  const bdays = d.employees.filter(e => e.dob).map(e => ({ k: 'bd', label: 'Birthday', e, d: nextOccurrence(String(e.dob).slice(5, 10)) })).filter(x => daysUntil(x.d) <= 30);
-  const anniv = d.employees.filter(e => e.joined && String(e.joined).slice(0, 4) !== String(now.getFullYear())).map(e => ({ k: 'an', label: 'Work anniversary', e, d: nextOccurrence(String(e.joined).slice(5, 10)) })).filter(x => daysUntil(x.d) <= 30);
-  const hols = d.holidays.filter(h => h.date >= today).map(h => ({ k: 'ho', label: 'Holiday', name: h.name, d: new Date(h.date + 'T00:00:00') }));
-  const events = [...bdays, ...anniv, ...hols].sort((a, b) => a.d - b.d).slice(0, 10);
 
   const projects = d.projects.filter(p => isAdmin || p.manager === me.id).slice().sort((a, b) => Number(b.consumed_mins) - Number(a.consumed_mins)).slice(0, 6);
   const todos = d.todos;
@@ -99,20 +97,12 @@ export function DashboardScreen() {
         </div>
       </div>
 
-      <div className="upcoming">
-        {events.length ? events.map((x, i) => (
-          <div className={'ev ' + x.k} key={i}>
-            {x.e ? <Avatar e={x.e} /> : <span className="ic or"><Icon name="cal" size={13} /></span>}
-            <div><span className="k">{x.label} · {whenLabel(x.d)}</span>{x.e ? x.e.name : x.name}</div>
-          </div>
-        )) : <div className="empty-ev">No birthdays, anniversaries or holidays in the next 30 days.</div>}
-      </div>
-
       <ClockCard />
 
       <SectionTitle>Your month</SectionTitle>
       <div className="kpis">
-        <Kpi label="Avg working hours / day" value={hrs1(st.avgWorkingMinutes)} sub={'target ' + hrs1(8 * 60)} tone={st.avgWorkingMinutes >= 8 * 60 ? 'ok' : st.avgWorkingMinutes > 0 ? 'warn' : ''} />
+        <Kpi label="Worked today" value={hrs1(todayMins)} sub={myPunch && myPunch.clock_in ? (myPunch.clock_out ? 'in ' + myPunch.clock_in + ' · out ' + myPunch.clock_out : 'since ' + myPunch.clock_in + ' · running') : 'not clocked in yet'} tone={todayMins >= 8 * 60 ? 'ok' : ''} />
+        <Kpi label="Avg working hours / day" value={hrs1(st.avgWorkingMinutes)} sub={'this month · target 8h 00m'} tone={st.avgWorkingMinutes >= 8 * 60 ? 'ok' : st.avgWorkingMinutes > 0 ? 'warn' : ''} />
         <Kpi label="Hours this month" value={hrs1(st.totalWorkedMinutes)} sub={'of ' + hrs1(st.expectedMinutesSoFar) + ' expected so far'} bar={pct(st.totalWorkedMinutes, st.expectedMinutesSoFar)} />
         <Kpi label="Days present" value={(st.present + st.half) + ' / ' + st.workdaysSoFar} sub={st.late ? st.late + ' late arrival' + (st.late > 1 ? 's' : '') : 'no late arrivals'} tone={st.late ? 'warn' : ''} />
         <Kpi label="Overtime" value={(Number(st.otHours) || 0) + 'h'} sub="paid at 1× hourly" />
@@ -124,7 +114,7 @@ export function DashboardScreen() {
         <SectionTitle>Team this month</SectionTitle>
         <div className="kpis">
           <Kpi label="Staff" value={team.staffCount} sub={team.lateCount + ' late arrivals'} tone={team.lateCount ? 'warn' : ''} />
-          <Kpi label="Team avg hours / day" value={hrs1(team.avgWorkingMinutes)} sub="target 8h" tone={team.avgWorkingMinutes >= 8 * 60 ? 'ok' : team.avgWorkingMinutes > 0 ? 'warn' : ''} />
+          <Kpi label="Team avg hours / day" value={hrs1(team.avgWorkingMinutes)} sub="target 8h 00m" tone={team.avgWorkingMinutes >= 8 * 60 ? 'ok' : team.avgWorkingMinutes > 0 ? 'warn' : ''} />
           <Kpi label="Team hours" value={hrs1(team.totalWorkedMinutes)} sub={'of ' + hrs1(team.expectedMinutesSoFar) + ' expected'} bar={pct(team.totalWorkedMinutes, team.expectedMinutesSoFar)} />
           <Kpi label="Overtime hours" value={Math.round(team.otHours * 10) / 10 + 'h'} sub="across the team" />
           <Kpi label="Tasks delivered" value={deliveredAll.length} sub={overdueAll.length + ' overdue'} tone={overdueAll.length ? 'bad' : ''} />

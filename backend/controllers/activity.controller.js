@@ -4,6 +4,7 @@ const activityModel = require('../models/activity.model');
 const taskModel = require('../models/task.model');
 const projectModel = require('../models/project.model');
 const apiResponse = require('../utils/apiResponse');
+const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const { todayISO } = require('../utils/calculations');
 
@@ -23,6 +24,17 @@ const markAllRead = catchAsync(async (req, res) => {
   return apiResponse.success(res, null, 'Marked all activities as read');
 });
 
+const deleteOne = catchAsync(async (req, res) => {
+  const ok = await activityModel.deleteFor(req.params.id, req.user.id, isAdmin(req));
+  if (!ok) throw new AppError('Notification not found', 404);
+  return apiResponse.success(res, null, 'Notification removed');
+});
+
+const clearAll = catchAsync(async (req, res) => {
+  const n = await activityModel.clearFor(req.user.id, isAdmin(req));
+  return apiResponse.success(res, { removed: n }, 'Notifications cleared');
+});
+
 /** Things that need attention: overdue tasks (own for staff, all for admins) and overshot projects. */
 const getAlerts = catchAsync(async (req, res) => {
   const today = todayISO();
@@ -34,4 +46,4 @@ const getAlerts = catchAsync(async (req, res) => {
   return apiResponse.success(res, { totalAlerts: overdueTasks.length + overshotProjects.length, overdueTasks, overshotProjects });
 });
 
-module.exports = { getActivities, markAllRead, getAlerts };
+module.exports = { getActivities, markAllRead, getAlerts, deleteOne, clearAll };
