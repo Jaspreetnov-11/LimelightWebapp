@@ -22,9 +22,11 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Patrick+Hand&display=swap" />
+        {/* Apply the saved appearance before first paint so there is no dark/light flash */}
+        <script dangerouslySetInnerHTML={{ __html: "try{if(localStorage.getItem('lh-theme')==='light'){document.documentElement.setAttribute('data-theme','light');}}catch(e){}" }} />
       </head>
       <body>
         <IconSprite />

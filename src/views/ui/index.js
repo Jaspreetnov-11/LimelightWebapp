@@ -43,7 +43,7 @@ export function Stat({ icon, tone = 'pu', value, label, onClick, valueClass }) {
 export function Empty({ icon = 'circle-check', title, children, ring }) {
   return (
     <div className="empty">
-      {ring ? <span className="ring"><Icon name={icon} /></span> : <Icon name={icon} size={28} style={{ color: '#55555E' }} />}
+      {ring ? <span className="ring"><Icon name={icon} /></span> : <Icon name={icon} size={28} style={{ color: 'var(--dim)' }} />}
       {title && <b>{title}</b>}{children}
     </div>
   );

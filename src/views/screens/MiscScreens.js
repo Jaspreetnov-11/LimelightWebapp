@@ -6,7 +6,8 @@ import { useData } from '@/controllers/DataController';
 import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
 import { ActivityModel, AuthModel, FileModel } from '@/models';
-import { Chip, Empty, Icon, LinkBtn, SectionTitle } from '@/views/ui';
+import { Chip, Empty, Icon, LinkBtn, SectionTitle, Seg } from '@/views/ui';
+import { THEMES, useTheme } from '@/controllers/useTheme';
 import { Pager, usePager } from '@/views/ui/Pager';
 import { fmtD, inr, pct, SHIFTS } from '@/lib/format';
 
@@ -32,7 +33,7 @@ export function NotificationsScreen() {
       </>)}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><SectionTitle>Notifications {d.activity.unread > 0 && <Chip tone="pu">{d.activity.unread} new</Chip>}</SectionTitle>{d.activity.unread > 0 && <LinkBtn onClick={markAll}>Mark all read</LinkBtn>}</div>
       <div className="panel panel-b list simple-list" style={{ paddingTop: 4 }}>
-        {pager.items.map(x => <div className="row" key={x.id} style={x.read ? undefined : { background: 'rgba(255,255,255,.04)', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}><i className="dot" style={{ background: x.read ? '#55555E' : x.kind === 'task' ? 'var(--accent)' : x.kind === 'project' ? 'var(--violet)' : 'var(--info)' }}></i><div>{x.text}<small>{when(x.at)}</small></div>{x.link && <LinkBtn href={x.link} style={{ marginLeft: 'auto' }}>Open</LinkBtn>}</div>)}
+        {pager.items.map(x => <div className="row" key={x.id} style={x.read ? undefined : { background: 'rgba(255,255,255,.04)', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}><i className="dot" style={{ background: x.read ? 'var(--dim)' : x.kind === 'task' ? 'var(--accent)' : x.kind === 'project' ? 'var(--violet)' : 'var(--info)' }}></i><div>{x.text}<small>{when(x.at)}</small></div>{x.link && <LinkBtn href={x.link} style={{ marginLeft: 'auto' }}>Open</LinkBtn>}</div>)}
         {!d.activity.items.length && !alerts.length && <Empty ring title="All clear">Nothing needs your attention</Empty>}
         {!d.activity.items.length && alerts.length > 0 && <Empty>No notifications yet</Empty>}
         <Pager pager={pager} compact />
@@ -66,9 +67,14 @@ export function SettingsScreen() {
   useEffect(() => { AuthModel.health().then(setHealth).catch(() => setHealth({ status: 'unreachable' })); }, []);
   const meRow = d.employees.find(e => e.id === me.id);
   const role = isAdmin ? 'Admin' : me.access === 'manager' ? 'Team leader' : 'Staff';
+  const [theme, setTheme] = useTheme();
   return (
     <div className="content">
       <SectionTitle>Settings</SectionTitle>
+      <div className="panel" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div><b style={{ fontSize: 15 }}>Appearance</b><div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>Dark keeps the yellow accent; Light is white with a graphite accent. Saved on this device.</div></div>
+        <Seg items={THEMES} value={theme} onChange={setTheme} />
+      </div>
       <div className="grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
         <div className="panel" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><b style={{ fontSize: 15 }}>Your account</b><Chip tone={isAdmin ? 'pu' : 'gy'}>{role}</Chip></div>

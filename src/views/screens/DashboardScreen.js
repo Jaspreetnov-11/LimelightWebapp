@@ -87,7 +87,7 @@ export function DashboardScreen() {
   const delTodo = async id => { try { await TodoModel.remove(id); await d.reload('todos'); } catch (err) { toast(err.message); } };
   const openTask = () => { window.location.assign('/tasks'); };
   const accept = async id => { try { await TaskModel.setStatus(id, 'progress'); toast('Accepted. Timer started.'); await d.reload('tasks', 'activity'); } catch (err) { toast(err.message); } };
-  const listOr = arr => (arr.length ? <div className="list" style={{ marginTop: 10 }}>{arr.slice(0, 6).map(t => <TaskMini key={t.id} t={t} onOpen={openTask} onAccept={accept} />)}</div> : <div className="empty" style={{ padding: '30px 10px' }}><Icon name="circle-check" size={30} style={{ color: '#55555E' }} />Nothing here</div>);
+  const listOr = arr => (arr.length ? <div className="list" style={{ marginTop: 10 }}>{arr.slice(0, 6).map(t => <TaskMini key={t.id} t={t} onOpen={openTask} onAccept={accept} />)}</div> : <div className="empty" style={{ padding: '30px 10px' }}><Icon name="circle-check" size={30} style={{ color: 'var(--dim)' }} />Nothing here</div>);
 
   return (
     <div className="content">
