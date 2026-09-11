@@ -11,10 +11,11 @@ import { Avatar, Chip, Donut, Empty, GeoLink, Icon, Legend, LinkBtn, Panel, Pill
 import { assigneeIds, daysUntil, fmtD, greeting, hhmm, hm, inr, minsBetween, nextOccurrence, overdue, pct, todayISO, whenLabel } from '@/lib/format';
 
 function TaskMini({ t, onOpen }) {
+  const { taskAssigneeNames } = useData();
   return (
     <div className="row" style={{ alignItems: 'flex-start', gap: 8 }}>
       <Chip tone={overdue(t) ? 'pk' : 'gy'} style={{ flex: '0 0 auto' }}>{fmtD(t.deadline)}</Chip>
-      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 500 }}>{t.title}</div><small style={{ color: 'var(--muted)' }}>{t.project_name || 'Personal / Operational'} · {t.assignee_name || '—'}</small></div>
+      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 500 }}>{t.title}</div><small style={{ color: 'var(--muted)' }}>{t.project_name || 'Personal / Operational'} · {taskAssigneeNames(t)}</small></div>
       <LinkBtn onClick={() => onOpen(t.id)}>Open</LinkBtn>
     </div>
   );

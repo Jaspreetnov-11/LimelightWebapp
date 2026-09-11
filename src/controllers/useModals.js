@@ -5,7 +5,7 @@ import { useAuth } from './AuthController';
 import { useData } from './DataController';
 import { useUi } from './UiController';
 import { AttendanceModel, DepartmentModel, EmployeeModel, FileModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
-import { PAY_TYPES, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO } from '@/lib/format';
+import { avFor, ini, PAY_TYPES, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO } from '@/lib/format';
 
 export function useModals() {
   const { me } = useAuth();
@@ -26,7 +26,7 @@ export function useModals() {
         fields: [
           { name: 'title', label: 'Task title', required: true, span: true, value: t ? t.title : '', placeholder: 'What needs to be done?' },
           { name: 'project', label: 'Project', type: 'select', options: projOpts, value: t ? t.project : (preset.project || '') },
-          { name: 'assignee', label: 'Assignee', type: 'select', options: empOpts, value: t ? String(t.assignee || '').split(',')[0] : (preset.assignee || meId) },
+          { name: 'assignees', label: 'Assign to (one or more)', type: 'multiselect', span: true, options: employees.map(e => ({ v: e.id, l: e.name, sub: e.role || '', av: e.av || avFor(e.name), ini: e.ini || ini(e.name) })), value: t ? String(t.assignee || '').split(',').map(s => s.trim()).filter(Boolean) : (preset.assignee ? [preset.assignee] : (meId ? [meId] : [])) },
           { name: 'assigned', label: 'Assigned on', type: 'date', required: true, value: t ? (t.assigned || '') : todayISO() },
           { name: 'deadline', label: 'Deadline', type: 'date', required: true, value: t ? (t.deadline || '') : todayISO() },
           { name: 'status', label: 'Status', type: 'select', options: STATUSES.map(k => ({ v: k, l: STATUS_LABEL[k] })), value: t ? t.status : 'pipeline' },
@@ -34,7 +34,7 @@ export function useModals() {
           { name: 'type', label: 'Task type', type: 'select', options: TASK_TYPES.map(x => ({ v: x, l: x })), value: t ? t.type : 'Other' }
         ],
         onSubmit: async d => {
-          const body = { title: d.title, project: d.project, assignee: d.assignee, assigned: d.assigned, deadline: d.deadline, status: d.status, mins: Number(d.mins) || 0, type: d.type };
+          const body = { title: d.title, project: d.project, assignee: (Array.isArray(d.assignees) ? d.assignees : []).join(','), assigned: d.assigned, deadline: d.deadline, status: d.status, mins: Number(d.mins) || 0, type: d.type };
           if (t) { await TaskModel.update(t.id, body); toast('Task updated.'); } else { await TaskModel.create(body); toast('Task added.'); }
           await reload('tasks', 'projects', 'activity', 'alerts');
         }

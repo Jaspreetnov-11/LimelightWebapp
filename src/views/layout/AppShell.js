@@ -64,7 +64,7 @@ export function AppShell({ children }) {
             <button className="tb-btn" aria-label="Open attendance" onClick={() => router.push('/attendance')}><Icon name="chev" /></button>
           </div>
           <div className="rel">
-            <button className="tb-btn solid" data-menu-btn onClick={() => setMenu(m => (m === 'qa' ? '' : 'qa'))} aria-haspopup="true" aria-expanded={menu === 'qa'}><span className="tb-text">Quick Actions</span><Icon name="chev" /></button>
+            <button className="tb-btn solid" data-menu-btn onClick={() => setMenu(m => (m === 'qa' ? '' : 'qa'))} aria-haspopup="true" aria-expanded={menu === 'qa'} aria-label="Quick actions"><span className="tb-text">Quick Actions</span><span className="tb-plus">+</span><Icon name="chev" /></button>
             <div className={'menu' + (menu === 'qa' ? ' open' : '')}>
               {quick.map(([kind, icon, label]) => <button key={kind} onClick={() => { setMenu(''); modals.open(kind); }}><Icon name={icon} />{label}</button>)}
             </div>

@@ -7,6 +7,7 @@ import { useModals } from '@/controllers/useModals';
 import { TaskModel } from '@/models';
 import { saveCsv } from '@/lib/download';
 import { Avatar, Empty, Icon, LinkBtn, Seg, Sq, TaskChip } from '@/views/ui';
+import { Assignees } from '@/views/ui/Assignees';
 import { assigneeIds, fmtD, hm, overdue, STATUSES, STATUS_LABEL } from '@/lib/format';
 
 const COL_CLS = { pipeline: '', progress: 'ip', approval: 'pa', completed: 'cp', hold: 'oh' };
@@ -37,15 +38,15 @@ export function TasksScreen() {
 
   const move = async (id, to) => { const t = d.tasks.find(x => x.id === id); if (!t || t.status === to) return; try { await TaskModel.setStatus(id, to); toast('Moved to ' + STATUS_LABEL[to]); await d.reload('tasks', 'projects', 'activity', 'alerts'); } catch (err) { toast(err.message); } };
   const del = async t => { if (!confirm('Delete "' + t.title + '"?')) return; try { await TaskModel.remove(t.id); toast('Task deleted.'); await d.reload('tasks', 'projects'); } catch (err) { toast(err.message); } };
-  const exportCsv = () => saveCsv('tasks.csv', [['Title', 'Project', 'Assignee', 'Assigned', 'Deadline', 'Minutes', 'Status']].concat(tasks.map(t => [t.title, t.project_name || d.projName(t.project), t.assignee_name || d.empName(t.assignee), t.assigned, t.deadline, t.mins, STATUS_LABEL[t.status]])));
+  const exportCsv = () => saveCsv('tasks.csv', [['Title', 'Project', 'Assignee', 'Assigned', 'Deadline', 'Minutes', 'Status']].concat(tasks.map(t => [t.title, t.project_name || d.projName(t.project), d.taskAssigneeNames(t), t.assigned, t.deadline, t.mins, STATUS_LABEL[t.status]])));
 
-  const card = t => { const e = d.empById[assigneeIds(t)[0]]; const od = overdue(t); return (
+  const card = t => { const od = overdue(t); return (
     <div className={'tcard' + (dragId === t.id ? ' dragging' : '')} key={t.id} draggable onDragStart={ev => { setDragId(t.id); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', t.id); } catch (x) { /* ignore */ } }} onDragEnd={() => { setDragId(null); setOverCol(''); }}>
       <div className="p"><span>{t.project_name || d.projName(t.project)}</span><span style={{ display: 'flex', gap: 2, alignItems: 'center' }}><i className={od ? 'r' : ''} title={od ? 'Overdue' : ''}><Icon name="flag" size={14} /></i><button onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="file" /></button><button onClick={() => del(t)} aria-label="Delete">✕</button></span></div>
       <small>{t.type || 'Other'}{Number(t.mins) ? ' · ' + hm(t.mins) : ''}</small>
       <div>{t.title}</div>
       <div className="dates"><div><small>Assigned</small>{fmtD(t.assigned)}</div><div className={t.status === 'completed' ? 'ok' : ''} style={od ? { borderColor: 'rgba(255,92,122,.5)' } : undefined}><small>{t.status === 'completed' ? 'Completed' : 'Deadline'}</small>{fmtD(t.status === 'completed' ? (t.completed || t.deadline) : t.deadline)}</div></div>
-      <div className="who"><Avatar e={e} name={t.assignee_name} av={t.assignee_av} ini={t.assignee_ini} />{t.assignee_name || (e ? e.name : 'Unassigned')}</div>
+      <Assignees task={t} />
       <div className="move">{STATUSES.filter(k => k !== t.status).map(k => <button key={k} onClick={() => move(t.id, k)}>→ {STATUS_LABEL[k]}</button>)}</div>
     </div>); };
 
@@ -74,7 +75,7 @@ export function TasksScreen() {
         ) : (
           <div className="content"><div className="panel">
             <div className="task-row head"><span>Task</span><span>Project</span><span>Assignee</span><span>Assigned</span><span>Deadline</span><span>Time</span><span>Status</span></div>
-            {tasks.map(t => <div className="task-row" key={t.id}><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn><span>{t.project_name || d.projName(t.project)}</span><span>{t.assignee_name || d.empName(t.assignee)}</span><span>{fmtD(t.assigned)}</span><span style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</span><span>{hm(t.mins)}</span><TaskChip status={t.status} /></div>)}
+            {tasks.map(t => <div className="task-row" key={t.id}><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn><span>{t.project_name || d.projName(t.project)}</span><span>{d.taskAssigneeNames(t)}</span><span>{fmtD(t.assigned)}</span><span style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</span><span>{hm(t.mins)}</span><TaskChip status={t.status} /></div>)}
             {!tasks.length && <Empty>No tasks</Empty>}
           </div></div>
         )}

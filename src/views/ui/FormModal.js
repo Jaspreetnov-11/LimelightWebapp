@@ -36,7 +36,7 @@ export function FormModal() {
     const errs = {};
     (modal.fields || []).forEach(f => {
       const raw = values[f.name];
-      const v = typeof raw === 'object' && raw ? 'file' : String(raw == null ? '' : raw).trim();
+      const v = Array.isArray(raw) ? (raw.length ? 'list' : '') : typeof raw === 'object' && raw ? 'file' : String(raw == null ? '' : raw).trim();
       if (f.required && !v) errs[f.name] = f.error || 'This field is required.';
       else if (v && f.type === 'email' && !emailOk(v)) errs[f.name] = 'Enter a valid email.';
       else if (v && f.type === 'url' && !urlOk(v)) errs[f.name] = 'Enter a valid URL.';
@@ -74,6 +74,16 @@ export function FormModal() {
                       </select>
                     ) : f.type === 'textarea' ? (
                       <textarea id={'m-' + f.name} value={values[f.name] ?? ''} placeholder={f.placeholder} onChange={e => set(f.name, e.target.value)} />
+                    ) : f.type === 'multiselect' ? (
+                      <div>
+                        <div className="ms-box" id={'m-' + f.name}>
+                          {(f.options || []).map(o => { const sel = Array.isArray(values[f.name]) && values[f.name].includes(o.v); return (
+                            <label key={o.v}><input type="checkbox" checked={!!sel} onChange={e => { const cur = Array.isArray(values[f.name]) ? values[f.name] : []; set(f.name, e.target.checked ? [...cur, o.v] : cur.filter(x => x !== o.v)); }} />{o.av && <span className={'avatar ' + o.av}>{o.ini}</span>}{o.l}{o.sub && <small>{o.sub}</small>}</label>
+                          ); })}
+                          {!(f.options || []).length && <div className="ms-count">Nothing to choose from</div>}
+                        </div>
+                        <div className="ms-count">{(Array.isArray(values[f.name]) ? values[f.name].length : 0)} selected</div>
+                      </div>
                     ) : f.type === 'file' ? (
                       <input id={'m-' + f.name} type="file" accept={f.accept} onChange={e => set(f.name, e.target.files && e.target.files[0] ? e.target.files[0] : '')} />
                     ) : (

@@ -58,8 +58,10 @@ export function DataProvider({ children }) {
   const helpers = useMemo(() => {
     const empById = Object.fromEntries(state.employees.map(e => [e.id, e]));
     const projById = Object.fromEntries(state.projects.map(p => [p.id, p]));
+    const taskAssignees = t => String((t && t.assignee) || '').split(',').map(s => s.trim()).filter(Boolean).map(id => empById[id]).filter(Boolean);
     return {
-      empById, projById,
+      empById, projById, taskAssignees,
+      taskAssigneeNames: t => { const a = taskAssignees(t); return a.length ? a.map(e => e.name).join(', ') : 'Unassigned'; },
       empName: id => (empById[id] ? empById[id].name : '—'),
       projName: id => (projById[id] ? projById[id].name : 'Personal / Operational')
     };

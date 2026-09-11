@@ -651,3 +651,35 @@ input[type=file]{height:auto; padding:10px 12px}
 @keyframes load{from{background-position:200% 0}to{background-position:-200% 0}}
 .tcard .p{gap:6px}
 .staff-row .money{text-align:right}
+
+/* ---------- UI clean-up: welcome banner pills, topbar quick actions, multi-select ---------- */
+.welcome .meta{flex-wrap:wrap}
+.welcome .meta div{white-space:nowrap; padding:6px 14px 6px 6px}
+.welcome .meta div small{letter-spacing:.1em; font-size:9px}
+.welcome .meta div > div{line-height:1.15}
+.tb-plus{display:none; font-size:20px; line-height:1; font-weight:700}
+.ms-box{border:1.5px solid var(--line); border-radius:var(--radius-field); background:var(--field); max-height:190px; overflow:auto; padding:6px}
+.ms-box label{display:flex; align-items:center; gap:10px; padding:7px 8px; border-radius:10px; font-size:13px; cursor:pointer; color:var(--text)}
+.ms-box label:hover{background:rgba(255,255,255,.06)}
+.ms-box input[type=checkbox]{width:16px; height:16px; margin:0; accent-color:var(--accent)}
+.ms-box .avatar{width:22px; height:22px; font-size:9px}
+.ms-box small{color:var(--muted); margin-left:auto; font-size:11px}
+.ms-count{font-size:11.5px; color:var(--muted); margin-top:4px}
+.stack{display:inline-flex; align-items:center}
+.stack .avatar{margin-left:-6px; box-shadow:0 0 0 2px #141416}
+.stack .avatar:first-child{margin-left:0}
+.who .names{font-size:12px; line-height:1.2}
+@media (max-width:768px){
+  .topbar .rel{position:static}
+  .topbar .menu{position:absolute; top:62px; bottom:auto; left:12px; right:12px; min-width:0}
+  .topbar .tb-btn.solid .tb-plus{display:inline}
+  .topbar .tb-btn.solid svg{display:none}
+  .topbar .tb-btn.solid{width:38px; padding:0; justify-content:center}
+  .sync{display:none}
+  .welcome{gap:14px}
+  .welcome h1{font-size:22px}
+  .welcome .meta{gap:8px; flex-wrap:nowrap}
+  .welcome .meta div{flex:1; min-width:0; padding:6px 10px 6px 6px; font-size:12px}
+  .welcome .meta div small{font-size:8.5px; letter-spacing:.08em}
+  .welcome .meta .ic{width:26px; height:26px; flex:0 0 auto}
+}

@@ -16,7 +16,7 @@ export function AlertsScreen() {
   const pend = d.employees.filter(e => Number(e.pendingBal) > 0).length;
   const items = [
     ...a.overshotProjects.map(p => ({ c: 'var(--danger)', t: p.name + ' is ' + pct(Number(p.consumed_mins), Number(p.alloc)) + '% of its allocated hours', m: 'Projects', go: '/projects' })),
-    ...a.overdueTasks.map(t => ({ c: 'var(--warn)', t: 'Overdue: "' + t.title + '" (' + (t.assignee_name || 'Unassigned') + ') was due ' + fmtD(t.deadline), m: 'Tasks', go: '/tasks' })),
+    ...a.overdueTasks.map(t => ({ c: 'var(--warn)', t: 'Overdue: "' + t.title + '" (' + d.taskAssigneeNames(t) + ') was due ' + fmtD(t.deadline), m: 'Tasks', go: '/tasks' })),
     ...(unmarked ? [{ c: 'var(--warn)', t: unmarked + " staff not marked for today's attendance", m: 'Attendance', go: '/attendance' }] : []),
     ...(pend ? [{ c: 'var(--info)', t: pend + ' staff have pending salary this month', m: 'Payroll', go: '/payroll' }] : [])
   ];
