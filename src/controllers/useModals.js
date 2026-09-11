@@ -5,48 +5,51 @@ import { useAuth } from './AuthController';
 import { useData } from './DataController';
 import { useUi } from './UiController';
 import { AttendanceModel, DepartmentModel, EmployeeModel, FileModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
-import { avFor, ini, PAY_TYPES, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO } from '@/lib/format';
+import { ACCESS_LABEL, avFor, ini, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO } from '@/lib/format';
 
 export function useModals() {
-  const { me } = useAuth();
-  const { employees, departments, projects, tasks, reload } = useData();
+  const { me, isAdmin } = useAuth();
+  const { employees, departments, projects, tasks, assignableProjects, reload } = useData();
   const { openModal, toast } = useUi();
 
   const open = useCallback((kind, id, preset = {}) => {
-    const empOpts = [{ v: '', l: 'Unassigned' }].concat(employees.map(e => ({ v: e.id, l: e.name })));
+    const empOpts = [{ v: '', l: 'None' }].concat(employees.map(e => ({ v: e.id, l: e.name })));
     const empOnly = employees.map(e => ({ v: e.id, l: e.name }));
-    const projOpts = [{ v: '', l: 'Personal / Operational' }].concat(projects.map(p => ({ v: p.id, l: p.name })));
     const deptOpts = departments.map(d => ({ v: d.name, l: d.name }));
     const meId = me ? me.id : '';
 
     if (kind === 'task') {
       const t = id ? tasks.find(x => x.id === id) : null;
+      const projOpts = (t ? projects : assignableProjects).map(p => ({ v: p.id, l: p.name }));
+      if (!t && !projOpts.length) { toast(isAdmin ? 'Create a project first, then assign tasks in it.' : 'Only the team leader of a project can assign tasks.'); return; }
+      const people = d => employees.filter(e => !d.dept || e.dept === d.dept).map(e => ({ v: e.id, l: e.name, sub: e.role || '', av: e.av || avFor(e.name), ini: e.ini || ini(e.name) }));
       openModal({
-        title: t ? 'Edit task' : 'Add task', sub: 'Tasks show on the board, the dashboard and the assignee\'s profile.', ok: t ? 'Save changes' : 'Add task',
+        title: t ? 'Edit task' : 'Assign task', sub: 'Pick the project and department first, then the people. The timer starts when they accept.', ok: t ? 'Save changes' : 'Assign task',
         fields: [
           { name: 'title', label: 'Task title', required: true, span: true, value: t ? t.title : '', placeholder: 'What needs to be done?' },
-          { name: 'project', label: 'Project', type: 'select', options: projOpts, value: t ? t.project : (preset.project || '') },
-          { name: 'assignees', label: 'Assign to (one or more)', type: 'multiselect', span: true, options: employees.map(e => ({ v: e.id, l: e.name, sub: e.role || '', av: e.av || avFor(e.name), ini: e.ini || ini(e.name) })), value: t ? String(t.assignee || '').split(',').map(s => s.trim()).filter(Boolean) : (preset.assignee ? [preset.assignee] : (meId ? [meId] : [])) },
+          { name: 'project', label: 'Project', type: 'select', required: true, placeholder: 'Select project', options: projOpts, value: t ? t.project : (preset.project || '') },
+          { name: 'dept', label: 'Department', type: 'select', required: true, placeholder: 'Select department', options: deptOpts, value: t ? (t.dept || '') : (preset.dept || ''), onChange: (v, all) => ({ assignees: (all.assignees || []).filter(x => { const e = employees.find(y => y.id === x); return e && e.dept === v; }) }) },
+          { name: 'assignees', label: 'Assign to (one or more)', type: 'multiselect', required: true, span: true, error: 'Assign the task to at least one person.', optionsFor: people, lockedHint: v => (!v.project ? 'Select a project first' : !v.dept ? 'Select a department to see its people' : ''), value: t ? String(t.assignee || '').split(',').map(s => s.trim()).filter(Boolean) : (preset.assignee ? [preset.assignee] : []) },
+          { name: 'type', label: 'Task type', type: 'select', required: true, placeholder: 'Select type', options: TASK_TYPES.map(x => ({ v: x, l: x })), value: t ? t.type : (preset.type || '') },
+          { name: 'status', label: 'Status', type: 'select', required: true, options: STATUSES.map(k => ({ v: k, l: STATUS_LABEL[k] })), value: t ? t.status : 'pipeline' },
           { name: 'assigned', label: 'Assigned on', type: 'date', required: true, value: t ? (t.assigned || '') : todayISO() },
-          { name: 'deadline', label: 'Deadline', type: 'date', required: true, value: t ? (t.deadline || '') : todayISO() },
-          { name: 'status', label: 'Status', type: 'select', options: STATUSES.map(k => ({ v: k, l: STATUS_LABEL[k] })), value: t ? t.status : 'pipeline' },
-          { name: 'mins', label: 'Time spent (minutes)', type: 'number', value: t ? t.mins : 0, min: 0, step: 15 },
-          { name: 'type', label: 'Task type', type: 'select', options: TASK_TYPES.map(x => ({ v: x, l: x })), value: t ? t.type : 'Other' }
+          { name: 'deadline', label: 'Deadline', type: 'date', required: true, value: t ? (t.deadline || '') : todayISO(), validate: (v, all) => v >= all.assigned || 'Deadline cannot be before the assigned date.' },
+          { name: 'est_hours', label: 'Estimated time (hours)', type: 'number', required: true, value: t ? Math.round(((Number(t.mins) || 0) / 60) * 10) / 10 : 2, min: 0.5, step: 0.5, help: 'Compared with the actual time taken from accept to completion.' }
         ],
         onSubmit: async d => {
-          const body = { title: d.title, project: d.project, assignee: (Array.isArray(d.assignees) ? d.assignees : []).join(','), assigned: d.assigned, deadline: d.deadline, status: d.status, mins: Number(d.mins) || 0, type: d.type };
-          if (t) { await TaskModel.update(t.id, body); toast('Task updated.'); } else { await TaskModel.create(body); toast('Task added.'); }
+          const body = { title: d.title, project: d.project, dept: d.dept, assignee: (Array.isArray(d.assignees) ? d.assignees : []).join(','), assigned: d.assigned, deadline: d.deadline, status: d.status, mins: Math.round((Number(d.est_hours) || 0) * 60), type: d.type };
+          if (t) { await TaskModel.update(t.id, body); toast('Task updated.'); } else { await TaskModel.create(body); toast('Task assigned. The assignees have been notified.'); }
           await reload('tasks', 'projects', 'activity', 'alerts');
         }
       });
     } else if (kind === 'project') {
       const p = id ? projects.find(x => x.id === id) : null;
       openModal({
-        title: p ? 'Edit project' : 'Add project', sub: 'Allocated hours drive the project health and overrun alerts.', ok: p ? 'Save changes' : 'Add project',
+        title: p ? 'Edit project' : 'Add project', sub: 'The team leader assigns and approves the tasks of this project. Allocated hours drive the overrun alerts.', ok: p ? 'Save changes' : 'Add project',
         fields: [
           { name: 'name', label: 'Project name', required: true, value: p ? p.name : '', placeholder: 'e.g. Bihar Project' },
           { name: 'client', label: 'Client', required: true, value: p ? p.client : '', placeholder: 'Client name' },
-          { name: 'manager', label: 'Manager', type: 'select', options: empOpts, value: p ? p.manager : meId },
+          { name: 'manager', label: 'Team leader', type: 'select', required: true, options: isAdmin ? empOnly : empOnly.filter(o => o.v === meId), value: p ? p.manager : meId },
           { name: 'billable', label: 'Billing', type: 'select', options: [{ v: '1', l: 'Billable' }, { v: '0', l: 'Non-billable' }], value: p ? (p.billable ? '1' : '0') : '1' },
           { name: 'start', label: 'Start date', type: 'date', required: true, value: p ? (p.start || '') : todayISO() },
           { name: 'alloc', label: 'Allocated hours', type: 'number', required: true, value: p ? Math.round((Number(p.alloc) || 0) / 60) : 40, min: 0, step: 1 },
@@ -60,26 +63,29 @@ export function useModals() {
       });
     } else if (kind === 'employee') {
       const e = id ? employees.find(x => x.id === id) : null;
+      const mgrOpts = [{ v: '', l: 'None' }].concat(employees.filter(x => !e || x.id !== e.id).map(x => ({ v: x.name, l: x.name + (x.role ? ' · ' + x.role : '') })));
+      const currentMgr = e && Array.isArray(e.managers) && e.managers.length ? e.managers[0] : '';
       openModal({
-        title: e ? 'Edit staff' : 'Add staff', sub: 'Salary is used for payroll and the pending balance. Email + password create the login.', ok: e ? 'Save changes' : 'Add staff',
+        title: e ? 'Edit staff' : 'Add staff', sub: e ? 'Leave the password blank to keep the current one.' : 'Creates the login. If this email already has a Limelight login it is linked as-is; type a password only to set a new one.', ok: e ? 'Save changes' : 'Add staff',
         fields: [
           { name: 'name', label: 'Full name', required: true, value: e ? e.name : '' },
           { name: 'email', label: 'Email (login)', type: 'email', required: true, value: e ? e.email : '' },
-          { name: 'password', label: e ? 'New password' : 'Password', type: 'password', value: '', placeholder: e ? 'Leave blank to keep' : 'Min 6 characters', validate: v => !v || v.length >= 6 || 'At least 6 characters.' },
+          { name: 'password', label: e ? 'New password' : 'Password', type: 'password', value: '', placeholder: e ? 'Leave blank to keep' : 'Blank = Limelight@123', validate: v => !v || v.length >= 6 || 'At least 6 characters.' },
           { name: 'phone', label: 'Phone', type: 'tel', value: e ? e.phone : '', placeholder: '98xxxxxxxx' },
           { name: 'role', label: 'Designation', required: true, value: e ? e.role : '', placeholder: 'e.g. Video Editor' },
-          { name: 'dept', label: 'Department', type: 'select', options: deptOpts, value: e ? e.dept : (deptOpts[0] || {}).v },
+          { name: 'dept', label: 'Department', type: 'select', required: true, placeholder: 'Select department', options: deptOpts, value: e ? e.dept : '' },
+          { name: 'shift', label: 'Shift', type: 'select', required: true, options: Object.entries(SHIFTS).map(([v, l]) => ({ v, l })), value: e ? (e.shift || 'day') : 'day', help: '20 min grace after shift start. Overtime counts after 8 pm (day) / 11 pm (evening) at 1× hourly pay.' },
+          { name: 'access', label: 'App access', type: 'select', required: true, options: Object.entries(ACCESS_LABEL).map(([v, l]) => ({ v, l })), value: e ? (e.access || 'staff') : 'staff' },
           { name: 'salary', label: 'Monthly salary (₹)', type: 'number', required: true, value: e ? (e.salary || 0) : 25000, min: 0, step: 500 },
-          { name: 'emp_id', label: 'Employee ID', value: e ? e.emp_id : '' },
+          { name: 'emp_id', label: 'Employee ID', value: e ? e.emp_id : '', placeholder: 'Auto (LH0001…)' },
           { name: 'joined', label: 'Joining date', type: 'date', required: true, value: e ? (e.joined || '') : todayISO() },
           { name: 'dob', label: 'Date of birth', type: 'date', value: e ? (e.dob || '') : '' },
-          { name: 'access', label: 'App access', type: 'select', options: [{ v: 'admin', l: 'Admin (full access)' }, { v: 'staff', l: 'Staff (own data)' }], value: e ? (e.access || 'staff') : 'staff' },
-          { name: 'managers', label: 'Reporting managers', span: true, value: e ? (Array.isArray(e.managers) ? e.managers.join(', ') : '') : '', placeholder: 'Comma separated names' }
+          { name: 'manager', label: 'Reporting manager', type: 'select', options: mgrOpts, value: currentMgr }
         ],
         onSubmit: async d => {
-          const body = { name: d.name, email: d.email, phone: d.phone, role: d.role, dept: d.dept, salary: Number(d.salary) || 0, emp_id: d.emp_id, joined: d.joined, dob: d.dob || null, access: d.access, managers: d.managers ? d.managers.split(',').map(x => x.trim()).filter(Boolean) : [] };
+          const body = { name: d.name, email: d.email, phone: d.phone, role: d.role, dept: d.dept, shift: d.shift, salary: Number(d.salary) || 0, emp_id: d.emp_id, joined: d.joined, dob: d.dob || null, access: d.access, managers: d.manager ? [d.manager] : [] };
           if (d.password) body.password = d.password;
-          if (e) { await EmployeeModel.update(e.id, body); toast('Staff updated.'); } else { await EmployeeModel.create(body); toast('Staff added.'); }
+          if (e) { await EmployeeModel.update(e.id, body); toast('Staff updated.'); } else { const r = await EmployeeModel.create(body); toast(r && r.passwordSet ? 'Staff added. They can log in now.' : 'Staff added and linked to their existing login.'); }
           await reload('employees', 'departments', 'activity');
         }
       });
@@ -91,7 +97,7 @@ export function useModals() {
           { name: 'name', label: 'Department name', required: true, value: x ? x.name : '' },
           { name: 'billable', label: 'Type', type: 'select', options: [{ v: '1', l: 'Billable' }, { v: '0', l: 'Non-billable' }], value: x ? (x.billable ? '1' : '0') : '1' },
           { name: 'daily', label: 'Daily hours', type: 'number', value: x ? x.daily : 8, min: 1, step: 1 },
-          { name: 'manager', label: 'Manager', type: 'select', options: empOpts, value: x ? (x.manager || '') : '' }
+          { name: 'manager', label: 'Department head', type: 'select', options: empOpts, value: x ? (x.manager || '') : '' }
         ],
         onSubmit: async d => {
           const body = { name: d.name, billable: d.billable === '1', daily: Number(d.daily) || 8, manager: d.manager };
@@ -103,7 +109,7 @@ export function useModals() {
       openModal({
         title: 'Apply leave', sub: 'Leave days count as paid days in payroll and are excluded from unaccounted days.', ok: 'Apply',
         fields: [
-          { name: 'emp', label: 'Employee', type: 'select', options: empOnly, value: preset.emp || meId },
+          { name: 'emp', label: 'Employee', type: 'select', options: isAdmin ? empOnly : empOnly.filter(o => o.v === meId), value: preset.emp || meId },
           { name: 'reason', label: 'Reason', type: 'select', options: ['Casual', 'Sick', 'Personal', 'Vacation'].map(x => ({ v: x, l: x })) },
           { name: 'from_date', label: 'From', type: 'date', required: true, value: todayISO() },
           { name: 'to_date', label: 'To', type: 'date', required: true, value: todayISO(), validate: (v, all) => v >= all.from_date || 'End date must be after start date.' }
@@ -149,6 +155,7 @@ export function useModals() {
         }
       });
     } else if (kind === 'file') {
+      const projOpts = [{ v: '', l: 'General' }].concat(projects.map(p => ({ v: p.id, l: p.name })));
       openModal({
         title: 'Upload file', sub: 'Files are stored on the server and listed under the project.', ok: 'Upload',
         fields: [
@@ -162,7 +169,7 @@ export function useModals() {
         }
       });
     }
-  }, [employees, departments, projects, tasks, me, openModal, toast, reload]);
+  }, [employees, departments, projects, tasks, assignableProjects, me, isAdmin, openModal, toast, reload]);
 
   return { open };
 }

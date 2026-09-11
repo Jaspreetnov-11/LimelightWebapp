@@ -786,3 +786,48 @@ td{padding:13px 16px}
 .mtask-actions select{flex:1; height:36px; font-size:12.5px; border-radius:100px; padding-left:12px}
 .mtask-done{height:36px; padding:0 14px; border-radius:100px; border:0; background:var(--accent); color:var(--ink); font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap}
 .mtask-actions .mini-btn{width:36px; height:36px; border:1px solid var(--line); border-radius:50%; color:#C9C9D1}
+
+/* ---------- Board fits the screen: 5 equal columns, no horizontal scroll ---------- */
+.board-wrap{grid-template-columns:210px 1fr}
+.board{overflow-x:hidden; gap:12px; padding:14px}
+.col{flex:1 1 0; min-width:0; padding:10px}
+.col .col-h{font-size:13px}
+.tcard{padding:11px}
+.tcard .dates{gap:6px}
+.tcard .dates div{padding:5px 8px; font-size:11.5px}
+.tcard .move{display:flex; flex-wrap:wrap; gap:6px}
+.tcard .move button{border:1px solid var(--line); background:rgba(255,255,255,.05); color:#C9C9D1; border-radius:100px; padding:4px 9px; font:inherit; font-size:11px; cursor:pointer}
+.tcard .move button.go{background:var(--accent); border-color:var(--accent); color:var(--ink); font-weight:700}
+.tcard .move button.ok{background:rgba(74,222,149,.18); border-color:rgba(74,222,149,.4); color:#6FE3A9; font-weight:600}
+.tcard .move button.warn{background:rgba(255,122,179,.14); border-color:rgba(255,122,179,.4); color:#FF8FA6; font-weight:600}
+.tcard .timer{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:11.5px; color:var(--muted); padding:6px 8px; border-radius:10px; background:rgba(255,255,255,.03); border:1px dashed var(--line)}
+.tcard .timer b{color:var(--text); font-variant-numeric:tabular-nums}
+.tcard .timer.live b{color:#FFC96B}
+.tcard .timer.over b{color:#FF8FA6}
+.tcard .timer .dot{width:7px; height:7px; border-radius:50%; background:#FFB84D; display:inline-block; margin-right:6px; animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@media (max-width:1280px){ .board-wrap{grid-template-columns:1fr} .members{display:none} }
+@media (max-width:1100px){ .board{overflow-x:auto} .col{flex:0 0 260px} }
+
+/* ---------- Upcoming events strip (dashboard) ---------- */
+.upcoming{display:flex; gap:10px; overflow-x:auto; padding-bottom:2px}
+.upcoming .ev{flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:8px 14px 8px 8px; border-radius:100px; background:var(--panel); border:1px solid var(--line); font-size:12.5px; white-space:nowrap}
+.upcoming .ev .k{font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); display:block}
+.upcoming .ev.bd{border-color:rgba(255,92,122,.35)} .upcoming .ev.an{border-color:rgba(180,140,255,.4)} .upcoming .ev.nj{border-color:var(--accent-line)} .upcoming .ev.ho{border-color:rgba(255,184,77,.4)}
+.upcoming .ev .ic{width:28px; height:28px; border-radius:50%; display:grid; place-items:center}
+.upcoming .empty-ev{font-size:12.5px; color:var(--muted); padding:8px 4px}
+
+/* ---------- Dashboard stat grid ---------- */
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px}
+.kpi{background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; min-width:0}
+.kpi span{font-size:11.5px; color:var(--muted)}
+.kpi b{font-size:20px; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.kpi small{font-size:11px; color:var(--muted)}
+.kpi .bar{height:6px; border-radius:100px; background:rgba(255,255,255,.08); overflow:hidden; margin-top:6px}
+.kpi .bar i{display:block; height:100%; background:var(--accent); border-radius:100px}
+.kpi.warn b{color:#FFC96B} .kpi.ok b{color:#6FE3A9} .kpi.bad b{color:#FF8FA6}
+.dash-2{display:grid; grid-template-columns:1.4fr 1fr; gap:14px}
+@media (max-width:900px){ .dash-2{grid-template-columns:1fr} }
+.field .help{font-size:11.5px; color:var(--muted); margin-top:4px}
+.ms-box.locked{display:grid; place-items:center; min-height:70px}
+.notif-alert{border-left:3px solid var(--danger)}

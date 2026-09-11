@@ -62,7 +62,7 @@ export function AttendanceScreen() {
 
   const stLabel = (a, l) => {
     const st = attStatus(a);
-    if (st) return <span className="st" style={{ color: { present: 'var(--ok)', half: 'var(--warn)', absent: 'var(--danger)', leave: 'var(--info)' }[st] }}>{ATT[st][1]}{a.clock_in ? <> · in {a.clock_in} <GeoLink lat={a.in_lat} lng={a.in_lng} addr={a.in_addr || 'map'} /></> : null}{a.clock_out ? <> · out {a.clock_out} <GeoLink lat={a.out_lat} lng={a.out_lng} addr={a.out_addr || 'map'} /></> : null}{Number(a.ot_hours) ? ' · OT ' + a.ot_hours + 'h' : ''}{Number(a.fine_hours) ? ' · Fine ' + a.fine_hours + 'h' : ''}</span>;
+    if (st) return <span className="st" style={{ color: { present: 'var(--ok)', half: 'var(--warn)', absent: 'var(--danger)', leave: 'var(--info)' }[st] }}>{ATT[st][1]}{a.clock_in ? <> · in {a.clock_in} <GeoLink lat={a.in_lat} lng={a.in_lng} addr={a.in_addr || 'map'} /></> : null}{a.clock_out ? <> · out {a.clock_out} <GeoLink lat={a.out_lat} lng={a.out_lng} addr={a.out_addr || 'map'} /></> : null}{Number(a.late) ? <Chip tone="or" style={{ marginLeft: 6 }}>Late</Chip> : null}{Number(a.ot_hours) ? ' · OT ' + a.ot_hours + 'h' : ''}{Number(a.fine_hours) ? ' · Fine ' + a.fine_hours + 'h' : ''}</span>;
     if (l) return <span className="st" style={{ color: 'var(--info)' }}>On leave ({l.reason || ''})</span>;
     return <span className="st" style={{ color: 'var(--danger)' }}>Not Marked</span>;
   };

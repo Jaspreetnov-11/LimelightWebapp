@@ -2,7 +2,7 @@
 // Reusable UI building blocks (View layer). Class names come from globals.css.
 import Link from 'next/link';
 import { Icon } from './Icons';
-import { avFor, ini as initials, STATUS_LABEL } from '@/lib/format';
+import { avFor, ini as initials, STATUS_CHIP, STATUS_LABEL } from '@/lib/format';
 
 export { Icon };
 
@@ -71,7 +71,7 @@ export function Legend({ items, style }) {
 
 export function StatusBars({ tasks }) {
   const n = s => tasks.filter(t => t.status === s).length, tot = tasks.length || 1;
-  const rows = [['Completed', 'completed', '#4ADE95'], ['Pending Approval', 'approval', '#B48CFF'], ['In Progress', 'progress', '#FFB84D'], ['In Pipeline', 'pipeline', '#6FA8FF'], ['On Hold', 'hold', '#6A6A74']];
+  const rows = [['Completed', 'completed', '#4ADE95'], ['Pending Approval', 'approval', '#B48CFF'], ['In Progress', 'progress', '#FFB84D'], ['In Pipeline', 'pipeline', '#6FA8FF'], ['Changes', 'changes', '#FF7AB3']];
   return <div className="bars">{rows.map(([l, s, c]) => <div className="bar-row" key={s}><div className="l"><span>{l}</span><span>{n(s)}</span></div><div className="t"><div className="f" style={{ width: Math.round((n(s) / tot) * 100) + '%', background: c }}></div></div></div>)}</div>;
 }
 
@@ -109,7 +109,7 @@ export function Search({ value, onChange, placeholder, style }) {
 }
 
 export function TaskChip({ status }) {
-  const cls = { completed: 'gr', progress: 'or', pipeline: 'bl', approval: 'pu', hold: 'gy' }[status] || 'gy';
+  const cls = STATUS_CHIP[status] || 'gy';
   return <Chip tone={cls}>{STATUS_LABEL[status] || status}</Chip>;
 }
 

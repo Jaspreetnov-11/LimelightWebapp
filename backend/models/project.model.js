@@ -3,6 +3,9 @@
 const BaseModel = require('./base.model');
 const db = require('../config/db');
 
+/**
+ * consumed_mins = actual time taken on tasks (accept -> complete), est_mins = estimated time assigned.
+ */
 class ProjectModel extends BaseModel {
   constructor() {
     super('lh_projects');
@@ -11,8 +14,10 @@ class ProjectModel extends BaseModel {
   async listWithConsumedMinutes() {
     return db.all(`
       SELECT p.*,
-             COALESCE(SUM(t.mins), 0) as consumed_mins,
-             COUNT(t.id) as task_count
+             COALESCE(SUM(t.taken_mins), 0) as consumed_mins,
+             COALESCE(SUM(t.mins), 0) as est_mins,
+             COUNT(t.id) as task_count,
+             COUNT(CASE WHEN t.status = 'completed' THEN 1 END) as completed_task_count
       FROM lh_projects p
       LEFT JOIN lh_tasks t ON p.id = t.project
       GROUP BY p.id
@@ -23,7 +28,8 @@ class ProjectModel extends BaseModel {
   async getProjectStats(projectId) {
     return db.get(`
       SELECT p.*,
-             COALESCE(SUM(t.mins), 0) as consumed_mins,
+             COALESCE(SUM(t.taken_mins), 0) as consumed_mins,
+             COALESCE(SUM(t.mins), 0) as est_mins,
              COUNT(t.id) as task_count,
              COUNT(CASE WHEN t.status = 'completed' THEN 1 END) as completed_task_count
       FROM lh_projects p

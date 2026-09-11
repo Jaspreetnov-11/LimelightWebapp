@@ -18,6 +18,7 @@ function normalizeEmployee(user, employee) {
     dept: e.dept || '',
     empId: e.emp_id || e.empId || '',
     access: e.access || (user ? user.role : 'staff') || 'staff',
+    shift: e.shift || 'day',
     salary: Number(e.salary) || 0,
     av: e.av || avFor(name),
     ini: e.ini || ini(name)

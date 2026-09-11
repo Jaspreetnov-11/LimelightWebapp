@@ -49,6 +49,7 @@ export const AttendanceModel = {
   today: () => data(api.get('/attendance/today')),
   list: params => data(api.get('/attendance', params)),
   stats: (empId, month) => data(api.get('/attendance/stats/' + empId, { month })),
+  teamSummary: month => data(api.get('/attendance/team-summary', { month })),
   clockIn: body => data(api.post('/attendance/clock-in', body)),
   clockOut: body => data(api.post('/attendance/clock-out', body)),
   mark: body => data(api.post('/attendance/mark', body)),

@@ -7,7 +7,7 @@ const { protect, restrictTo } = require('../middleware/auth.middleware');
 const validate = require('../middleware/validate.middleware');
 const { createPaymentSchema } = require('../validators/payment.validator');
 
-router.get('/', paymentController.getAllPayments);
+router.get('/', protect, restrictTo('admin'), paymentController.getAllPayments);
 router.post('/', protect, restrictTo('admin', 'manager'), validate(createPaymentSchema), paymentController.createPayment);
 router.put('/:id', protect, restrictTo('admin'), paymentController.updatePayment);
 router.delete('/:id', protect, restrictTo('admin'), paymentController.deletePayment);

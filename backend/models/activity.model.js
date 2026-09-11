@@ -3,36 +3,51 @@
 const BaseModel = require('./base.model');
 const db = require('../config/db');
 
+const newId = () => 'act_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+/**
+ * Activity = notifications.
+ *  user_id ''  -> team-wide log line (visible to admins)
+ *  user_id X   -> personal notification for employee X (e.g. "task assigned to you")
+ */
 class ActivityModel extends BaseModel {
   constructor() {
     super('lh_activity');
   }
 
-  /** Fire-and-forget log line; never breaks the calling request. */
-  async log(text) {
+  /** Team-wide log line; never breaks the calling request. */
+  async log(text, opts = {}) {
     try {
-      await this.create({
-        id: 'act_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        text,
-        at: new Date().toISOString(),
-        read: 0
-      });
+      await this.create({ id: newId(), text, at: new Date().toISOString(), read: 0, user_id: opts.user_id || '', kind: opts.kind || 'info', link: opts.link || '' });
     } catch (err) {
       console.error('[ACTIVITY]', err.message);
     }
   }
 
-  async getRecent(limit = 60) {
-    return db.all('SELECT * FROM lh_activity ORDER BY created_at DESC LIMIT ?', [Number(limit)]);
+  /** Personal notification to one or more employees. */
+  async notify(userIds, text, opts = {}) {
+    const ids = [...new Set((Array.isArray(userIds) ? userIds : [userIds]).filter(Boolean))];
+    for (const id of ids) await this.log(text, { ...opts, user_id: id, kind: opts.kind || 'task' });
   }
 
-  async getUnreadCount() {
-    const row = await db.get('SELECT COUNT(*) as count FROM lh_activity WHERE read = 0');
+  scopeSql(userId, isAdmin) {
+    return isAdmin ? { sql: "(user_id = ? OR user_id = '')", params: [userId] } : { sql: 'user_id = ?', params: [userId] };
+  }
+
+  async getRecentFor(userId, isAdmin, limit = 60) {
+    const s = this.scopeSql(userId, isAdmin);
+    return db.all(`SELECT * FROM lh_activity WHERE ${s.sql} ORDER BY created_at DESC LIMIT ?`, [...s.params, Number(limit)]);
+  }
+
+  async getUnreadCountFor(userId, isAdmin) {
+    const s = this.scopeSql(userId, isAdmin);
+    const row = await db.get(`SELECT COUNT(*) as count FROM lh_activity WHERE read = 0 AND ${s.sql}`, s.params);
     return row ? Number(row.count) || 0 : 0;
   }
 
-  async markAllAsRead() {
-    await db.run('UPDATE lh_activity SET read = 1 WHERE read = 0');
+  async markAllAsReadFor(userId, isAdmin) {
+    const s = this.scopeSql(userId, isAdmin);
+    await db.run(`UPDATE lh_activity SET read = 1 WHERE read = 0 AND ${s.sql}`, s.params);
     return true;
   }
 }

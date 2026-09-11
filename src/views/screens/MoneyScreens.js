@@ -82,6 +82,7 @@ export function ReportsScreen() {
   const m = thisMonth();
   const cards = [
     ['Attendance register', monthLabel(m) + ' · day-wise status for every staff', 'cal', 'attendance-register', { month: m }, 'attendance-register-' + m + '.csv'],
+    ['Staff performance', monthLabel(m) + ' · avg working hours, hours vs expected, OT, late days, tasks delivered', 'chart', 'staff-performance', { month: m }, 'staff-performance-' + m + '.csv'],
     ['Payroll summary', monthLabel(m) + ' · earned, paid and pending per staff', 'file', 'payroll-summary', { month: m }, 'payroll-' + m + '.csv'],
     ['Payments ledger', 'All payments ever recorded', 'file', 'payments-ledger', undefined, 'payments-all.csv'],
     ['Staff directory', 'Contact, role, department and salary', 'users', 'staff-directory', undefined, 'staff.csv'],

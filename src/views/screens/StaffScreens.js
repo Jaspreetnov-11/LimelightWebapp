@@ -14,6 +14,7 @@ import { assigneeIds, avFor, fmtD, fmtDY, hm, ini, inr, overdue, STATUSES, STATU
 
 export function StaffListScreen() {
   const d = useData();
+  const { isAdmin } = useAuth();
   const modals = useModals();
   const [q, setQ] = useState('');
   const list = useMemo(() => { const s = q.toLowerCase(); return d.employees.filter(e => e.name.toLowerCase().includes(s) || (e.emp_id || '').toLowerCase().includes(s) || (e.phone || '').includes(s)); }, [d.employees, q]);
@@ -24,12 +25,11 @@ export function StaffListScreen() {
 
   return (
     <div className="content">
-      <div className="banner"><div><h2>More than a<br /><em>workspace.</em></h2><p style={{ margin: '8px 0 0', color: 'var(--muted)', fontSize: 13 }}>Staff, attendance, payroll and projects in one place.</p></div><div style={{ display: 'flex', gap: 10 }}><Link href="/attendance" className="tb-btn">Mark attendance</Link><button className="tb-btn solid" onClick={() => modals.open('employee')}>+ Add Staff</button></div></div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><h2 className="sec-title">Staff List <Chip tone="gy">{d.employees.length}</Chip></h2><div style={{ display: 'flex', gap: 8 }}><DateBtn icon="down" onClick={exportStaff}>Export</DateBtn><button className="tb-btn solid" style={{ height: 34 }} onClick={() => modals.open('employee')}>+ Add Staff</button></div></div>
-      <div className="panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px', gap: 16, flexWrap: 'wrap' }}>
-        <div><div style={{ fontWeight: 600, fontSize: 15 }}>Overall Balance</div><div className={'money ' + (totalPending > 0 ? 'neg' : 'pos')} style={{ fontSize: 22, marginTop: 6 }}>{totalPending > 0 ? '- ' : ''}{inr(Math.abs(totalPending))}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Total Pending · {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</div></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><h2 className="sec-title">Staff List <Chip tone="gy">{d.employees.length}</Chip></h2><div style={{ display: 'flex', gap: 8 }}>{isAdmin && <DateBtn icon="down" onClick={exportStaff}>Export</DateBtn>}{isAdmin && <button className="tb-btn solid" style={{ height: 34 }} onClick={() => modals.open('employee')}>+ Add Staff</button>}</div></div>
+      {isAdmin && <div className="panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px', gap: 16, flexWrap: 'wrap' }}>
+        <div><div style={{ fontWeight: 600, fontSize: 15 }}>Payroll balance</div><div className={'money ' + (totalPending > 0 ? 'neg' : 'pos')} style={{ fontSize: 22, marginTop: 6 }}>{totalPending > 0 ? '- ' : ''}{inr(Math.abs(totalPending))}</div><div style={{ fontSize: 12.5, color: 'var(--muted)' }}>Total Pending · {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</div></div>
         <div style={{ display: 'flex', gap: 8 }}><Link href="/payroll" className="date-btn">Run payroll</Link><DateBtn icon={null} onClick={() => modals.open('payment')}>+ Add payment</DateBtn></div>
-      </div>
+      </div>}
       <div className="panel">
         <div style={{ display: 'flex', gap: 8, padding: '14px 16px', borderBottom: '1px solid var(--line)' }}><Search value={q} onChange={setQ} placeholder="Search staff by name, ID or phone" style={{ flex: 1, maxWidth: 360 }} /></div>
         {Object.keys(groups).sort().map(g => (
@@ -40,9 +40,9 @@ export function StaffListScreen() {
                 <Avatar e={e} cls="" />
                 <div><Link href={'/staff/' + e.id} className="nm" style={{ textDecoration: 'none', color: 'inherit' }}>{e.name}</Link><small style={{ display: 'block', color: 'var(--muted)' }}>{e.role || ''}{e.phone ? ' · ' + e.phone : ''}</small></div>
                 <span className="id">{e.emp_id || ''}</span>
-                <span className="st" style={{ color: 'var(--muted)' }}>{pb > 0 ? 'Pending' : pb < 0 ? 'Advance' : 'Settled'}</span>
-                <span className={'money ' + (pb > 0 ? 'neg' : pb < 0 ? 'pos' : '')}>{pb > 0 ? '- ' : ''}{inr(Math.abs(pb))}</span>
-                <DateBtn icon={null} onClick={() => modals.open('payment', null, { emp: e.id })}>Add Payment</DateBtn>
+                <span className="st" style={{ color: 'var(--muted)' }}>{isAdmin ? (pb > 0 ? 'Pending' : pb < 0 ? 'Advance' : 'Settled') : (e.shift === 'evening' ? 'Shift 2–10 pm' : 'Shift 11–7')}</span>
+                <span className={'money ' + (pb > 0 ? 'neg' : pb < 0 ? 'pos' : '')}>{isAdmin ? (pb > 0 ? '- ' : '') + inr(Math.abs(pb)) : ''}</span>
+                {isAdmin ? <DateBtn icon={null} onClick={() => modals.open('payment', null, { emp: e.id })}>Add Payment</DateBtn> : <span />}
               </div>
             ); })}
           </div>
@@ -56,7 +56,7 @@ export function StaffListScreen() {
 
 export function StaffProfileScreen({ id }) {
   const d = useData();
-  const { me } = useAuth();
+  const { me, isAdmin } = useAuth();
   const { toast, confirm } = useUi();
   const modals = useModals();
   const router = useRouter();
@@ -93,7 +93,7 @@ export function StaffProfileScreen({ id }) {
   return (
     <div className="two">
       <aside>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><Link href="/staff" className="date-btn">‹ Staff list</Link><button className="tb-btn solid" style={{ height: 34, padding: '0 12px', fontSize: 12.5 }} onClick={() => modals.open('employee')}>+ Add</button></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><Link href="/staff" className="date-btn">‹ Staff list</Link>{isAdmin && <button className="tb-btn solid" style={{ height: 34, padding: '0 12px', fontSize: 12.5 }} onClick={() => modals.open('employee')}>+ Add</button>}</div>
         <div className="list">{sidePager.items.map(x => { const b = Number(x.pendingBal) || 0; return <Link key={x.id} href={'/staff/' + x.id} className={'emp-item' + (x.id === id ? ' on' : '')} style={{ textDecoration: 'none', color: 'inherit' }}><Avatar e={x} cls="" /><div><span className="nm">{x.name}</span><small>{x.role || ''}</small></div><span className={'hrs money' + (b > 0 ? ' neg' : '')}>{inr(b)}</span></Link>; })}</div>
         <Pager pager={sidePager} compact />
       </aside>
@@ -101,9 +101,9 @@ export function StaffProfileScreen({ id }) {
         <div className="panel profile"><Avatar e={e} cls="lg" />
           <div style={{ flex: 1, minWidth: 0 }}><h2>{e.name}</h2>
             <div className="m"><span>{e.email || ''}</span><span className="sep">|</span><span><b>Designation:</b> {e.role || '—'}</span><span className="sep">|</span><span><b>Emp ID:</b> {e.emp_id || '—'}</span><span className="sep">|</span><span><b>Phone:</b> {e.phone || '—'}</span></div>
-            <div className="m"><span><b>Department:</b> {e.dept || '—'}</span><span className="sep">|</span><span><b>Joined:</b> {fmtDY(e.joined)}</span><span className="sep">|</span><span><b>Salary:</b> {inr(e.salary)} / month</span><span className="sep">|</span><span><b>Managers:</b></span>{(Array.isArray(e.managers) ? e.managers : []).map(m => <span className="mgr" key={m}><span className={'avatar sm ' + avFor(m)}>{ini(m)}</span>{m}</span>)}{!(Array.isArray(e.managers) && e.managers.length) && <span>—</span>}</div>
+            <div className="m"><span><b>Department:</b> {e.dept || '—'}</span><span className="sep">|</span><span><b>Joined:</b> {fmtDY(e.joined)}</span><span className="sep">|</span><span><b>Shift:</b> {e.shift === 'evening' ? '2 pm – 10 pm' : '11 am – 7 pm'}</span>{isAdmin && <><span className="sep">|</span><span><b>Salary:</b> {inr(e.salary)} / month</span></>}<span className="sep">|</span><span><b>Managers:</b></span>{(Array.isArray(e.managers) ? e.managers : []).map(m => <span className="mgr" key={m}><span className={'avatar sm ' + avFor(m)}>{ini(m)}</span>{m}</span>)}{!(Array.isArray(e.managers) && e.managers.length) && <span>—</span>}</div>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}><DateBtn icon={null} onClick={() => modals.open('payment', null, { emp: e.id })}>+ Payment</DateBtn><DateBtn icon={null} onClick={() => modals.open('task', null, { assignee: e.id })}>+ Task</DateBtn><Sq icon="file" label="Edit" onClick={() => modals.open('employee', e.id)} /><Sq label="Remove" onClick={remove} style={{ color: 'var(--danger)' }}>✕</Sq></div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>{isAdmin && <DateBtn icon={null} onClick={() => modals.open('payment', null, { emp: e.id })}>+ Payment</DateBtn>}{d.canAssign && <DateBtn icon={null} onClick={() => modals.open('task', null, { assignee: e.id, dept: e.dept })}>+ Task</DateBtn>}{(isAdmin || me.id === e.id) && <Sq icon="file" label="Edit" onClick={() => modals.open('employee', e.id)} />}{isAdmin && <Sq label="Remove" onClick={remove} style={{ color: 'var(--danger)' }}>✕</Sq>}</div>
         </div>
         <div className="emp-stats">
           <Stat icon="file" tone="gr" value={(pb > 0 ? '- ' : '') + inr(Math.abs(pb))} valueClass={'money' + (pb > 0 ? ' neg' : '')} label={pb > 0 ? 'Pending this month' : pb < 0 ? 'Advance given' : 'Settled'} />
@@ -118,7 +118,7 @@ export function StaffProfileScreen({ id }) {
         </div>
         <div className="emp-bottom">
           <div className="panel"><div className="panel-h">All Projects ({projIds.length})</div><Tabs items={[['all', 'All'], ['bill', 'Billable'], ['non', 'Non-billable']]} value={tab} onChange={setTab} style={{ padding: '0 12px' }} /><div className="list" style={{ padding: '8px 12px' }}>{projs.map(p => <div className="row" key={p.id}><span className="avatar sm p">{ini(p.name)}</span><span style={{ flex: 1 }}>{p.name}</span><Chip tone={p.billable ? 'gr' : 'gy'}>{p.billable ? 'Billable' : 'Non-billable'}</Chip></div>)}{!projs.length && <Empty>No projects</Empty>}{topP.length > 0 && <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 8, paddingTop: 8 }}>{topP.map(([p, m]) => <div className="row" key={p}><span style={{ flex: 1, fontSize: 12.5 }}>{d.projName(p)}</span><b>{hm(m)}</b></div>)}</div>}</div></div>
-          <div className="panel"><div className="panel-h">Tasks ({myTasks.length})</div><div style={{ overflowX: 'auto' }}><table><thead><tr><th>Task</th><th>Project</th><th>Assigned</th><th>Deadline</th><th>Time</th><th>Status</th></tr></thead><tbody>{taskPager.items.map(t => <tr key={t.id}><td><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn></td><td>{t.project_name || d.projName(t.project)}</td><td>{fmtD(t.assigned)}</td><td style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</td><td>{hm(t.mins)}</td><td><TaskChip status={t.status} /></td></tr>)}</tbody></table>{!myTasks.length && <Empty icon="file">No tasks found</Empty>}</div><Pager pager={taskPager} /></div>
+          <div className="panel"><div className="panel-h">Tasks ({myTasks.length})</div><div style={{ overflowX: 'auto' }}><table><thead><tr><th>Task</th><th>Project</th><th>Assigned</th><th>Deadline</th><th>Est / Taken</th><th>Status</th></tr></thead><tbody>{taskPager.items.map(t => <tr key={t.id}><td><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn></td><td>{t.project_name || d.projName(t.project)}</td><td>{fmtD(t.assigned)}</td><td style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</td><td>{hm(t.mins)} / {hm(t.taken_mins)}</td><td><TaskChip status={t.status} /></td></tr>)}</tbody></table>{!myTasks.length && <Empty icon="file">No tasks found</Empty>}</div><Pager pager={taskPager} /></div>
         </div>
       </div>
     </div>

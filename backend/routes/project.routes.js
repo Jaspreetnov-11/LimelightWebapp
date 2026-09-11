@@ -7,8 +7,8 @@ const { protect, restrictTo } = require('../middleware/auth.middleware');
 const validate = require('../middleware/validate.middleware');
 const { createProjectSchema } = require('../validators/project.validator');
 
-router.get('/', projectController.getAllProjects);
-router.get('/:id', projectController.getProjectById);
+router.get('/', protect, projectController.getAllProjects);
+router.get('/:id', protect, projectController.getProjectById);
 router.post('/', protect, restrictTo('admin', 'manager'), validate(createProjectSchema), projectController.createProject);
 router.put('/:id', protect, restrictTo('admin', 'manager'), projectController.updateProject);
 router.delete('/:id', protect, restrictTo('admin'), projectController.deleteProject);

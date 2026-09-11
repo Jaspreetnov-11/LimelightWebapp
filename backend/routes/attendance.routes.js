@@ -11,8 +11,9 @@ router.post('/clock-in', protect, validate(clockInSchema), attendanceController.
 router.post('/clock-out', protect, validate(clockOutSchema), attendanceController.clockOut);
 router.get('/today', optionalAuth, attendanceController.getTodayStatus);
 router.post('/mark', protect, restrictTo('admin', 'manager'), validate(manualAttendanceSchema), attendanceController.markAttendance);
-router.get('/stats/:empId', attendanceController.getEmployeeMonthStats);
-router.get('/', attendanceController.getAttendanceList);
+router.get('/team-summary', protect, restrictTo('admin', 'manager'), attendanceController.getTeamSummary);
+router.get('/stats/:empId', protect, attendanceController.getEmployeeMonthStats);
+router.get('/', protect, attendanceController.getAttendanceList);
 router.put('/:id', protect, restrictTo('admin', 'manager'), attendanceController.updateAttendance);
 
 module.exports = router;

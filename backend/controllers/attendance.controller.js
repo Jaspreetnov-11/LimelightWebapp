@@ -9,7 +9,7 @@ const AppError = require('../utils/appError');
 const { todayISO, thisMonth } = require('../utils/calculations');
 
 const clockIn = catchAsync(async (req, res) => {
-  const empId = req.user.employeeId;
+  const empId = req.user.id;
   if (!empId) {
     throw new AppError('No employee profile linked to this user.', 400);
   }
@@ -20,7 +20,7 @@ const clockIn = catchAsync(async (req, res) => {
 });
 
 const clockOut = catchAsync(async (req, res) => {
-  const empId = req.user.employeeId;
+  const empId = req.user.id;
   if (!empId) {
     throw new AppError('No employee profile linked to this user.', 400);
   }
@@ -156,3 +156,11 @@ module.exports = {
   markAttendance,
   getEmployeeMonthStats
 };
+
+/** Month summary for every employee (avg hours, total vs expected, OT, late) — admins / managers. */
+const getTeamSummary = catchAsync(async (req, res) => {
+  const { month = thisMonth() } = req.query;
+  const summary = await attendanceService.getTeamSummary(month);
+  return apiResponse.success(res, summary);
+});
+module.exports.getTeamSummary = getTeamSummary;

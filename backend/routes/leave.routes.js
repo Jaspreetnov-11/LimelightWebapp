@@ -7,8 +7,8 @@ const { protect } = require('../middleware/auth.middleware');
 const validate = require('../middleware/validate.middleware');
 const { applyLeaveSchema } = require('../validators/leave.validator');
 
-router.get('/', leaveController.getAllLeaves);
-router.get('/today', leaveController.getLeavesToday);
+router.get('/', protect, leaveController.getAllLeaves);
+router.get('/today', protect, leaveController.getLeavesToday);
 router.post('/', protect, validate(applyLeaveSchema), leaveController.applyLeave);
 router.delete('/:id', protect, leaveController.deleteLeave);
 

@@ -2,15 +2,37 @@
 
 /**
  * Database initialisation.
- *  - Postgres (Supabase): applies schema.pg.sql (idempotent). No demo data is seeded; real people
- *    come from Supabase Auth and appear in lh_employees on their first login or when an admin adds them.
+ *  - Postgres (Supabase): applies schema.pg.sql (idempotent). No demo data is seeded; people come
+ *    from Supabase Auth and appear in lh_employees when an admin adds them.
  *  - SQLite (local fallback): applies schema.sql and seeds demo data when the database is empty.
+ *  - Both: adds columns introduced after the first release (ensureColumns) and migrates old values.
  */
 
 const fs = require('fs');
 const path = require('path');
 const db = require('../config/db');
 const env = require('../config/env');
+
+// Columns added after the initial schema. Applied with ALTER TABLE when missing.
+const EXTRA_COLUMNS = {
+  lh_employees: [['shift', "TEXT DEFAULT 'day'"], ['active', 'INTEGER DEFAULT 1']],
+  lh_tasks: [['dept', "TEXT DEFAULT ''"], ['started_at', 'TEXT'], ['completed_at', 'TEXT'], ['taken_mins', 'NUMERIC DEFAULT 0']],
+  lh_attendance: [['late', 'INTEGER DEFAULT 0']],
+  lh_activity: [['user_id', "TEXT DEFAULT ''"], ['kind', "TEXT DEFAULT 'info'"], ['link', "TEXT DEFAULT ''"]]
+};
+
+async function ensureColumns() {
+  for (const [table, cols] of Object.entries(EXTRA_COLUMNS)) {
+    const existing = await db.columns(table);
+    for (const [name, type] of cols) {
+      if (!existing.has(name)) {
+        await db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${db.isPostgres ? type : type.replace('NUMERIC', 'REAL')}`);
+      }
+    }
+  }
+  // Task status "On Hold" became "Changes" (changes requested by the reviewer)
+  await db.run("UPDATE lh_tasks SET status = 'changes' WHERE status = 'hold'");
+}
 
 async function seedSqlite() {
   const { getSeedData } = require('./seed');
@@ -33,13 +55,13 @@ async function seedSqlite() {
 
 async function initDatabase() {
   if (db.isPostgres) {
-    const sql = fs.readFileSync(path.resolve(__dirname, 'schema.pg.sql'), 'utf8');
-    await db.exec(sql);
+    await db.exec(fs.readFileSync(path.resolve(__dirname, 'schema.pg.sql'), 'utf8'));
+    await ensureColumns();
     return 'postgres';
   }
 
-  const sql = fs.readFileSync(path.resolve(__dirname, 'schema.sql'), 'utf8');
-  await db.exec(sql);
+  await db.exec(fs.readFileSync(path.resolve(__dirname, 'schema.sql'), 'utf8'));
+  await ensureColumns();
   const row = await db.get('SELECT COUNT(*) as count FROM lh_employees');
   if (!row || Number(row.count) === 0) await seedSqlite();
   return 'sqlite:' + env.DATABASE_PATH;
