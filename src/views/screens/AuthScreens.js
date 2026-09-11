@@ -48,7 +48,9 @@ export function LoginScreen() {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [showPw, setShowPw] = useState(false);
-  const [err, setErr] = useState(() => (typeof window !== 'undefined' && /[?&]expired=1/.test(window.location.search)) ? { pw: 'Your session has expired. Please log in again.' } : {});
+  const [err, setErr] = useState({});
+  // Read the ?expired=1 flag after mount so server and client render the same markup.
+  useEffect(() => { if (/[?&]expired=1/.test(window.location.search)) setErr({ pw: 'Your session has expired. Please log in again.' }); }, []);
   const [busy, setBusy] = useState(false);
   const [reset, setReset] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
