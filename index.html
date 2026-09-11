@@ -53,6 +53,9 @@
   /* ---------- Auth page ---------- */
   .page{position:relative; z-index:1; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:56px 16px 48px}
   .logo{display:flex; flex-direction:column; align-items:center; gap:6px; color:#fff; text-decoration:none; margin-bottom:34px; user-select:none}
+  .logo .logo-img{width:300px; max-width:72vw; height:auto; display:block; filter:drop-shadow(0 6px 18px rgba(0,0,0,.4))}
+  .logo .word[hidden],.brand [hidden],.logo-img[hidden]{display:none}
+  .side-logo .brand img{height:24px; width:auto; display:block}
   .logo .word{display:flex; align-items:center; gap:2px; font-weight:800; font-size:44px; letter-spacing:-.04em; line-height:1}
   .logo .word svg{width:34px;height:34px; margin:-26px 0 0 4px}
   .logo .tag{font-size:12.5px; letter-spacing:.4em; text-transform:uppercase; color:#DADAE0; font-weight:500; padding-left:.42em}
@@ -461,7 +464,7 @@
 
 <!-- =================== AUTH =================== -->
 <main class="page">
-  <a class="logo" href="#" aria-label="Limelight home"><span class="word">limelight<svg><use href="#i-mark"/></svg></span><span class="tag dots">Elevate &amp; Illuminate</span></a>
+  <a class="logo" href="#" aria-label="Limelight home"><img class="logo-img" src="logo.png" alt="limelight" width="3096" height="774" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="word" hidden>limelight<svg><use href="#i-mark"/></svg></span><span class="tag dots">Elevate &amp; Illuminate</span></a>
   <section class="card">
     <div class="card-head">
       <svg class="mascot" role="img" aria-label="Lighthouse mascot"><use href="#i-mascot"/></svg>
@@ -572,7 +575,7 @@
 <div class="app" id="app">
   <aside class="side">
     <div class="side-logo">
-      <div class="brand"><span>limelight</span><svg><use href="#i-mark"/></svg></div>
+      <div class="brand"><img src="logo.png" alt="limelight" width="3096" height="774" onerror="this.hidden=true;this.nextElementSibling.hidden=false;this.nextElementSibling.nextElementSibling.hidden=false"><span hidden>limelight</span><svg hidden><use href="#i-mark"/></svg></div>
       <button class="collapse" aria-label="Collapse sidebar">‹</button>
     </div>
     <nav class="nav" id="nav">
