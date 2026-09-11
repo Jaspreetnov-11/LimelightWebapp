@@ -75,8 +75,11 @@ function computeMonthStats(rows, leaves, month) {
   const unaccounted = Math.max(0, workdaysSoFar - present - half - absent - leaveDays);
   const avgWorkingMinutes = daysWithOut > 0 ? Math.round(totalWorkedMinutes / daysWithOut) : 0;
 
+  // Per-day series for charts (date, minutes worked, status, late, mode)
+  const days = rows.map(r => ({ date: r.date, mins: r.clock_in && r.clock_out ? punchMinutes(r) : 0, open: Boolean(r.clock_in && !r.clock_out), status: r.status || (r.clock_in ? 'present' : ''), late: Number(r.late) ? 1 : 0, mode: r.mode || 'office', ot: Number(r.ot_hours) || 0 })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
   return {
-    month, present, half, absent, late, leave: leaveDays, otHours, fineHours,
+    month, present, half, absent, late, leave: leaveDays, otHours, fineHours, days,
     workdaysSoFar, workdaysTotal, unaccounted, avgWorkingMinutes, totalWorkedMinutes,
     expectedMinutesSoFar: workdaysSoFar * hoursPerDay() * 60,
     expectedMinutesTotal: workdaysTotal * hoursPerDay() * 60
