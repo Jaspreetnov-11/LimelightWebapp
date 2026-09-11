@@ -35,6 +35,14 @@ export async function request(path, { method = 'GET', body, params, raw = false 
   else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
 
   const res = await fetch('/api' + path + qs(params), { method, headers, body: payload });
+  // A stale or revoked session (e.g. token from an older login system): drop it and go to login.
+  if (res.status === 401 && token && !path.startsWith('/auth/login') && !path.startsWith('/auth/register')) {
+    setToken('');
+    try { localStorage.removeItem('lh-auth-user'); } catch (e) { /* ignore */ }
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      window.location.assign('/login?expired=1');
+    }
+  }
   if (raw) {
     if (!res.ok) throw new ApiError('Request failed (' + res.status + ')', res.status);
     return res;
