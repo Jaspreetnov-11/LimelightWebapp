@@ -75,10 +75,12 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink);box
 </head>
 <body>
 <div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 /* ============================================================
-   Limelight Workspace — single-file web app (no server needed)
-   Data lives in this browser's localStorage. Roles: admin / ops / member.
+   Limelight Workspace — single-file web app, Supabase backend
+   Data lives in Supabase (one table per collection, each row stored as jsonb) and syncs live
+   to every signed-in device. localStorage only keeps a cache + the session. Roles: admin / ops / member.
    Departments: Production, Editing, Designing, Developers.
    ============================================================ */
 'use strict';
@@ -94,10 +96,62 @@ const STATUSES = ['To do', 'In progress', 'Review', 'Done'];
 /* ---------- storage ---------- */
 const blank = () => ({ seq: 1, users: [], attendance: [], leaves: [], regs: [], expenses: [], worklogs: [], tasks: [], comments: [], announcements: [], acks: [], notifications: [], holidays: [], todos: [],
   settings: { company: 'Limelight', office_name: 'Babylon Tower, VIP Square, Raipur', office_lat: 21.2396, office_lng: 81.6773, office_radius: 250, home_radius: 250, work_start: '10:00', work_end: '19:00', grace: 15, weekly_off: '0', quota: { casual: 12, sick: 8, earned: 15 }, exp_cats: ['Travel', 'Food', 'Client meeting', 'Equipment', 'Printing', 'Other'], currency: '₹' } });
-let DB; try { DB = JSON.parse(localStorage.getItem(KEY)) || blank(); } catch { DB = blank(); }
-const save = () => localStorage.setItem(KEY, JSON.stringify(DB));
-const nid = () => DB.seq++;
-let me = null; { const sid = +localStorage.getItem(SKEY); me = DB.users.find(u => u.id === sid && u.active) || null; }
+
+/* ---------- backend (Supabase) ----------
+   Setup: run supabase/schema.sql once in the Supabase SQL editor, then paste the project's
+   "anon public" key below (Dashboard → Project settings → API). */
+const SUPABASE_URL = 'https://qvsvbnsswtvxhhayuout.supabase.co';
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY_HERE';
+const TABLES = ['users', 'attendance', 'leaves', 'regs', 'expenses', 'worklogs', 'tasks', 'comments', 'announcements', 'acks', 'notifications', 'holidays', 'todos'];
+const sb = window.supabase && SUPABASE_ANON_KEY !== 'PASTE_YOUR_ANON_KEY_HERE' ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let DB = blank(), me = null, online = false;
+const synced = Object.fromEntries(TABLES.map(t => [t, new Map()])); let syncedSettings = '';   // last state written to / read from the server, per row
+const canon = o => JSON.stringify(o, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);   // key-order independent (jsonb reorders keys)
+const nid = () => Date.now() * 1000 + Math.floor(Math.random() * 1000);   // unique across devices without a round-trip
+const cache = () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch { } };
+const sha = async s => { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); };
+const checkPw = async (u, pw) => u.password === await sha(pw) || u.password === pw;   // plain-text fallback for accounts created before hashing
+async function fetchAll(t) { const out = []; for (let from = 0; ; from += 1000) { const { data, error } = await sb.from(t).select('id,data').order('id').range(from, from + 999); if (error) throw error; out.push(...data); if (data.length < 1000) break; } return out; }
+async function load() {
+  const rows = await Promise.all(TABLES.map(fetchAll)); const s = await sb.from('settings').select('data').eq('id', 1).maybeSingle(); if (s.error) throw s.error;
+  const fresh = blank();
+  TABLES.forEach((t, i) => { fresh[t] = rows[i].map(r => { const o = r.data; o.id = r.id; synced[t].set(r.id, canon(o)); return o; }); });
+  if (s.data) fresh.settings = { ...fresh.settings, ...s.data.data }; syncedSettings = canon(fresh.settings);
+  DB = fresh; online = true; cache();
+}
+function save() {   // diff every collection against what the server has and push only the changes
+  cache(); if (!sb || !online) return;
+  const ops = [];
+  for (const t of TABLES) { const m = synced[t], seen = new Set(), up = [];
+    for (const r of DB[t]) { if (r.id == null) r.id = nid(); seen.add(r.id); const j = canon(r); if (m.get(r.id) !== j) { m.set(r.id, j); up.push({ id: r.id, data: r }); } }
+    const del = [...m.keys()].filter(id => !seen.has(id)); del.forEach(id => m.delete(id));
+    if (up.length) ops.push({ t, ids: up.map(r => r.id), p: sb.from(t).upsert(up) });
+    if (del.length) ops.push({ t, ids: del, del: true, p: sb.from(t).delete().in('id', del) }); }
+  const sj = canon(DB.settings); if (sj !== syncedSettings) { syncedSettings = sj; ops.push({ t: 'settings', p: sb.from('settings').upsert({ id: 1, data: DB.settings }) }); }
+  ops.forEach(op => op.p.then(r => { if (!r.error) return; console.error(op.t, r.error);
+    if (op.t === 'settings') syncedSettings = ''; else op.ids.forEach(id => op.del ? synced[op.t].set(id, '') : synced[op.t].delete(id));   // retry on the next save
+    toast('Not saved to server: ' + r.error.message, 'bad'); }));
+}
+function subscribe() {   // live updates from other devices
+  sb.channel('limelight').on('postgres_changes', { event: '*', schema: 'public' }, p => {
+    const t = p.table;
+    if (t === 'settings') { if (!p.new?.data) return; DB.settings = { ...blank().settings, ...p.new.data }; syncedSettings = canon(DB.settings); }
+    else if (TABLES.includes(t)) { const m = synced[t];
+      if (p.eventType === 'DELETE') { const id = p.old?.id; if (id == null || !m.has(id)) return; m.delete(id); DB[t] = DB[t].filter(x => x.id !== id); }
+      else { const o = p.new.data; o.id = p.new.id; const j = canon(o); if (m.get(o.id) === j) return; m.set(o.id, j);
+        const i = DB[t].findIndex(x => x.id === o.id); if (i < 0) DB[t].push(o); else if (t === 'users' && me && o.id === me.id) { Object.keys(me).forEach(k => delete me[k]); Object.assign(me, o); } else DB[t][i] = o; } }
+    else return;
+    cache(); if (me && !document.getElementById('modal')) render();
+  }).subscribe();
+}
+const splash = (h, body) => { document.getElementById('app').innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:20px"><div class="panel" style="max-width:440px;padding:24px"><div style="font-weight:800;font-size:22px;margin-bottom:10px">limelight<span style="color:var(--yellow)">.</span></div><h2>${h}</h2>${body}</div></div>`; };
+async function boot() {
+  if (!sb) return splash('Backend not configured', '<p class="muted">Paste your Supabase <b>anon public</b> key into <code>SUPABASE_ANON_KEY</code> in index.html and run <code>supabase/schema.sql</code> in the SQL editor.</p>');
+  splash('Connecting…', '<p class="muted">Loading your workspace.</p>');
+  try { await load(); } catch (e) { console.error(e); return splash('Could not reach the server', `<div class="err">${esc(e.message || e)}</div><p class="muted small">Check your connection, and that supabase/schema.sql has been run on the project.</p><button class="btn p" onclick="location.reload()">Retry</button>`); }
+  const sid = +localStorage.getItem(SKEY); me = DB.users.find(u => u.id === sid && u.active) || null;
+  render(); subscribe();
+}
 const isStaff = () => me && (me.role === 'admin' || me.role === 'ops');
 const isAdmin = () => me && me.role === 'admin';
 
@@ -207,15 +261,18 @@ function renderLogin() {
   ${setup ? '<button type="button" class="btn" id="demo" style="justify-content:center">Or load demo data (admin@limelight.test / secret123)</button>' : '<p class="small muted">Forgot your password? Ask an admin to reset it from Members &amp; settings.</p>'}</form></div></div>`;
 }
 function bindLogin() {
-  document.getElementById('lf').onsubmit = e => { e.preventDefault(); const f = formData(e.target); const err = document.getElementById('lerr');
-    if (!DB.users.length) { const u = { id: nid(), name: f.name.trim(), email: f.email.trim().toLowerCase(), password: f.password, role: 'admin', title: 'Administrator', department: '', phone: '', joined: today(), active: true }; DB.users.push(u); save(); signIn(u); return; }
-    const u = DB.users.find(x => x.email === f.email.trim().toLowerCase() && x.password === f.password && x.active); if (!u) { err.innerHTML = '<div class="err">That email and password don\'t match.</div>'; return; } signIn(u); };
-  const d = document.getElementById('demo'); if (d) d.onclick = () => { seedDemo(); signIn(DB.users[0]); };
+  document.getElementById('lf').onsubmit = async e => { e.preventDefault(); const f = formData(e.target); const err = document.getElementById('lerr'); const email = f.email.trim().toLowerCase();
+    if (!DB.users.length) { const u = { id: nid(), name: f.name.trim(), email, password: await sha(f.password), role: 'admin', title: 'Administrator', department: '', phone: '', joined: today(), active: true }; DB.users.push(u); save(); signIn(u); return; }
+    const u = DB.users.find(x => x.email === email && x.active); if (!u || !(await checkPw(u, f.password))) { err.innerHTML = '<div class="err">That email and password don\'t match.</div>'; return; }
+    if (u.password === f.password) { u.password = await sha(f.password); save(); }   // upgrade a legacy plain-text password
+    signIn(u); };
+  const d = document.getElementById('demo'); if (d) d.onclick = async () => { await seedDemo(); signIn(DB.users[0]); };
 }
 function signIn(u) { me = u; localStorage.setItem(SKEY, u.id); location.hash = '#/'; render(); }
 function logout() { me = null; localStorage.removeItem(SKEY); render(); }
-function seedDemo() {
-  const mk = (name, email, role, department, title, joined) => ({ id: nid(), name, email, password: role === 'admin' ? 'secret123' : 'pass1234', role, department, title, phone: '', joined, active: true });
+async function seedDemo() {
+  const PW = { admin: await sha('secret123'), member: await sha('pass1234') };
+  const mk = (name, email, role, department, title, joined) => ({ id: nid(), name, email, password: role === 'admin' ? PW.admin : PW.member, role, department, title, phone: '', joined, active: true });
   DB.users.push(mk('Jaspreet Singh', 'admin@limelight.test', 'admin', '', 'Founder', '2023-01-10'), mk('Ritika Verma', 'ops@limelight.test', 'ops', '', 'Operations lead', '2024-03-01'),
     mk('Aman Sahu', 'aman@limelight.test', 'member', 'Developers', 'Full-stack developer', '2025-06-15'), mk('Neha Dewangan', 'neha@limelight.test', 'member', 'Developers', 'Frontend developer', addDays(today(), -20)),
     mk('Rohit Patel', 'rohit@limelight.test', 'member', 'Designing', 'Art director', '2024-08-01'), mk('Priya Nair', 'priya@limelight.test', 'member', 'Editing', 'Video editor', '2025-01-20'), mk('Vikas Yadav', 'vikas@limelight.test', 'member', 'Production', 'Producer', '2024-11-05'));
@@ -455,7 +512,7 @@ PAGES.team = () => { if (!isAdmin()) return PAGES['']();
 PAGES.profile = () => title(esc(me.name), `${esc(me.email)}${me.title ? ' · ' + esc(me.title) : ''} ${rpill(me.role)} ${dpill(me.department)}`, '<button class="btn" data-act="logout">Sign out</button>') + `<div class="grid c2">${card('My details', `<form data-form="profile" class="fg">${F('Phone', `<input name="phone" type="tel" value="${esc(me.phone || '')}">`)}${F('Birthday', `<input name="birthday" type="date" value="${me.birthday || ''}">`)}${F('Emergency contact', `<input name="emergency" value="${esc(me.emergency || '')}" placeholder="e.g. Mom · 98xxxxxxxx">`, 'Only admin & ops can see this.')}${F('Blood group', `<select name="blood">${opts([['', '—'], ...['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(b => [b, b])], me.blood || '')}</select>`)}${F('Address', `<textarea name="address" rows="2">${esc(me.address || '')}</textarea>`, '', 'full')}<div class="full right"><button class="btn p sm">Save details</button></div></form>`)}
   <div style="display:flex;flex-direction:column;gap:14px">${card('Home location', `<p class="small muted" style="margin-top:0">Save your home once from home. Clock-ins within the home radius are then detected as Work from home instead of On field. Only the coordinates are stored.</p><div class="row">${pill(me.home_lat != null ? 'Saved' : 'Not set', me.home_lat != null ? 'ok' : 'warn')}<span class="grow"></span><button class="btn p sm" data-act="saveHome">${me.home_lat != null ? 'Update to current location' : 'Save current location as home'}</button></div>`)}
   ${card('Change password', `<form data-form="password" style="display:flex;flex-direction:column;gap:10px">${F('Current password', '<input name="cur" type="password" required>')}${F('New password', '<input name="next" type="password" required minlength="6">')}<div class="right"><button class="btn p sm">Update password</button></div></form>`)}
-  ${card('This browser', `<p class="small muted" style="margin:0">This single-file version keeps all data in this browser only. <button class="btn xs danger" data-act="reset">Reset everything</button></p>`)}</div></div>`;
+  ${card('This browser', `<p class="small muted" style="margin:0">Your data is stored on the Limelight server and synced live to every device. <button class="btn xs" data-act="reset">Clear local cache &amp; sign out</button></p>`)}</div></div>`;
 PAGES.more = () => { const links = [['Me', [['', 'Home'], ['attendance', 'Attendance'], ['worklog', 'Work report'], ['leaves', 'Leaves'], ['regularization', 'Regularization'], ['expenses', 'Expenses']]], ['Work', [['tasks', 'Tasks'], ['boards', 'Department boards']]], ['Company', [['announcements', 'Announcements'], ['directory', 'Directory'], ['calendar', 'Calendar'], ['notifications', 'Notifications'], ['alerts', 'Alerts']]]]; if (isStaff()) links.push(['Admin & Operations', [['admin', 'Team overview'], ['approvals', 'Approvals'], ['reports', 'Reports'], ...(isAdmin() ? [['team', 'Members & settings']] : [])]]);
   return `<a href="#/profile" class="panel row" style="padding:16px;text-decoration:none">${av(me, 'lg')}<div class="grow"><div style="font-weight:600;font-size:16px">${esc(me.name)}</div><div class="small muted">${esc(me.email)}</div><div class="row mt">${rpill(me.role)}${dpill(me.department)}</div></div>›</a>${links.map(([t, items]) => card(t, items.map(([h, l]) => `<a class="lr" href="#/${h}" style="text-decoration:none;padding:10px 0">${l}<span class="grow"></span>›</a>`).join(''))).join('')}<button class="btn" data-act="logout" style="justify-content:center">Sign out</button>`; };
 
@@ -494,7 +551,7 @@ const ACT = {
   holDel(id) { DB.holidays = DB.holidays.filter(h => h.id !== +id); save(); render(); },
   useHere() { locate().then(l => { document.querySelector('[name=office_lat]').value = l.lat.toFixed(6); document.querySelector('[name=office_lng]').value = l.lng.toFixed(6); toast(`Office set to your current position (±${Math.round(l.acc)} m). Save to apply.`); }).catch(e => toast(e.message, 'bad')); },
   saveHome() { locate().then(l => { me.home_lat = l.lat; me.home_lng = l.lng; save(); toast('Home location saved. Clock-ins from here will count as Work from home.'); render(); }).catch(e => toast(e.message, 'bad')); },
-  reset() { if (confirm('Delete all data in this browser and start over?')) { localStorage.removeItem(KEY); localStorage.removeItem(SKEY); location.reload(); } },
+  reset() { if (confirm('Clear this browser\'s local copy and sign out? Nothing on the server is deleted.')) { localStorage.removeItem(KEY); localStorage.removeItem(SKEY); location.reload(); } },
 };
 /* ---------- forms ---------- */
 const FORMS = {
@@ -508,18 +565,22 @@ const FORMS = {
   announcement(f) { const a = { id: nid(), title: f.title.trim(), body: f.body, pinned: f.pinned ? 1 : 0, needs_ack: f.needs_ack ? 1 : 0, by: me.id, at: nowIso() }; DB.announcements.push(a); DB.users.filter(u => u.active && u.id !== me.id).forEach(u => notify(u.id, 'notification', 'Announcement: ' + a.title, a.body.slice(0, 140), '#/announcements')); closeModal(); toast('Announcement posted'); },
   alert(f) { const targets = DB.users.filter(u => u.active && (f.to === 'all' || u.department === f.to)); targets.forEach(u => notify(u.id, 'alert', f.title, f.body, '#/alerts')); closeModal(); toast(`Alert sent to ${targets.length} member${targets.length === 1 ? '' : 's'}`); },
   attEdit(f, form) { const a = DB.attendance.find(x => x.id === +form.dataset.arg); if (f.in) a.in = new Date(`${a.date}T${f.in}:00`).toISOString(); if (f.out) a.out = new Date(`${a.date}T${f.out}:00`).toISOString(); a.mode = f.mode; a.note = f.note; closeModal(); toast('Attendance updated'); },
-  member(f, form) { const id = +form.dataset.arg; const email = f.email.trim().toLowerCase(); if (DB.users.some(u => u.email === email && u.id !== id)) return toast('A member with that email already exists.', 'bad'); if (id) { const u = user(id); Object.assign(u, { name: f.name.trim(), email, title: f.title, department: f.department, phone: f.phone, joined: f.joined, birthday: f.birthday }); if (u.id !== me.id) u.role = f.role; if (f.password) { u.password = f.password; notify(u.id, 'alert', 'Your password was reset', 'An admin reset your password.', '#/profile'); } } else { const u = { id: nid(), name: f.name.trim(), email, password: f.password, role: f.role, title: f.title, department: f.department, phone: f.phone, joined: f.joined, birthday: f.birthday, active: true }; DB.users.push(u); notify(u.id, 'notification', 'Welcome to ' + DB.settings.company, 'Your account is ready. Clock in from your dashboard every day.', '#/'); } closeModal(); toast('Member saved'); },
+  member(f, form) { const id = +form.dataset.arg; const email = f.email.trim().toLowerCase(); if (DB.users.some(u => u.email === email && u.id !== id)) return toast('A member with that email already exists.', 'bad');
+    (async () => { const pw = f.password ? await sha(f.password) : null;
+      if (id) { const u = user(id); Object.assign(u, { name: f.name.trim(), email, title: f.title, department: f.department, phone: f.phone, joined: f.joined, birthday: f.birthday }); if (u.id !== me.id) u.role = f.role; if (pw) { u.password = pw; notify(u.id, 'alert', 'Your password was reset', 'An admin reset your password.', '#/profile'); } }
+      else { const u = { id: nid(), name: f.name.trim(), email, password: pw, role: f.role, title: f.title, department: f.department, phone: f.phone, joined: f.joined, birthday: f.birthday, active: true }; DB.users.push(u); notify(u.id, 'notification', 'Welcome to ' + DB.settings.company, 'Your account is ready. Clock in from your dashboard every day.', '#/'); }
+      closeModal(); toast('Member saved'); save(); render(); })(); return 'async'; },
   settings(f) { const s = DB.settings; Object.assign(s, { company: f.company, office_name: f.office_name, office_lat: +f.office_lat, office_lng: +f.office_lng, office_radius: +f.office_radius, home_radius: +f.home_radius, work_start: f.work_start, work_end: f.work_end, grace: +f.grace, weekly_off: f.weekly_off, currency: f.currency, exp_cats: f.exp_cats.split(',').map(x => x.trim()).filter(Boolean), quota: { casual: +f.q_casual, sick: +f.q_sick, earned: +f.q_earned } }); toast('Settings saved'); },
   holiday(f) { DB.holidays.push({ id: nid(), name: f.name, date: f.date }); toast('Holiday added'); },
   profile(f) { Object.assign(me, { phone: f.phone, birthday: f.birthday, emergency: f.emergency, blood: f.blood, address: f.address }); toast('Profile saved'); },
-  password(f) { if (f.cur !== me.password) return toast('Current password is incorrect.', 'bad'); me.password = f.next; toast('Password changed'); },
+  password(f) { (async () => { if (!(await checkPw(me, f.cur))) return toast('Current password is incorrect.', 'bad'); me.password = await sha(f.next); save(); render(); toast('Password changed'); })(); return 'async'; },
 };
 document.addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (!el || el.tagName === 'SELECT' || el.tagName === 'INPUT') return; if (el.type === 'checkbox') return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el.dataset.arg); } });
 document.addEventListener('change', e => { const el = e.target.closest('[data-act]'); if (!el) return; const fn = ACT[el.dataset.act]; if (fn && (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'date')) fn(el.type === 'checkbox' ? el.dataset.arg : el.value); });
 document.addEventListener('submit', e => { const form = e.target.closest('[data-form]'); if (!form) return; e.preventDefault(); const r = FORMS[form.dataset.form]?.(formData(form), form); if (r !== 'async') { save(); render(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 setInterval(() => { if (me && !document.getElementById('modal')) render(); }, 60000);   // keep the live timer fresh
-render();
+boot();
 </script>
 </body>
 </html>
