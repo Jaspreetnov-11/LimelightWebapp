@@ -210,6 +210,54 @@ async function runTests() {
     assert.ok(typeof res.body.data.totalAlerts === 'number');
   });
 
+  // 15. Employee creation with password & login verification
+  let tempStaffId = '';
+  const tempStaffEmail = `testuser_${Date.now()}@example.com`;
+  const tempStaffPass = 'MyStaffPass@123';
+  await test('POST /api/employees sets login password and allows staff login', async () => {
+    const res = await request('POST', '/api/employees', {
+      name: 'Password Verify User',
+      email: tempStaffEmail,
+      password: tempStaffPass,
+      role: 'Motion Designer',
+      dept: 'Design',
+      salary: 30000,
+      access: 'staff'
+    }, { Authorization: `Bearer ${authToken}` });
+    assert.strictEqual(res.status, 201);
+    assert.ok(res.body.data && res.body.data.id);
+    tempStaffId = res.body.data.id;
+
+    // Verify staff login succeeds with this password
+    const loginRes = await request('POST', '/api/auth/login', {
+      email: tempStaffEmail,
+      password: tempStaffPass
+    });
+    assert.strictEqual(loginRes.status, 200);
+    assert.ok(loginRes.body.data && loginRes.body.data.token);
+  });
+
+  // 16. Employee password update & login verification
+  const updatedStaffPass = 'UpdatedPass@456';
+  await test('PUT /api/employees/:id updates password and permits new login', async () => {
+    const updateRes = await request('PUT', `/api/employees/${tempStaffId}`, {
+      password: updatedStaffPass
+    }, { Authorization: `Bearer ${authToken}` });
+    assert.strictEqual(updateRes.status, 200);
+
+    const loginRes = await request('POST', '/api/auth/login', {
+      email: tempStaffEmail,
+      password: updatedStaffPass
+    });
+    assert.strictEqual(loginRes.status, 200);
+    assert.ok(loginRes.body.data && loginRes.body.data.token);
+
+    // Cleanup
+    await request('DELETE', `/api/employees/${tempStaffId}`, {}, {
+      Authorization: `Bearer ${authToken}`
+    });
+  });
+
   console.log(`\nTEST SUMMARY: ${passed} passed, ${failed} failed`);
   if (failed > 0) {
     process.exit(1);

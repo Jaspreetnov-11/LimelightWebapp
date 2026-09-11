@@ -16,6 +16,14 @@ class UserModel extends BaseModel {
     );
   }
 
+  findByEmployeeId(employeeId) {
+    if (!employeeId) return null;
+    return db.get(
+      'SELECT * FROM lh_users WHERE employee_id = ? LIMIT 1',
+      [employeeId]
+    );
+  }
+
   findWithEmployee(userId) {
     return db.get(
       `SELECT u.id, u.email, u.role, u.employee_id, e.name, e.dept, e.access, e.emp_id, e.salary, e.phone

@@ -81,9 +81,35 @@ class BaseModel {
     return db.all(sql, vals);
   }
 
+  getTableColumns() {
+    if (!this._columns) {
+      try {
+        const info = db.all(`PRAGMA table_info(${this.table})`);
+        if (Array.isArray(info) && info.length > 0) {
+          this._columns = new Set(info.map(c => c.name));
+        }
+      } catch (e) {
+        this._columns = null;
+      }
+    }
+    return this._columns;
+  }
+
+  filterKnownColumns(data) {
+    const cols = this.getTableColumns();
+    if (!cols) return { ...data };
+    const clean = {};
+    for (const key of Object.keys(data)) {
+      if (cols.has(key)) {
+        clean[key] = data[key];
+      }
+    }
+    return clean;
+  }
+
   create(data) {
     const now = new Date().toISOString();
-    const record = { ...data };
+    const record = this.filterKnownColumns(data);
     if (!record.created_at) record.created_at = now;
     if (!record.updated_at) record.updated_at = now;
 
@@ -98,7 +124,7 @@ class BaseModel {
   }
 
   update(id, data) {
-    const record = { ...data };
+    const record = this.filterKnownColumns(data);
     record.updated_at = new Date().toISOString();
 
     const keys = Object.keys(record).filter(k => k !== this.pk);

@@ -1,6 +1,8 @@
 'use strict';
 
+const bcrypt = require('bcryptjs');
 const employeeModel = require('../models/employee.model');
+const userModel = require('../models/user.model');
 const taskModel = require('../models/task.model');
 const payrollService = require('../services/payroll.service');
 const apiResponse = require('../utils/apiResponse');
@@ -49,7 +51,7 @@ const getEmployeeById = catchAsync(async (req, res) => {
 });
 
 const createEmployee = catchAsync(async (req, res) => {
-  const { name, role, dept, email, phone, emp_id, joined, dob, managers, salary, access } = req.body;
+  const { name, role, dept, email, phone, emp_id, joined, dob, managers, salary, access, password } = req.body;
 
   const count = employeeModel.count();
   const id = 'e_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
@@ -73,6 +75,32 @@ const createEmployee = catchAsync(async (req, res) => {
     ini: initials
   });
 
+  // If email is provided, create/update login account in lh_users
+  if (email && email.trim()) {
+    const userEmail = email.trim().toLowerCase();
+    const existingUser = userModel.findByEmployeeId(newEmp.id) || userModel.findByEmail(userEmail);
+    const pass = (password && password.trim()) ? password.trim() : 'Lighthouse@123';
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(pass, salt);
+
+    if (!existingUser) {
+      userModel.create({
+        id: 'u_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4),
+        email: userEmail,
+        password_hash: passwordHash,
+        role: access || 'staff',
+        employee_id: newEmp.id
+      });
+    } else {
+      userModel.update(existingUser.id, {
+        email: userEmail,
+        password_hash: passwordHash,
+        role: access || existingUser.role,
+        employee_id: newEmp.id
+      });
+    }
+  }
+
   return apiResponse.created(res, newEmp, 'Employee added successfully');
 });
 
@@ -84,6 +112,17 @@ const updateEmployee = catchAsync(async (req, res) => {
   }
 
   const updateData = { ...req.body };
+  const rawPassword = updateData.password;
+  delete updateData.password; // Do not attempt to update non-existent column in lh_employees
+
+  // Strip computed/virtual fields that frontend may attach
+  delete updateData.pending_bal;
+  delete updateData.pendingBal;
+  delete updateData.earned;
+  delete updateData.paid;
+  delete updateData.payroll;
+  delete updateData.tasks;
+
   if (updateData.managers && Array.isArray(updateData.managers)) {
     updateData.managers = JSON.stringify(updateData.managers);
   }
@@ -92,6 +131,47 @@ const updateEmployee = catchAsync(async (req, res) => {
   }
 
   const updated = employeeModel.update(id, updateData);
+
+  // Sync user credentials in lh_users
+  const targetEmail = (updateData.email || existing.email || '').trim().toLowerCase();
+  const targetRole = updateData.access || existing.access || 'staff';
+
+  // Find linked user: 1st by employee_id, 2nd by new email, 3rd by old email
+  let linkedUser = userModel.findByEmployeeId(id);
+  if (!linkedUser && targetEmail) {
+    linkedUser = userModel.findByEmail(targetEmail);
+  }
+  if (!linkedUser && existing.email) {
+    linkedUser = userModel.findByEmail(existing.email.trim().toLowerCase());
+  }
+
+  if (rawPassword && rawPassword.trim()) {
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(rawPassword.trim(), salt);
+    if (linkedUser) {
+      userModel.update(linkedUser.id, {
+        email: targetEmail || linkedUser.email,
+        password_hash: passwordHash,
+        role: targetRole,
+        employee_id: id
+      });
+    } else if (targetEmail) {
+      userModel.create({
+        id: 'u_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4),
+        email: targetEmail,
+        password_hash: passwordHash,
+        role: targetRole,
+        employee_id: id
+      });
+    }
+  } else if (linkedUser && targetEmail && (linkedUser.email !== targetEmail || linkedUser.role !== targetRole)) {
+    userModel.update(linkedUser.id, {
+      email: targetEmail,
+      role: targetRole,
+      employee_id: id
+    });
+  }
+
   return apiResponse.success(res, updated, 'Employee updated successfully');
 });
 

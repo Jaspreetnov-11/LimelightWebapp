@@ -988,7 +988,7 @@ const KEYMAP = { in:'clock_in', out:'clock_out', from:'from_date', to:'to_date',
 const KEYMAP_R = Object.fromEntries(Object.entries(KEYMAP).map(([a,b])=>[b,a]));
 const snake = k => KEYMAP[k] || k.replace(/[A-Z]/g, c=>'_'+c.toLowerCase());
 const camel = k => KEYMAP_R[k] || k.replace(/_([a-z])/g, (_,c)=>c.toUpperCase());
-const toRow = o => { const r={}; Object.keys(o).forEach(k=>{ let v=o[k]; if(v===''&&/date|joined|dob|start|deadline|assigned|completed/.test(k)) v=null; r[snake(k)]=v; }); return r; };
+const toRow = o => { const r={}; Object.keys(o).forEach(k=>{ if(/^(pendingBal|pending_bal|earned|paid|payroll|tasks|overdue)$/.test(k)) return; let v=o[k]; if(v===''&&/date|joined|dob|start|deadline|assigned|completed/.test(k)) v=null; r[snake(k)]=v; }); return r; };
 const fromRow = r => { const o={}; Object.keys(r).forEach(k=>{ if(k==='created_at'||k==='updated_at') return; let v=r[k]; if(v===null) v=''; o[camel(k)]=v; }); return o; };
 
 const pending = new Set(); let flushT=null; const lastSync={};
@@ -1313,6 +1313,7 @@ function field(name,label,type='text',opts={}){
   if(type==='custom') ctl=opts.html||'';
   else if(type==='select') ctl=`<select id="m-${name}" name="${name}"${req}>${(opts.options||[]).map(o=>`<option value="${esc(o.v)}"${o.v===opts.value?' selected':''}>${esc(o.l)}</option>`).join('')}</select>`;
   else if(type==='textarea') ctl=`<textarea id="m-${name}" name="${name}"${ph}>${esc(opts.value||'')}</textarea>`;
+  else if(type==='password') ctl=`<div style="position:relative"><input id="m-${name}" name="${name}" class="pw" type="password"${ph}${req} value="${esc(opts.value==null?'':opts.value)}" autocomplete="new-password" style="padding-right:44px"><button type="button" class="eye" onclick="(function(b){const i=b.previousElementSibling;const s=i.type==='text';i.type=s?'password':'text';b.style.color=s?'':'var(--accent)';})(this)" aria-label="Show/hide password" style="position:absolute;right:6px;top:50%;transform:translateY(-50%)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>`;
   else ctl=`<input id="m-${name}" name="${name}" type="${type}"${ph}${req} value="${esc(opts.value==null?'':opts.value)}"${opts.min!=null?` min="${opts.min}"`:''}${opts.step?` step="${opts.step}"`:''}>`;
   return `<div class="field${span}"><label for="m-${name}">${esc(label)}${opts.required?'':' <span class="opt">(optional)</span>'}</label><div class="control">${ctl}</div><div class="error">${esc(opts.error||'This field is required.')}</div></div>`;
 }
@@ -1748,16 +1749,28 @@ window.openModal=function(kind,id,preset={}){
   }
   else if(kind==='employee'){ const e=id?byId('employees',id):null;
     showModal({title:e?'Edit staff':'Add staff',sub:'Salary is used for payroll and the pending balance.',ok:e?'Save changes':'Add staff',fields:
-      field('name','Full name','text',{required:true,value:e?e.name:''})+field('email','Email','email',{required:true,value:e?e.email:'',error:'Enter a valid email.'})+
-      field('phone','Phone','tel',{value:e?e.phone:'',placeholder:'98xxxxxxxx'})+field('role','Designation','text',{required:true,value:e?e.role:'',placeholder:'e.g. Video Editor'})+
-      field('dept','Department','select',{options:deptOpts,value:e?e.dept:(deptOpts[0]||{}).v})+field('salary','Monthly salary (₹)','number',{required:true,value:e?(e.salary||0):25000,min:0,step:500})+
-      field('empId','Employee ID','text',{value:e?e.empId:'LH'+String(s.employees.length+40).padStart(4,'0')})+field('joined','Joining date','date',{required:true,value:e?e.joined:todayISO()})+
-      field('dob','Date of birth','date',{value:e?e.dob:''})+field('access','App access','select',{options:[{v:'admin',l:'Admin (full access)'},{v:'staff',l:'Staff (own data)'}],value:e?(e.access||'staff'):'staff'})+
+      field('name','Full name','text',{required:true,value:e?e.name:''})+
+      field('email','Email','email',{required:true,value:e?e.email:'',error:'Enter a valid email.'})+
+      field('password',e?'Login password (leave blank to keep)':'Login password','password',{required:!e,placeholder:e?'Leave blank to keep unchanged':'Set login password',value:e?'':(s.employees.length>0?'Lighthouse@123':''),error:'Password is required (min 6 characters).'})+
+      field('phone','Phone','tel',{value:e?e.phone:'',placeholder:'98xxxxxxxx'})+
+      field('role','Designation','text',{required:true,value:e?e.role:'',placeholder:'e.g. Video Editor'})+
+      field('dept','Department','select',{options:deptOpts,value:e?e.dept:(deptOpts[0]||{}).v})+
+      field('salary','Monthly salary (₹)','number',{required:true,value:e?(e.salary||0):25000,min:0,step:500})+
+      field('empId','Employee ID','text',{value:e?e.empId:'LH'+String(s.employees.length+40).padStart(4,'0')})+
+      field('joined','Joining date','date',{required:true,value:e?e.joined:todayISO()})+
+      field('dob','Date of birth','date',{value:e?e.dob:''})+
+      field('access','App access','select',{options:[{v:'admin',l:'Admin (full access)'},{v:'staff',l:'Staff (own data)'}],value:e?(e.access||'staff'):'staff'})+
       field('managers','Reporting managers','text',{span:true,value:e?(e.managers||[]).join(', '):'',placeholder:'Comma separated names'}),
       onSubmit:d=>{ const mg=d.managers?d.managers.split(',').map(x=>x.trim()).filter(Boolean):[];
-        if(e){ Object.assign(e,{name:d.name,email:d.email,phone:d.phone,role:d.role,dept:d.dept,salary:+d.salary||0,empId:d.empId,joined:d.joined,dob:d.dob,access:d.access,managers:mg}); toast('Staff updated.'); }
-        else { const n={id:uid(),name:d.name,email:d.email,phone:d.phone,role:d.role,dept:d.dept,salary:+d.salary||0,empId:d.empId||'LH'+uid().slice(0,4).toUpperCase(),joined:d.joined,dob:d.dob,access:d.access,managers:mg}; s.employees.push(n); window.selectEmployee(n.id); addActivity(n.name+' joined '+n.dept); toast('Staff added.'); }
-        persist('employees'); window.renderAll(); }});
+        if(e){
+          Object.assign(e,{name:d.name,email:d.email,phone:d.phone,role:d.role,dept:d.dept,salary:+d.salary||0,empId:d.empId,joined:d.joined,dob:d.dob,access:d.access,managers:mg});
+          if(d.password) e.password=d.password;
+          toast('Staff updated.');
+        } else {
+          const n={id:uid(),name:d.name,email:d.email,password:d.password||'Lighthouse@123',phone:d.phone,role:d.role,dept:d.dept,salary:+d.salary||0,empId:d.empId||'LH'+uid().slice(0,4).toUpperCase(),joined:d.joined,dob:d.dob,access:d.access,managers:mg};
+          s.employees.push(n); window.selectEmployee(n.id); addActivity(n.name+' joined '+n.dept); toast('Staff added.');
+        }
+        persist('employees'); flush(); window.renderAll(); }});
   }
   else if(kind==='dept'){ const x=id?byId('departments',id):null;
     showModal({title:x?'Edit department':'Add department',ok:x?'Save changes':'Add department',fields:
@@ -2223,7 +2236,16 @@ $('#view-login').addEventListener('submit',async e=>{
     if(error){ $('#f-pass .error').textContent=error.message||'Sign in failed.'; mark($('#f-pass'),true); return; }
     $('#view-login').reset(); if(data.session) await window.afterSupabaseLogin(data.session); return;
   }
-  setTimeout(()=>{ busy(b,false); const ok=$('#email').value.trim().toLowerCase()===DEMO.email&&$('#password').value===DEMO.password; if(!ok){ $('#f-pass .error').textContent='Incorrect email or password. Use the demo login below.'; mark($('#f-pass'),true); $('#password').focus(); return; } $('#view-login').reset(); enterApp(); toast('Signed in. Welcome back to Limelight!'); },600);
+  setTimeout(()=>{
+    busy(b,false);
+    const emVal=$('#email').value.trim().toLowerCase();
+    const pwVal=$('#password').value;
+    const emp=S().employees.find(x=>(x.email||'').toLowerCase()===emVal);
+    const ok=(emVal===DEMO.email&&pwVal===DEMO.password)||(emp&&(emp.password?emp.password===pwVal:pwVal===DEMO.password));
+    if(!ok){ $('#f-pass .error').textContent='Incorrect email or password.'; mark($('#f-pass'),true); $('#password').focus(); return; }
+    if(emp) L.ME={...emp, ini:L.ini(emp.name), av:L.avFor(emp.name)};
+    $('#view-login').reset(); enterApp(); toast('Signed in. Welcome back to Limelight!');
+  },600);
 });
 $('#google-btn').addEventListener('click',async()=>{ if(L.mode==='supabase'&&L.sb){ const {error}=await L.sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0]}}); if(error) toast(error.message); return; } toast('Google sign-in works once Supabase is connected (Settings).'); });
 $('#view-signup').addEventListener('submit',async e=>{

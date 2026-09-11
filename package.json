@@ -5,7 +5,7 @@
   "main": "api/index.js",
   "scripts": {
     "start": "node backend/server.js",
-    "dev": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
     "test": "node backend/tests/test_api.js",
     "test:security": "node backend/tests/test_security.js",
     "test:all": "node backend/tests/test_api.js && node backend/tests/test_security.js"

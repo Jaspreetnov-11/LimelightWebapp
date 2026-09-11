@@ -26,6 +26,10 @@ const createEmployeeSchema = {
   },
   phone: {
     required: false
+  },
+  password: {
+    required: false,
+    custom: (v) => !v || v.length >= 6 || 'Password must be at least 6 characters'
   }
 };
 
@@ -42,6 +46,10 @@ const updateEmployeeSchema = {
     required: false,
     type: 'number',
     min: 0
+  },
+  password: {
+    required: false,
+    custom: (v) => !v || v.length >= 6 || 'Password must be at least 6 characters'
   }
 };
 
