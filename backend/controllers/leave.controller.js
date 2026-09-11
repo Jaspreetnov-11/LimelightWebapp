@@ -30,8 +30,8 @@ const getLeavesToday = catchAsync(async (req, res) => {
 const applyLeave = catchAsync(async (req, res) => {
   const { from_date, to_date, reason = '', emp, remarks = '' } = req.body;
   const kind = req.body.kind === 'wfh' ? 'wfh' : 'leave';
-  // Staff can only apply for themselves; admins / team leaders for anyone
-  const targetEmpId = (req.user.role === 'admin' || req.user.role === 'manager') && emp ? emp : req.user.id;
+  // Everyone applies for themselves; only admins can record leave / WFH for someone else
+  const targetEmpId = req.user.role === 'admin' && emp ? emp : req.user.id;
 
   const id = 'l_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
   const leave = await leaveModel.create({

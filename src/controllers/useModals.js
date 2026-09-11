@@ -127,12 +127,12 @@ export function useModals() {
         }
       });
     } else if (kind === 'leave') {
-      const canPickOthers = isAdmin || (me && me.access === 'manager');
+      const canPickOthers = isAdmin; // everyone else applies for themselves only
       openModal({
         title: 'Apply leave / work from home', sub: 'Leave days count as paid days in payroll. Work-from-home days are normal working days: clock in as usual and the punch is marked WFH.', ok: 'Apply',
         fields: [
           { name: 'kind', label: 'Type', type: 'select', required: true, options: [{ v: 'leave', l: 'Leave' }, { v: 'wfh', l: 'Work from home' }], value: preset.kind || 'leave', onChange: v => ({ reason: v === 'wfh' ? 'Client visit' : 'Casual' }) },
-          { name: 'emp', label: 'Employee', type: 'select', required: true, options: canPickOthers ? empOnly : empOnly.filter(o => o.v === meId), value: preset.emp || meId },
+          { name: 'emp', label: 'Employee', type: 'select', required: true, options: canPickOthers ? empOnly : empOnly.filter(o => o.v === meId), value: canPickOthers ? (preset.emp || meId) : meId, hidden: () => !canPickOthers },
           { name: 'from_date', label: 'From', type: 'date', required: true, value: todayISO() },
           { name: 'to_date', label: 'To', type: 'date', required: true, value: todayISO(), validate: (v, all) => v >= all.from_date || 'End date must be after start date.' },
           { name: 'reason', label: 'Reason', type: 'select', required: true, optionsFor: v => (v.kind === 'wfh' ? ['Client visit', 'Field work', 'Health', 'Weather / travel', 'Other'] : ['Casual', 'Sick', 'Personal', 'Vacation', 'Other']).map(x => ({ v: x, l: x })), value: 'Casual' },
