@@ -11,6 +11,7 @@ const apiResponse = require('../utils/apiResponse');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { todayISO, thisMonth, SHIFTS } = require('../utils/calculations');
+const settingsService = require('../services/settings.service');
 
 const ACCESS = ['admin', 'manager', 'staff'];
 const initialsOf = name => String(name || '').trim().split(/\s+/).slice(0, 2).map(w => (w[0] || '').toUpperCase()).join('');
@@ -66,7 +67,7 @@ const createEmployee = catchAsync(async (req, res) => {
   if (authUser) {
     if (typedPassword) await supabase.updateUser(authUser.id, { password: typedPassword, name });
   } else {
-    authUser = await supabase.createUser({ email: cleanEmail, password: typedPassword || env.DEFAULT_STAFF_PASSWORD, name });
+    authUser = await supabase.createUser({ email: cleanEmail, password: typedPassword || settingsService.get().defaultPassword || env.DEFAULT_STAFF_PASSWORD, name });
   }
   const id = authUser.id;
   if (await employeeModel.findById(id)) throw new AppError('This login already belongs to a staff member.', 409);
@@ -82,7 +83,7 @@ const createEmployee = catchAsync(async (req, res) => {
     dob: dob || null,
     managers: JSON.stringify(Array.isArray(managers) ? managers : []),
     salary: Number(salary) || 0,
-    access: env.ADMIN_EMAILS.includes(cleanEmail) ? 'admin' : (ACCESS.includes(access) ? access : 'staff'),
+    access: settingsService.isAdminEmail(cleanEmail) ? 'admin' : (ACCESS.includes(access) ? access : 'staff'),
     shift: cleanShift(shift),
     av: avFor(id),
     ini: initialsOf(name)
@@ -111,7 +112,7 @@ const updateEmployee = catchAsync(async (req, res) => {
   if (updateData.email) updateData.email = String(updateData.email).trim().toLowerCase();
   if (updateData.name && !updateData.ini) updateData.ini = initialsOf(updateData.name);
   if (updateData.access !== undefined && !ACCESS.includes(updateData.access)) delete updateData.access;
-  if (updateData.email && env.ADMIN_EMAILS.includes(updateData.email)) updateData.access = 'admin';
+  if (updateData.email && settingsService.isAdminEmail(updateData.email)) updateData.access = 'admin';
   if (updateData.shift !== undefined) updateData.shift = cleanShift(updateData.shift);
 
   const updated = await employeeModel.update(id, updateData);

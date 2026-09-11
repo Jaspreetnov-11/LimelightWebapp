@@ -213,3 +213,9 @@ CREATE TABLE IF NOT EXISTS lh_clients (
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS lh_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT DEFAULT (datetime('now'))
+);

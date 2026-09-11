@@ -9,7 +9,7 @@ import { ACCESS_LABEL, avFor, ini, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TA
 
 export function useModals() {
   const { me, isAdmin } = useAuth();
-  const { employees, departments, projects, tasks, clients, assignableProjects, reload } = useData();
+  const { employees, departments, projects, tasks, clients, settings, assignableProjects, reload } = useData();
   const { openModal, toast } = useUi();
 
   const open = useCallback((kind, id, preset = {}) => {
@@ -95,7 +95,7 @@ export function useModals() {
           { name: 'phone', label: 'Phone', type: 'tel', value: e ? e.phone : '', placeholder: '98xxxxxxxx' },
           { name: 'role', label: 'Designation', required: true, value: e ? e.role : '', placeholder: 'e.g. Video Editor' },
           { name: 'dept', label: 'Department', type: 'select', required: true, placeholder: 'Select department', options: deptOpts, value: e ? e.dept : '' },
-          { name: 'shift', label: 'Shift', type: 'select', required: true, options: Object.entries(SHIFTS).map(([v, l]) => ({ v, l })), value: e ? (e.shift || 'day') : 'day', help: '20 min grace after shift start. Overtime counts after 8 pm (day) / 11 pm (evening) at 1× hourly pay.' },
+          { name: 'shift', label: 'Shift', type: 'select', required: true, options: settings && settings.shifts ? Object.entries(settings.shifts).map(([v, s]) => ({ v, l: s.display || s.label })) : Object.entries(SHIFTS).map(([v, l]) => ({ v, l })), value: e ? (e.shift || 'day') : 'day', help: (settings ? settings.graceMins : 20) + ' min grace after shift start. Overtime after the shift OT time at ' + (settings ? settings.otRate : 1) + '× hourly pay. Change the rules under Settings → Admin controls.' },
           { name: 'access', label: 'App access', type: 'select', required: true, options: Object.entries(ACCESS_LABEL).map(([v, l]) => ({ v, l })), value: e ? (e.access || 'staff') : 'staff' },
           { name: 'salary', label: 'Monthly salary (₹)', type: 'number', required: true, value: e ? (e.salary || 0) : 25000, min: 0, step: 500 },
           { name: 'emp_id', label: 'Employee ID', value: e ? e.emp_id : '', placeholder: 'Auto (LH0001…)' },
@@ -199,7 +199,7 @@ export function useModals() {
         }
       });
     }
-  }, [employees, departments, projects, tasks, clients, assignableProjects, me, isAdmin, openModal, toast, reload]);
+  }, [employees, departments, projects, tasks, clients, settings, assignableProjects, me, isAdmin, openModal, toast, reload]);
 
   return { open };
 }

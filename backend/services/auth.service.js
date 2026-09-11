@@ -21,7 +21,7 @@ const { todayISO } = require('../utils/calculations');
 const initialsOf = name => String(name || '').trim().split(/\s+/).slice(0, 2).map(w => (w[0] || '').toUpperCase()).join('') || 'LM';
 const AV = ['o', 'p', 'g', 'r', 'b', 'br', 't'];
 const avFor = id => AV[[...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % AV.length];
-const isAdminEmail = email => env.ADMIN_EMAILS.includes(String(email || '').trim().toLowerCase());
+const isAdminEmail = email => require('./settings.service').isAdminEmail(email);
 
 class AuthService {
   generateToken(employee) {

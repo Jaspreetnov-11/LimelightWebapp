@@ -36,6 +36,12 @@ export const ProjectModel = {
   remove: id => api.del('/projects/' + id)
 };
 
+export const SettingsModel = {
+  get: () => data(api.get('/settings')),
+  update: body => data(api.put('/settings', body)),
+  resetData: (confirm, deleteLogins) => data(api.post('/settings/reset-data', { confirm, deleteLogins }))
+};
+
 export const ClientModel = {
   list: month => full(api.get('/clients', month ? { month } : undefined)),
   get: (id, month) => data(api.get('/clients/' + id, month ? { month } : undefined)),

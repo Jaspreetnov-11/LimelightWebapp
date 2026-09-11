@@ -8,6 +8,7 @@ import { useModals } from '@/controllers/useModals';
 import { ActivityModel, AuthModel, FileModel } from '@/models';
 import { Chip, Empty, Icon, LinkBtn, SectionTitle, Seg } from '@/views/ui';
 import { THEMES, useTheme } from '@/controllers/useTheme';
+import { AdminControls } from '@/views/screens/AdminControls';
 import { Pager, usePager } from '@/views/ui/Pager';
 import { fmtD, inr, pct, SHIFTS } from '@/lib/format';
 
@@ -90,6 +91,7 @@ export function SettingsScreen() {
           <div className="kv"><div><span>API</span><b>{health ? (health.status === 'ok' ? 'Online · v' + health.version : 'Unreachable') : 'Checking…'}</b></div><div><span>Signed in as</span><b>{user ? user.email : ''}</b></div></div>
         </div>
       </div>
+      {isAdmin && <AdminControls />}
     </div>
   );
 }

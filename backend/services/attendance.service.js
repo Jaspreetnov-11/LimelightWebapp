@@ -5,7 +5,7 @@ const employeeModel = require('../models/employee.model');
 const leaveModel = require('../models/leave.model');
 const activityModel = require('../models/activity.model');
 const AppError = require('../utils/appError');
-const { todayISO, thisMonth, nowHHMM, minsBetween, workdaysIn, isLate, otHoursFor, shiftOf, HOURS_PER_DAY } = require('../utils/calculations');
+const { todayISO, thisMonth, nowHHMM, minsBetween, workdaysIn, isLate, otHoursFor, shiftOf, hoursPerDay } = require('../utils/calculations');
 
 const newId = p => p + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
 
@@ -46,8 +46,8 @@ function computeMonthStats(rows, leaves, month) {
   return {
     month, present, half, absent, late, leave: leaveDays, otHours, fineHours,
     workdaysSoFar, workdaysTotal, unaccounted, avgWorkingMinutes, totalWorkedMinutes,
-    expectedMinutesSoFar: workdaysSoFar * HOURS_PER_DAY * 60,
-    expectedMinutesTotal: workdaysTotal * HOURS_PER_DAY * 60
+    expectedMinutesSoFar: workdaysSoFar * hoursPerDay() * 60,
+    expectedMinutesTotal: workdaysTotal * hoursPerDay() * 60
   };
 }
 
@@ -133,7 +133,7 @@ class AttendanceService {
       staffCount: staff.length,
       avgWorkingMinutes: withHours.length ? Math.round(withHours.reduce((a, s) => a + s.avgWorkingMinutes, 0) / withHours.length) : 0,
       totalWorkedMinutes: staff.reduce((a, s) => a + s.totalWorkedMinutes, 0),
-      expectedMinutesSoFar: staff.length * workdaysIn(month, true) * HOURS_PER_DAY * 60,
+      expectedMinutesSoFar: staff.length * workdaysIn(month, true) * hoursPerDay() * 60,
       otHours: staff.reduce((a, s) => a + s.otHours, 0),
       lateCount: staff.reduce((a, s) => a + s.late, 0),
       staff

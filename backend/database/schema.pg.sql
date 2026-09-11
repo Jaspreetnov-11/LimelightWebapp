@@ -191,3 +191,11 @@ CREATE TABLE IF NOT EXISTS lh_clients (
   updated_at TEXT DEFAULT (now())::text
 );
 ALTER TABLE lh_clients ENABLE ROW LEVEL SECURITY;
+
+-- Workspace settings (admin): shifts, grace, hours per day, default password, company name
+CREATE TABLE IF NOT EXISTS lh_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT DEFAULT (now())::text
+);
+ALTER TABLE lh_settings ENABLE ROW LEVEL SECURITY;

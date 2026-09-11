@@ -17,7 +17,7 @@ let dbReadyPromise = null;
 function ensureDb() {
   if (!dbReadyPromise) {
     dbReadyPromise = initDatabase()
-      .then(mode => { db.initError = null; console.log('[DB] ready:', mode); return true; })
+      .then(async mode => { db.initError = null; console.log('[DB] ready:', mode); await require('./services/settings.service').load(); return true; })
       .catch(err => {
         db.initError = String(err && err.message || err).replace(/:[^:@\/]+@/, ':***@');
         console.error('[DB-INIT-ERROR]', db.initError);

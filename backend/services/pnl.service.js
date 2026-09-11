@@ -16,7 +16,7 @@
 
 const db = require('../config/db');
 const clientModel = require('../models/client.model');
-const { thisMonth, workdaysIn, HOURS_PER_DAY } = require('../utils/calculations');
+const { thisMonth, workdaysIn, hoursPerDay } = require('../utils/calculations');
 
 const splitIds = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
 const monthOf = iso => String(iso || '').slice(0, 7);
@@ -40,7 +40,7 @@ function minutesInMonth(t, month, now) {
 class PnlService {
   async hourlyRates(month) {
     const emps = await db.all('SELECT id, name, salary FROM lh_employees');
-    const hours = Math.max(1, workdaysIn(month, false)) * HOURS_PER_DAY;
+    const hours = Math.max(1, workdaysIn(month, false)) * hoursPerDay();
     const map = {};
     for (const e of emps) map[e.id] = { name: e.name, rate: (Number(e.salary) || 0) / hours };
     return map;
