@@ -6,7 +6,7 @@ Single-file web app (`index.html`) with a Supabase backend.
 ## Setup (one time)
 
 1. **Create the tables.** Open the Supabase project → **SQL editor** → New query.
-   Paste the contents of [`supabase/schema.sql`](supabase/schema.sql) and click **Run**.
+   Paste the contents of [`legacy/schema.sql`](legacy/schema.sql) and click **Run**.
    It is safe to run again later.
 2. **Add the key.** In the Supabase dashboard go to **Project settings → API** and copy the
    **anon public** key. Open `index.html` and replace `PASTE_YOUR_ANON_KEY_HERE` with it:
