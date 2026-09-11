@@ -54,6 +54,12 @@ export function TasksScreen() {
   const [isMobile, setIsMobile] = useState(false);
   const [mStatus, setMStatus] = useState('open');
   const [now, setNow] = useState(Date.now());
+  const [hl, setHl] = useState('');
+  // Opened from a notification (/tasks?task=ID): show everyone's tasks and highlight that card
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('task');
+    if (id) { setHl(id); setTab('org'); setTimeout(() => { const el = document.querySelector('[data-task="' + id + '"]'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 600); }
+  }, []);
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px)');
     const apply = () => setIsMobile(mq.matches);
@@ -82,7 +88,7 @@ export function TasksScreen() {
   const tabs = [['me', 'file', 'My tasks'], ['byme', 'check', 'Assigned by me'], ...(d.canAssign ? [['lead', 'brief', 'My projects']] : []), ['team', 'users', 'My department'], ['org', 'circle-check', 'Everyone']];
 
   const card = t => { const od = overdue(t); const { acts, lead } = actionsFor(t); return (
-    <div className={'tcard' + (dragId === t.id ? ' dragging' : '')} key={t.id} draggable={lead} onDragStart={ev => { if (!lead) { ev.preventDefault(); return; } setDragId(t.id); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', t.id); } catch (x) { /* ignore */ } }} onDragEnd={() => { setDragId(null); setOverCol(''); }}>
+    <div className={'tcard' + (dragId === t.id ? ' dragging' : '') + (hl === t.id ? ' hl' : '')} data-task={t.id} key={t.id} draggable={lead} onDragStart={ev => { if (!lead) { ev.preventDefault(); return; } setDragId(t.id); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', t.id); } catch (x) { /* ignore */ } }} onDragEnd={() => { setDragId(null); setOverCol(''); }}>
       <div className="p"><span>{t.project_name || d.projName(t.project)}</span><span style={{ display: 'flex', gap: 2, alignItems: 'center' }}><i className={od ? 'r' : ''} title={od ? 'Overdue' : ''}><Icon name="flag" size={14} /></i>{lead && <><button onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="file" /></button><button onClick={() => del(t)} aria-label="Delete">✕</button></>}</span></div>
       <small>{t.type || 'Other'}{t.dept ? ' · ' + t.dept : ''}</small>
       <div>{t.title}</div>
@@ -108,7 +114,7 @@ export function TasksScreen() {
         </div>
         <div className="mtask-list">
           {mList.map(t => { const od = overdue(t); const { acts, lead } = actionsFor(t); return (
-            <div className={'mtask' + (t.status === 'completed' ? ' done' : od ? ' late' : '')} key={t.id}>
+            <div className={'mtask' + (t.status === 'completed' ? ' done' : od ? ' late' : '') + (hl === t.id ? ' hl' : '')} data-task={t.id} key={t.id}>
               <div className="mtask-top"><span className="mtask-proj">{t.project_name || d.projName(t.project)}</span><span className={'chip ' + (od ? 'pk' : t.status === 'completed' ? 'gr' : 'gy')}>{t.status === 'completed' ? 'Done ' + fmtD(t.completed || t.deadline) : 'Due ' + fmtD(t.deadline)}</span></div>
               <div className="mtask-title">{t.title}</div>
               <div className="mtask-row"><Assignees task={t} /><TaskChip status={t.status} /></div>

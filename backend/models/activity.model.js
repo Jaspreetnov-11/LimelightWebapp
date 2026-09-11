@@ -18,7 +18,7 @@ class ActivityModel extends BaseModel {
   /** Team-wide log line; never breaks the calling request. */
   async log(text, opts = {}) {
     try {
-      await this.create({ id: newId(), text, at: new Date().toISOString(), read: 0, user_id: opts.user_id || '', kind: opts.kind || 'info', link: opts.link || '' });
+      await this.create({ id: newId(), text, at: new Date().toISOString(), read: 0, user_id: opts.user_id || '', kind: opts.kind || 'info', link: opts.link || '', ref_type: opts.ref_type || '', ref_id: opts.ref_id || '' });
     } catch (err) {
       console.error('[ACTIVITY]', err.message);
     }

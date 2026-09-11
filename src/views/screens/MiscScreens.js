@@ -5,12 +5,49 @@ import { useAuth } from '@/controllers/AuthController';
 import { useData } from '@/controllers/DataController';
 import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
-import { ActivityModel, AuthModel, FileModel } from '@/models';
+import { ActivityModel, AuthModel, FileModel, LeaveModel, TaskModel } from '@/models';
 import { Chip, Empty, Icon, LinkBtn, SectionTitle, Seg } from '@/views/ui';
 import { THEMES, useTheme } from '@/controllers/useTheme';
 import { AdminControls } from '@/views/screens/AdminControls';
 import { Pager, usePager } from '@/views/ui/Pager';
 import { fmtD, inr, pct, SHIFTS } from '@/lib/format';
+
+/** Buttons inside a notification: accept / approve a task, approve / reject a leave request. */
+function NotifActions({ n }) {
+  const d = useData();
+  const { me, isAdmin } = useAuth();
+  const { toast } = useUi();
+  const [busy, setBusy] = useState(false);
+  const run = async (fn, msg) => { setBusy(true); try { await fn(); toast(msg); await d.reload('tasks', 'leaves', 'activity', 'alerts', 'today', 'employees'); } catch (err) { toast(err.message); } finally { setBusy(false); } };
+  if (n.ref_type === 'task') {
+    const t = d.tasks.find(x => x.id === n.ref_id);
+    if (!t) return null;
+    const mine = String(t.assignee || '').split(',').map(s => s.trim()).includes(me.id);
+    const lead = d.isLeaderOf(t.project);
+    return (
+      <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+        {t.status === 'pipeline' && mine && <button className="pill on" style={{ height: 28, fontSize: 11.5 }} disabled={busy} onClick={() => run(() => TaskModel.setStatus(t.id, 'progress'), 'Accepted. Timer started.')}>▶ Accept</button>}
+        {t.status === 'approval' && lead && <><button className="pill on" style={{ height: 28, fontSize: 11.5 }} disabled={busy} onClick={() => run(() => TaskModel.setStatus(t.id, 'completed'), 'Approved.')}>✓ Approve</button><button className="pill" style={{ height: 28, fontSize: 11.5 }} disabled={busy} onClick={() => run(() => TaskModel.setStatus(t.id, 'changes'), 'Changes requested.')}>Changes</button></>}
+        {t.status === 'completed' && <Chip tone="gr">Completed</Chip>}
+        <LinkBtn href={'/tasks?task=' + t.id}>Open</LinkBtn>
+      </span>
+    );
+  }
+  if (n.ref_type === 'leave') {
+    const l = d.leaves.find(x => x.id === n.ref_id);
+    if (!l) return null;
+    if (l.status === 'pending' && isAdmin) {
+      return (
+        <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+          <button className="pill on" style={{ height: 28, fontSize: 11.5 }} disabled={busy} onClick={() => run(() => LeaveModel.decide(l.id, 'approved'), 'Approved.')}>✓ Approve</button>
+          <button className="pill" style={{ height: 28, fontSize: 11.5, color: 'var(--danger)' }} disabled={busy} onClick={() => { const note = window.prompt('Reason for rejecting (optional):', '') ; if (note === null) return; run(() => LeaveModel.decide(l.id, 'rejected', note), 'Rejected.'); }}>✕ Reject</button>
+        </span>
+      );
+    }
+    return <Chip tone={l.status === 'approved' ? 'gr' : l.status === 'rejected' ? 'pk' : 'or'}>{l.status}</Chip>;
+  }
+  return n.link ? <LinkBtn href={n.link}>Open</LinkBtn> : null;
+}
 
 /** One screen for everything that needs attention plus the activity feed. */
 export function NotificationsScreen() {
@@ -37,7 +74,7 @@ export function NotificationsScreen() {
       </>)}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><SectionTitle>Notifications {d.activity.unread > 0 && <Chip tone="pu">{d.activity.unread} new</Chip>}</SectionTitle><span style={{ display: 'flex', gap: 14 }}>{d.activity.unread > 0 && <LinkBtn onClick={markAll}>Mark all read</LinkBtn>}{d.activity.items.length > 0 && <LinkBtn onClick={clearAll} style={{ color: 'var(--danger)' }}>Clear all</LinkBtn>}</span></div>
       <div className="panel panel-b list simple-list" style={{ paddingTop: 4 }}>
-        {pager.items.map(x => <div className="row" key={x.id} style={x.read ? undefined : { background: 'var(--ov-04)', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}><i className="dot" style={{ background: x.read ? 'var(--dim)' : x.kind === 'task' ? 'var(--accent)' : x.kind === 'project' ? 'var(--violet)' : 'var(--info)' }}></i><div style={{ flex: 1, minWidth: 0 }}>{x.text}<small>{when(x.at)}</small></div>{x.link && <LinkBtn href={x.link}>Open</LinkBtn>}<button className="mini-btn" onClick={() => removeOne(x.id)} aria-label="Delete notification" title="Delete">✕</button></div>)}
+        {pager.items.map(x => <div className="row" key={x.id} style={x.read ? undefined : { background: 'var(--ov-04)', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}><i className="dot" style={{ background: x.read ? 'var(--dim)' : x.kind === 'task' ? 'var(--accent)' : x.kind === 'project' ? 'var(--violet)' : 'var(--info)' }}></i><div style={{ flex: 1, minWidth: 0 }}>{x.text}<small>{when(x.at)}</small></div><NotifActions n={x} /><button className="mini-btn" onClick={() => removeOne(x.id)} aria-label="Delete notification" title="Delete">✕</button></div>)}
         {!d.activity.items.length && !alerts.length && <Empty ring title="All clear">Nothing needs your attention</Empty>}
         {!d.activity.items.length && alerts.length > 0 && <Empty>No notifications yet</Empty>}
         <Pager pager={pager} compact />

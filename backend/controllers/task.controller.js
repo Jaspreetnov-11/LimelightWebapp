@@ -51,7 +51,7 @@ function statusPatch(existing, status) {
 }
 
 async function notifyAssignees(ids, task, text) {
-  await activityModel.notify(ids, text, { kind: 'task', link: '/tasks' });
+  await activityModel.notify(ids, text, { kind: 'task', link: '/tasks?task=' + task.id, ref_type: 'task', ref_id: task.id });
 }
 
 const getAllTasks = catchAsync(async (req, res) => {
@@ -140,7 +140,7 @@ const updateTaskStatus = catchAsync(async (req, res) => {
   if (status === 'progress' && existing.status === 'pipeline') await activityModel.log(`${who} accepted "${existing.title}"`);
   else if (status === 'approval') {
     await activityModel.log(`${who} submitted "${existing.title}" for approval`);
-    if (existing.project) { const p = await projectModel.findById(existing.project); if (p && p.manager) await activityModel.notify(p.manager, `"${existing.title}" is waiting for your approval`, { link: '/tasks' }); }
+    if (existing.project) { const p = await projectModel.findById(existing.project); if (p && p.manager) await activityModel.notify(p.manager, `"${existing.title}" is waiting for your approval`, { kind: 'task', link: '/tasks?task=' + existing.id, ref_type: 'task', ref_id: existing.id }); }
   } else if (status === 'completed') await notifyAssignees(ids, updated, `"${existing.title}" was approved and marked completed`);
   else if (status === 'changes') await notifyAssignees(ids, updated, `Changes requested on "${existing.title}"`);
 

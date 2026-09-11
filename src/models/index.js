@@ -76,6 +76,7 @@ export const LeaveModel = {
   list: params => data(api.get('/leaves', params)),
   today: () => data(api.get('/leaves/today')),
   apply: body => data(api.post('/leaves', body)),
+  decide: (id, status, note) => data(api.patch('/leaves/' + id + '/decide', { status, note })),
   remove: id => api.del('/leaves/' + id)
 };
 

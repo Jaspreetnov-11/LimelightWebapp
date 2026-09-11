@@ -140,7 +140,7 @@ export function useModals() {
         ],
         onSubmit: async d => {
           await LeaveModel.apply({ kind: d.kind, emp: d.emp, from_date: d.from_date, to_date: d.to_date, reason: d.reason, remarks: d.remarks });
-          toast(d.kind === 'wfh' ? 'Work from home recorded.' : 'Leave applied.');
+          toast(isAdmin ? (d.kind === 'wfh' ? 'Work from home recorded.' : 'Leave recorded.') : 'Request sent. Admin will approve it; you will get a notification.');
           await reload('leaves', 'employees', 'activity', 'myStats');
         }
       });

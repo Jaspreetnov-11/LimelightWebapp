@@ -976,3 +976,4 @@ html[data-theme="light"] .splash-logo{filter:invert(1) hue-rotate(180deg)}
 .mode-pick button{border:1.5px solid var(--line-strong); background:var(--ov-04); color:var(--text); border-radius:14px; padding:10px 6px; font:inherit; font-size:12px; font-weight:600; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:4px}
 .mode-pick button span{font-size:18px}
 .mode-pick button.on{background:var(--accent); border-color:var(--accent); color:var(--ink)}
+.tcard.hl,.mtask.hl{outline:2px solid var(--accent); outline-offset:2px; box-shadow:0 0 0 6px var(--accent-dim)}
