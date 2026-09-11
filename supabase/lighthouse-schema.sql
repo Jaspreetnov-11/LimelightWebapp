@@ -169,6 +169,17 @@ begin
   end loop;
 end $$;
 
+-- Clock-in / clock-out location (added later; safe to re-run)
+alter table public.lh_attendance
+  add column if not exists in_lat numeric,
+  add column if not exists in_lng numeric,
+  add column if not exists in_acc numeric,
+  add column if not exists in_addr text default '',
+  add column if not exists out_lat numeric,
+  add column if not exists out_lng numeric,
+  add column if not exists out_acc numeric,
+  add column if not exists out_addr text default '';
+
 -- Starter departments (only if empty)
 insert into public.lh_departments (id, name, billable, daily)
 select * from (values
