@@ -58,7 +58,10 @@ class AuthService {
 
     // Determine initial role (if no other employees exist, first user is admin)
     const empCount = employeeModel.count();
-    const accessRole = empCount === 0 ? 'admin' : (role || 'staff');
+    const accessRole =
+  email.trim().toLowerCase() === 'admin@limelight.in'
+    ? 'admin'
+    : 'staff';
 
     // Create employee record
     const empUid = 'e_' + Math.random().toString(36).slice(2, 8);
