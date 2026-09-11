@@ -3,7 +3,7 @@
 One repo, one Vercel project, one Supabase project:
 
 - GitHub: https://github.com/Jaspreetnov-11/lighthouse
-- Vercel (production): the project named `lighthouse` (set DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ADMIN_EMAILS there)
+- Vercel (production): https://lighthouse-limelight.vercel.app — project `lighthouse` (env: DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ADMIN_EMAILS)
 - Supabase: project `Lighthouse` (ref lwpueuxyuokszeflgyfv) — Auth for logins, Postgres for data
 
 Staff, GPS attendance, payroll, projects, kanban tasks, departments and reports for the Limelight team.
