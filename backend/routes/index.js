@@ -1,5 +1,7 @@
 'use strict';
 
+const env = require('../config/env');
+
 const express = require('express');
 const router = express.Router();
 
@@ -24,7 +26,9 @@ router.get('/health', (req, res) => {
     status: 'ok',
     service: 'Limelight Workspace API',
     timestamp: new Date().toISOString(),
-    version: '2.0.0'
+    version: '3.0.0',
+    commit: env.GIT_COMMIT || null,
+    db: env.DATABASE_PATH
   });
 });
 
