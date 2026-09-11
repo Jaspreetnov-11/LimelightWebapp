@@ -1,6 +1,6 @@
 {
-  "name": "Lighthouse",
-  "short_name": "Lighthouse",
+  "name": "Limelight",
+  "short_name": "Limelight",
   "description": "Limelight workspace: staff, attendance, payroll, projects and tasks",
   "start_url": "./index.html",
   "scope": "./",
