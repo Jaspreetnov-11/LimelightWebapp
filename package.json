@@ -1,0 +1,25 @@
+{
+  "name": "limelight-webapp",
+  "version": "2.0.0",
+  "description": "Limelight Workspace web application with production MVC backend",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "test": "node backend/tests/test_api.js",
+    "test:security": "node backend/tests/test_security.js",
+    "test:all": "node backend/tests/test_api.js && node backend/tests/test_security.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

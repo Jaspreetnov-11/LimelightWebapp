@@ -1,48 +1,94 @@
 # Limelight Workspace
 
-Attendance, work reports, leaves, expenses, tasks and announcements for the Limelight team.
-Single-file web app (`index.html`) with a Supabase backend.
-
-## Setup (one time)
-
-1. **Create the tables.** Open the Supabase project → **SQL editor** → New query.
-   Paste the contents of [`legacy/schema.sql`](legacy/schema.sql) and click **Run**.
-   It is safe to run again later.
-2. **Add the key.** In the Supabase dashboard go to **Project settings → API** and copy the
-   **anon public** key. Open `index.html` and replace `PASTE_YOUR_ANON_KEY_HERE` with it:
-   ```js
-   const SUPABASE_ANON_KEY = 'eyJ...';
-   ```
-3. Open `index.html` (or host it on GitHub Pages). The first visit asks you to create the admin account.
-
-## How the backend works
-
-- Every collection the app uses (`users`, `attendance`, `leaves`, `regs`, `expenses`, `worklogs`,
-  `tasks`, `comments`, `announcements`, `acks`, `notifications`, `holidays`, `todos`) is a table.
-  Each row is one record: `id` + the record as `data` (jsonb). Company settings live in `settings` (one row).
-- On load the app fetches everything, then after every action it diffs what changed and upserts /
-  deletes only those rows. Other open devices receive the change through Supabase Realtime.
-- Passwords are stored as SHA-256 hashes. Accounts created before this change are upgraded on their next sign-in.
-- Handy generated columns (`user_id`, `date`, `status`, …) and two views (`v_attendance`,
-  `v_pending_approvals`) let you run reports straight from the SQL editor.
-
-## Security note
-
-The app signs in to Supabase with the public anon key and enforces roles itself, so the row-level
-security policies allow the anon key full access. That is fine for an internal team tool whose URL is
-not public. If you need stricter control, move sign-in to Supabase Auth and tighten the policies in
-`schema.sql`.
+Attendance, work reports, leaves, payroll, expenses, tasks and announcements for the Limelight team.
+Features a responsive frontend (`index.html`) backed by a production-grade **MVC (Model-View-Controller) REST API backend** compatible with both local execution and **Vercel** serverless hosting.
 
 ---
 
-## Lighthouse app (`lighthouse.html`)
+## 🚀 Running Locally
 
-A second, standalone version of the workspace in the Limelight look (black stage, yellow accent):
-staff list with pending balances, day-wise attendance marking (P / HD / A / L / Fine / Overtime),
-payments, payroll, projects, kanban tasks, departments and CSV reports.
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-- Open `lighthouse.html` directly in a browser. It starts in demo mode (login `admin@lighthouse.io` / `Lighthouse@123`).
-- To use Supabase: run [`supabase/lighthouse-schema.sql`](supabase/lighthouse-schema.sql) once in the SQL editor
-  (its tables are prefixed `lh_`, so they do not touch the tables used by `index.html`), create a user under
-  **Authentication → Users**, then in the app go to **Settings** and paste the anon public key.
-- Uses Supabase Auth (email/password, optional Google) and realtime sync across open browsers.
+2. **Start the application**:
+   ```bash
+   npm start
+   ```
+   This command starts the Express server at **`http://localhost:5000`** and serves:
+   - The full REST API at `http://localhost:5000/api`
+   - The single-page web app at `http://localhost:5000/`
+
+3. **Run automated verification tests**:
+   ```bash
+   npm test
+   ```
+
+---
+
+## 🌐 Vercel Deployment
+
+The project is structured to deploy directly to **Vercel** from this repository without breaking any existing live URLs:
+- **`vercel.json`** routes all `/api/*` endpoints to the serverless function in `api/index.js`.
+- Root paths (`/`, `/index.html`, `/logo.png`, etc.) are served statically by Vercel's Edge Network.
+- In production on Vercel, the database connects to the managed Supabase PostgreSQL instance (`lh_*` tables), ensuring full persistence across ephemeral serverless invocations.
+
+---
+
+## 🏛️ Backend Architecture (MVC Pattern)
+
+```
+LimelightWebapp/
+├── api/
+│   └── index.js                  # Vercel Serverless Function entrypoint
+├── backend/
+│   ├── config/
+│   │   ├── db.js                 # SQLite (with WAL mode) + Supabase cloud fallback
+│   │   └── env.js                # Environment configuration loader
+│   ├── database/
+│   │   ├── schema.sql            # Normalized DDL schema with explicit indexes
+│   │   ├── init.js               # Auto-migration runner on startup
+│   │   └── seed.js               # Initial seed dataset (departments, admin, tasks)
+│   ├── middleware/
+│   │   ├── auth.middleware.js    # JWT authentication & RBAC (admin, manager, staff)
+│   │   ├── error.middleware.js   # Global error handling middleware (standardized JSON)
+│   │   ├── validate.middleware.js# Generic validation runner (DRY)
+│   │   └── upload.middleware.js  # Multer file upload handler
+│   ├── utils/
+│   │   ├── apiResponse.js        # Standardized API response formatters
+│   │   ├── appError.js           # Custom operational error class
+│   │   ├── catchAsync.js         # Async error wrapper (eliminates try/catch boilerplate)
+│   │   ├── calculations.js       # Shared payroll, working days & hours math
+│   │   └── logger.js             # Formatted request/debug logger
+│   ├── validators/               # Input validation schemas per section
+│   ├── models/                   # Data access layer (M in MVC)
+│   ├── services/                 # Business logic layer
+│   ├── controllers/              # HTTP request handlers (C in MVC)
+│   ├── routes/                   # Routing layer (12 section modules + master router)
+│   ├── app.js                    # Express app configuration & middleware pipeline
+│   └── server.js                 # Local server entrypoint (port 5000)
+├── index.html                    # Frontend web application (pixel-perfect UI preserved)
+└── vercel.json                   # Vercel routing configuration
+```
+
+---
+
+## 📋 API Section Overview
+
+| Section | Base Route | Key Operations |
+|---|---|---|
+| **Auth** | `/api/auth` | Register, login (JWT + bcrypt), session `/me`, forgot password |
+| **Employees** | `/api/employees` | Full CRUD, search, department filtering, calculated pending balance |
+| **Departments**| `/api/departments` | Full CRUD, daily standard hours, billable rules |
+| **Projects** | `/api/projects` | Full CRUD, allocated minutes vs. consumed minutes aggregation |
+| **Tasks** | `/api/tasks` | Kanban status (`pipeline` → `progress` → `approval` → `completed` → `hold`), hours tracking |
+| **Attendance** | `/api/attendance` | Clock-in & Clock-out with GPS coordinates, daily register, monthly stats |
+| **Leaves** | `/api/leaves` | Apply, view today's leaves, approvals |
+| **Payments** | `/api/payments` | Ledger for Salary, Advance, Bonus, Reimbursement, Fine |
+| **Payroll** | `/api/payroll` | Auto monthly payroll formula calculation, batch payout |
+| **Holidays** | `/api/holidays` | Company and public holidays |
+| **To-Dos** | `/api/todos` | Personal task management with toggle |
+| **Files** | `/api/files` | File upload with Multer, metadata, streaming download |
+| **Activity** | `/api/activity` | Live audit logs, notifications, overdue task alerts |
+| **Reports** | `/api/reports` | CSV exports (Attendance Register, Payroll, Payments, Staff, Tasks, Projects) |

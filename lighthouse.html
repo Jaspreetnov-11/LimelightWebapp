@@ -77,11 +77,13 @@
   .link:hover{text-decoration:underline}
   .link:focus-visible,.btn:focus-visible,.eye:focus-visible,.pill:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
   .control{position:relative}
-  input,textarea,select{width:100%; height:48px; padding:0 14px; font:inherit; font-size:14px; color:var(--text); background:var(--field); border:1.5px solid var(--line); border-radius:var(--radius-field); outline:none; transition:border-color .15s, box-shadow .15s, background .15s}
+  input,textarea,select{width:100%; height:48px; padding:0 14px; font:inherit; font-size:14px; color:var(--text); background:var(--field); border:1.5px solid var(--line); border-radius:var(--radius-field); outline:none; transition:border-color .15s, box-shadow .15s, background .15s; color-scheme:dark !important}
   textarea{height:110px; padding:12px 14px; resize:vertical}
   input::placeholder,textarea::placeholder{color:var(--placeholder)}
   input:focus,textarea:focus,select:focus{border-color:var(--accent-line); box-shadow:0 0 0 4px var(--accent-dim); background:rgba(255,255,255,.07)}
-  input[type=date],input[type=time]{color-scheme:dark}
+  input[type=date],input[type=time],select{color-scheme:dark !important}
+  select option, select optgroup, option{background-color:#161619 !important; color:#F5F5F6 !important; font-size:14px; color-scheme:dark !important}
+  select option:checked, option:checked{background-color:#242429 !important; color:var(--accent) !important}
   input.pw{padding-right:48px}
   .field.invalid input,.field.invalid textarea,.field.invalid select{border-color:var(--danger); box-shadow:0 0 0 4px rgba(255,92,122,.14)}
   .error{display:none; font-size:11.5px; color:var(--danger); margin-top:-2px}
@@ -538,7 +540,9 @@
   .dialog .grid2 .span{grid-column:span 2}
   .dialog .field{margin-bottom:0}
   .dialog form{display:flex; flex-direction:column; gap:14px}
-  select{appearance:none; background:var(--field) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'><path d='M6 9l6 6 6-6' fill='none' stroke='%239C9CA6' stroke-width='2.5' stroke-linecap='round'/></svg>") no-repeat right 12px center; padding-right:34px; height:44px}
+  select{appearance:none; background:var(--field) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'><path d='M6 9l6 6 6-6' fill='none' stroke='%239C9CA6' stroke-width='2.5' stroke-linecap='round'/></svg>") no-repeat right 12px center; padding-right:34px; height:44px; color-scheme:dark !important; background-color:#161619 !important; color:#F5F5F6 !important}
+  select option, select optgroup{background-color:#161619 !important; color:#F5F5F6 !important; font-size:14px; padding:10px 12px; color-scheme:dark !important}
+  option{background-color:#161619 !important; color:#F5F5F6 !important}
   input[type=date],input[type=time],input[type=number],.dialog input[type=text],.dialog input[type=email],.dialog input[type=tel],.dialog input[type=url]{height:44px}
   .dialog textarea{height:80px}
   .tcard{cursor:grab; transition:box-shadow .15s, transform .15s}
@@ -946,7 +950,7 @@ const KEYMAP = { in:'clock_in', out:'clock_out', from:'from_date', to:'to_date',
 const KEYMAP_R = Object.fromEntries(Object.entries(KEYMAP).map(([a,b])=>[b,a]));
 const snake = k => KEYMAP[k] || k.replace(/[A-Z]/g, c=>'_'+c.toLowerCase());
 const camel = k => KEYMAP_R[k] || k.replace(/_([a-z])/g, (_,c)=>c.toUpperCase());
-const toRow = o => { const r={}; Object.keys(o).forEach(k=>{ let v=o[k]; if(v===''&&/date|joined|dob|start|deadline|assigned|completed/.test(k)) v=null; r[snake(k)]=v; }); return r; };
+const toRow = o => { const r={}; Object.keys(o).forEach(k=>{ if(/^(pendingBal|pending_bal|earned|paid|payroll|tasks|overdue)$/.test(k)) return; let v=o[k]; if(v===''&&/date|joined|dob|start|deadline|assigned|completed/.test(k)) v=null; r[snake(k)]=v; }); return r; };
 const fromRow = r => { const o={}; Object.keys(r).forEach(k=>{ if(k==='created_at'||k==='updated_at') return; let v=r[k]; if(v===null) v=''; o[camel(k)]=v; }); return o; };
 
 const pending = new Set(); let flushT=null; const lastSync={};
@@ -959,10 +963,47 @@ async function flush(){
   const cols=[...pending]; pending.clear();
   for(const c of cols){
     try{
-      if(mode==='supabase' && sb) await diffSync(c);
+      if(mode==='api') await apiSync(c);
+      else if(mode==='supabase' && sb) await diffSync(c);
       else if(mode==='artifact' && db) await db.doc('app/'+c).set({items:S[c],updatedAt:new Date().toISOString()});
     }catch(e){ console.error('sync',c,e); toast('Could not save '+c+': '+(e.message||e.code||'error')); setSync('err','Save failed'); }
   }
+}
+async function apiSync(col){
+  const prev=lastSync[col]||{}; const cur={}; const ups=[];
+  S[col].forEach(r=>{ const j=JSON.stringify(r); cur[r.id]=j; if(prev[r.id]!==j) ups.push(r); });
+  const dels=Object.keys(prev).filter(id=>!cur[id]);
+  const token=localStorage.getItem('lh_jwt');
+  const headers={'Content-Type':'application/json'};
+  if(token) headers['Authorization']='Bearer '+token;
+  for(const item of ups){
+    const row=toRow(item);
+    const isNew=!prev[item.id];
+    const url=isNew?`/api/${col}`:`/api/${col}/${item.id}`;
+    const method=isNew?'POST':'PUT';
+    try{ await fetch(url,{method,headers,body:JSON.stringify(row)}); }catch(e){}
+  }
+  for(const id of dels){
+    try{ await fetch(`/api/${col}/${id}`,{method:'DELETE',headers}); }catch(e){}
+  }
+  lastSync[col]=cur; setSync('on','Synced with Backend');
+}
+async function loadTableApi(col){
+  const token=localStorage.getItem('lh_jwt');
+  const headers={}; if(token) headers['Authorization']='Bearer '+token;
+  const res=await fetch(`/api/${col}`,{headers});
+  if(!res.ok) throw new Error('Failed to load '+col);
+  const json=await res.json();
+  const items=Array.isArray(json.data)?json.data:(json.data&&Array.isArray(json.data.rows)?json.data.rows:[]);
+  S[col]=items.map(fromRow);
+  lastSync[col]=Object.fromEntries(S[col].map(r=>[r.id,JSON.stringify(r)]));
+}
+async function loadAllApi(){
+  const errs=[];
+  for(const c of COLS){ try{ await loadTableApi(c); }catch(e){ errs.push(c+': '+e.message); } }
+  if(!errs.length) setSync('on','Synced with Backend');
+  remoteReady=true;
+  return errs;
 }
 async function diffSync(col){
   const prev=lastSync[col]||{}; const cur={}; const ups=[];
@@ -1075,6 +1116,7 @@ function field(name,label,type='text',opts={}){
   let ctl;
   if(type==='select') ctl=`<select id="m-${name}" name="${name}"${req}>${(opts.options||[]).map(o=>`<option value="${esc(o.v)}"${o.v===opts.value?' selected':''}>${esc(o.l)}</option>`).join('')}</select>`;
   else if(type==='textarea') ctl=`<textarea id="m-${name}" name="${name}"${ph}>${esc(opts.value||'')}</textarea>`;
+  else if(type==='password') ctl=`<div style="position:relative"><input id="m-${name}" name="${name}" class="pw" type="password"${ph}${req} value="${esc(opts.value==null?'':opts.value)}" autocomplete="new-password" style="padding-right:44px"><button type="button" class="eye" onclick="(function(b){const i=b.previousElementSibling;const s=i.type==='text';i.type=s?'password':'text';b.style.color=s?'':'var(--accent)';})(this)" aria-label="Show/hide password" style="position:absolute;right:6px;top:50%;transform:translateY(-50%)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>`;
   else ctl=`<input id="m-${name}" name="${name}" type="${type}"${ph}${req} value="${esc(opts.value==null?'':opts.value)}"${opts.min!=null?` min="${opts.min}"`:''}${opts.step?` step="${opts.step}"`:''}>`;
   return `<div class="field${span}"><label for="m-${name}">${esc(label)}${opts.required?'':' <span class="opt">(optional)</span>'}</label><div class="control">${ctl}</div><div class="error">${esc(opts.error||'This field is required.')}</div></div>`;
 }
@@ -1096,7 +1138,7 @@ $('#modal-form').addEventListener('submit',e=>{
 });
 modal.addEventListener('input',e=>{ const f=e.target.closest('.field'); if(f) f.classList.remove('invalid'); });
 
-window.__LH={ bind, $, $$, esc, uid, S:()=>S, setState:v=>{S=v}, persist, go, showModal, closeModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, hhmm, todayISO, avgHours, unaccounted, overdue, addActivity, onLeaveToday, nextOccurrence, daysUntil, whenLabel, minsBetween, monthKey, thisMonth, STATUSES, STATUS_LABEL, ATT, PAY_TYPES, DEMO, emailOk, urlOk, empAv, avFor, ini, inr, loadLocal, connectArtifactDb, connectSupabase, loadAllSupabase, sbConfig, setSbConfig, SB_DEFAULT_URL, SB_DEFAULT_KEY, inArtifact, attStatus, monthStats, workdaysIn, earned, paid, pendingBal, isAdmin, COLS,
+window.__LH={ bind, $, $$, esc, uid, S:()=>S, setState:v=>{S=v}, persist, go, showModal, closeModal, field, toast, byId, empName, projName, consumedMins, pct, avatarHtml, hm, fmtD, fmtDY, hhmm, todayISO, avgHours, unaccounted, overdue, addActivity, onLeaveToday, nextOccurrence, daysUntil, whenLabel, minsBetween, monthKey, thisMonth, STATUSES, STATUS_LABEL, ATT, PAY_TYPES, DEMO, emailOk, urlOk, empAv, avFor, ini, inr, loadLocal, connectArtifactDb, connectSupabase, loadAllSupabase, apiSync, loadTableApi, loadAllApi, sbConfig, setSbConfig, SB_DEFAULT_URL, SB_DEFAULT_KEY, inArtifact, attStatus, monthStats, workdaysIn, earned, paid, pendingBal, isAdmin, COLS,
   get ME(){ return ME; }, set ME(v){ ME=v; }, get mode(){ return mode; }, set mode(v){ mode=v; }, get sb(){ return sb; }, get db(){ return db; }, setSync, sbSession:null, flush };
 })();
 </script>
@@ -1493,15 +1535,22 @@ window.openModal=function(kind,id,preset={}){
   else if(kind==='employee'){ const e=id?byId('employees',id):null;
     showModal({title:e?'Edit staff':'Add staff',sub:'Salary is used for payroll and the pending balance.',ok:e?'Save changes':'Add staff',fields:
       field('name','Full name','text',{required:true,value:e?e.name:''})+field('email','Email','email',{required:true,value:e?e.email:'',error:'Enter a valid email.'})+
+      field('password',e?'Login password (leave blank to keep)':'Login password','password',{required:!e,placeholder:e?'Leave blank to keep unchanged':'Set login password',value:e?'':(s.employees.length>0?'Lighthouse@123':''),error:'Password is required (min 6 characters).'})+
       field('phone','Phone','tel',{value:e?e.phone:'',placeholder:'98xxxxxxxx'})+field('role','Designation','text',{required:true,value:e?e.role:'',placeholder:'e.g. Video Editor'})+
       field('dept','Department','select',{options:deptOpts,value:e?e.dept:(deptOpts[0]||{}).v})+field('salary','Monthly salary (₹)','number',{required:true,value:e?(e.salary||0):25000,min:0,step:500})+
       field('empId','Employee ID','text',{value:e?e.empId:'LH'+String(s.employees.length+40).padStart(4,'0')})+field('joined','Joining date','date',{required:true,value:e?e.joined:todayISO()})+
       field('dob','Date of birth','date',{value:e?e.dob:''})+field('access','App access','select',{options:[{v:'admin',l:'Admin (full access)'},{v:'staff',l:'Staff (own data)'}],value:e?(e.access||'staff'):'staff'})+
       field('managers','Reporting managers','text',{span:true,value:e?(e.managers||[]).join(', '):'',placeholder:'Comma separated names'}),
       onSubmit:d=>{ const mg=d.managers?d.managers.split(',').map(x=>x.trim()).filter(Boolean):[];
-        if(e){ Object.assign(e,{name:d.name,email:d.email,phone:d.phone,role:d.role,dept:d.dept,salary:+d.salary||0,empId:d.empId,joined:d.joined,dob:d.dob,access:d.access,managers:mg}); toast('Staff updated.'); }
-        else { const n={id:uid(),name:d.name,email:d.email,phone:d.phone,role:d.role,dept:d.dept,salary:+d.salary||0,empId:d.empId||'LH'+uid().slice(0,4).toUpperCase(),joined:d.joined,dob:d.dob,access:d.access,managers:mg}; s.employees.push(n); window.selectEmployee(n.id); addActivity(n.name+' joined '+n.dept); toast('Staff added.'); }
-        persist('employees'); window.renderAll(); }});
+        if(e){
+          Object.assign(e,{name:d.name,email:d.email,phone:d.phone,role:d.role,dept:d.dept,salary:+d.salary||0,empId:d.empId,joined:d.joined,dob:d.dob,access:d.access,managers:mg});
+          if(d.password) e.password=d.password;
+          toast('Staff updated.');
+        } else {
+          const n={id:uid(),name:d.name,email:d.email,password:d.password||'Lighthouse@123',phone:d.phone,role:d.role,dept:d.dept,salary:+d.salary||0,empId:d.empId||'LH'+uid().slice(0,4).toUpperCase(),joined:d.joined,dob:d.dob,access:d.access,managers:mg};
+          s.employees.push(n); window.selectEmployee(n.id); addActivity(n.name+' joined '+n.dept); toast('Staff added.');
+        }
+        persist('employees'); flush(); window.renderAll(); }});
   }
   else if(kind==='dept'){ const x=id?byId('departments',id):null;
     showModal({title:x?'Edit department':'Add department',ok:x?'Save changes':'Add department',fields:
@@ -1888,7 +1937,17 @@ window.clockAction=async function(){
     addActivity(me.name+' clocked out at '+hhmm(now)+(addr?' from '+addr:'')); toast('Clocked out at '+hhmm(now)+' · '+hm(L.minsBetween(r.in,r.out))+' today'+where);
   }
   if(!g) toast('Location not available. Allow location access in the browser to record it next time.');
-  persist('attendance'); window.attGoto(todayISO()); window.renderAll();
+  persist('attendance');
+  if(L.mode==='api'){
+    try{
+      const token=localStorage.getItem('lh_jwt');
+      const headers={'Content-Type':'application/json'};
+      if(token) headers['Authorization']='Bearer '+token;
+      const url=st==='off'?'/api/attendance/clock-in':'/api/attendance/clock-out';
+      fetch(url,{method:'POST',headers,body:JSON.stringify({lat:g?g.lat:null,lng:g?g.lng:null,acc:g?g.acc:null,addr:addr||'',mode:r.mode||'office'})}).then(()=>L.loadTableApi('attendance')).catch(()=>{});
+    }catch(e){}
+  }
+  window.attGoto(todayISO()); window.renderAll();
 };
 $('#clock-btn').addEventListener('click',window.clockAction);
 $('#bnav-clock').addEventListener('click',window.clockAction);
@@ -1909,9 +1968,17 @@ function mark(f,bad){ f.classList.toggle('invalid',bad); return !bad; }
 document.addEventListener('input',e=>{ const f=e.target.closest('.field'); if(f) f.classList.remove('invalid'); });
 function busy(b,on){ b.disabled=on; b.classList.toggle('loading',on); }
 function enterApp(){ document.body.classList.add('in-app'); try{ localStorage.setItem('lh-auth','1'); }catch(e){} go('dashboard'); }
-window.leaveApp=function(silent){ document.body.classList.remove('in-app'); try{ localStorage.removeItem('lh-auth'); }catch(e){} showView('login'); if(!silent) toast('Logged out.'); };
-$('#logout-btn').addEventListener('click',async()=>{ if(L.mode==='supabase'&&L.sb){ try{ await L.sb.auth.signOut(); }catch(e){} } window.leaveApp(); });
-function setDemoBox(){ const sbOn=L.mode==='supabase'; const box=$('.demo'); if(!box) return; box.innerHTML = sbOn ? `<div class="demo-title">Connected to Supabase</div><div class="auth-note" style="text-align:left">Sign in with your Limelight account (the users listed in Supabase → Authentication). New accounts from Sign up need email confirmation (or disable it in Supabase Auth settings).</div><button type="button" class="link" id="sb-disc" style="margin-top:6px">Use demo mode instead</button>` : `<div class="demo-title">Demo login</div><div class="demo-row"><span>Email</span><code>${DEMO.email}</code></div><div class="demo-row"><span>Password</span><code>${DEMO.password}</code></div><button type="button" class="link" id="fill-demo">Fill these in</button><div class="auth-note" style="text-align:left;margin-top:4px">Want real accounts? Connect Supabase from Settings after logging in.</div>`; }
+window.leaveApp=function(silent){ document.body.classList.remove('in-app'); try{ localStorage.removeItem('lh-auth'); localStorage.removeItem('lh_jwt'); }catch(e){} showView('login'); if(!silent) toast('Logged out.'); };
+$('#logout-btn').addEventListener('click',async()=>{ try{ localStorage.removeItem('lh_jwt'); }catch(e){} if(L.mode==='supabase'&&L.sb){ try{ await L.sb.auth.signOut(); }catch(e){} } window.leaveApp(); });
+function setDemoBox(){
+  const box=$('.demo'); if(!box) return;
+  if(L.mode==='api'){
+    box.innerHTML=`<div class="demo-title">Connected to MVC Backend</div><div class="demo-row"><span>Email</span><code>${DEMO.email}</code></div><div class="demo-row"><span>Password</span><code>${DEMO.password}</code></div><button type="button" class="link" id="fill-demo">Fill these in</button><div class="auth-note" style="text-align:left;margin-top:4px">All sections synchronized with the REST API backend.</div>`;
+    return;
+  }
+  const sbOn=L.mode==='supabase';
+  box.innerHTML = sbOn ? `<div class="demo-title">Connected to Supabase</div><div class="auth-note" style="text-align:left">Sign in with your Limelight account (the users listed in Supabase → Authentication). New accounts from Sign up need email confirmation (or disable it in Supabase Auth settings).</div><button type="button" class="link" id="sb-disc" style="margin-top:6px">Use demo mode instead</button>` : `<div class="demo-title">Demo login</div><div class="demo-row"><span>Email</span><code>${DEMO.email}</code></div><div class="demo-row"><span>Password</span><code>${DEMO.password}</code></div><button type="button" class="link" id="fill-demo">Fill these in</button><div class="auth-note" style="text-align:left;margin-top:4px">Want real accounts? Connect Supabase from Settings after logging in.</div>`;
+}
 document.addEventListener('click',e=>{ if(e.target.id==='sb-disc'){ if(confirm('Disconnect Supabase and use demo mode?')){ L.setSbConfig(null); location.reload(); } return; } if(e.target.id==='fill-demo'){ $('#email').value=DEMO.email; $('#password').value=DEMO.password; $$('.field.invalid').forEach(f=>f.classList.remove('invalid')); $('#login-btn').focus(); } });
 window.afterSupabaseLogin=async function(sess){
   if(document.body.classList.contains('in-app')) return;
@@ -1924,33 +1991,106 @@ window.afterSupabaseLogin=async function(sess){
   if(errs.length){ go('settings'); toast('Database not set up yet. Copy the SQL on this page and run it once in Supabase.'); }
   else toast('Signed in as '+email);
 };
-$('#view-login').addEventListener('submit',async e=>{ e.preventDefault(); $('#f-pass .error').textContent='Password is required.'; const okE=mark($('#f-email'),!emailOk($('#email').value)); const okP=mark($('#f-pass'),!$('#password').value.trim()); if(!(okE&&okP)){ (okE?$('#password'):$('#email')).focus(); return; }
+$('#view-login').addEventListener('submit',async e=>{
+  e.preventDefault(); $('#f-pass .error').textContent='Password is required.';
+  const okE=mark($('#f-email'),!emailOk($('#email').value)); const okP=mark($('#f-pass'),!$('#password').value.trim());
+  if(!(okE&&okP)){ (okE?$('#password'):$('#email')).focus(); return; }
   const b=$('#login-btn'); busy(b,true);
+  if(L.mode==='api'){
+    try{
+      const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('#email').value.trim(),password:$('#password').value})});
+      busy(b,false); const json=await res.json();
+      if(!res.ok||!json.success){ $('#f-pass .error').textContent=(json.error&&json.error.message)||'Login failed.'; mark($('#f-pass'),true); return; }
+      localStorage.setItem('lh_jwt',json.data.token);
+      const me=json.data.employee;
+      L.ME={...me,ini:L.ini(me.name),av:L.avFor(me.name)};
+      $('#view-login').reset();
+      await L.loadAllApi();
+      enterApp();
+      toast('Signed in as '+me.name);
+      return;
+    }catch(err){ busy(b,false); $('#f-pass .error').textContent='Server connection error.'; mark($('#f-pass'),true); return; }
+  }
   if(L.mode==='supabase'&&L.sb){
     const {data,error}=await L.sb.auth.signInWithPassword({email:$('#email').value.trim(),password:$('#password').value}); busy(b,false);
     if(error){ $('#f-pass .error').textContent=error.message||'Sign in failed.'; mark($('#f-pass'),true); return; }
     $('#view-login').reset(); if(data.session) await window.afterSupabaseLogin(data.session); return;
   }
-  setTimeout(()=>{ busy(b,false); const ok=$('#email').value.trim().toLowerCase()===DEMO.email&&$('#password').value===DEMO.password; if(!ok){ $('#f-pass .error').textContent='Incorrect email or password. Use the demo login below.'; mark($('#f-pass'),true); $('#password').focus(); return; } $('#view-login').reset(); enterApp(); toast('Signed in. Welcome back to Limelight!'); },600); });
+  setTimeout(()=>{ busy(b,false); const ok=$('#email').value.trim().toLowerCase()===DEMO.email&&$('#password').value===DEMO.password; if(!ok){ $('#f-pass .error').textContent='Incorrect email or password. Use the demo login below.'; mark($('#f-pass'),true); $('#password').focus(); return; } $('#view-login').reset(); enterApp(); toast('Signed in. Welcome back to Limelight!'); },600);
+});
 $('#google-btn').addEventListener('click',async()=>{ if(L.mode==='supabase'&&L.sb){ const {error}=await L.sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0]}}); if(error) toast(error.message); return; } toast('Google sign-in works once Supabase is connected (Settings).'); });
-$('#view-signup').addEventListener('submit',async e=>{ e.preventDefault(); let first=null; $$('#view-signup input[required]').forEach(inp=>{ const v=inp.value.trim(); let bad=!v; if(!bad&&inp.type==='email') bad=!emailOk(v); if(!bad&&inp.type==='url') bad=!L.urlOk(v); mark(inp.closest('.field'),bad); if(bad&&!first) first=inp; }); if(first){ first.focus(); return; }
+$('#view-signup').addEventListener('submit',async e=>{
+  e.preventDefault(); let first=null;
+  $$('#view-signup input[required]').forEach(inp=>{ const v=inp.value.trim(); let bad=!v; if(!bad&&inp.type==='email') bad=!emailOk(v); if(!bad&&inp.type==='url') bad=!L.urlOk(v); mark(inp.closest('.field'),bad); if(bad&&!first) first=inp; });
+  if(first){ first.focus(); return; }
   const b=$('#signup-btn'); busy(b,true);
+  if(L.mode==='api'){
+    try{
+      const pass=prompt('Choose a password for '+$('#su-email').value.trim()+' (min 6 characters):')||'Lighthouse@123';
+      const res=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('#su-name').value.trim(),email:$('#su-email').value.trim(),password:pass,phone:$('#su-phone').value.trim(),company:$('#su-company').value.trim(),role:$('#su-role').value.trim()})});
+      busy(b,false); const json=await res.json();
+      if(!res.ok||!json.success){ toast((json.error&&json.error.message)||'Registration failed.'); return; }
+      localStorage.setItem('lh_jwt',json.data.token);
+      const me=json.data.employee;
+      L.ME={...me,ini:L.ini(me.name),av:L.avFor(me.name)};
+      $('#view-signup').reset();
+      await L.loadAllApi();
+      enterApp();
+      toast('Account created for '+me.name);
+      return;
+    }catch(err){ busy(b,false); toast('Registration failed: server error'); return; }
+  }
   if(L.mode==='supabase'&&L.sb){
     const pass=prompt('Choose a password for '+$('#su-email').value.trim()+' (min 6 characters):'); if(!pass||pass.length<6){ busy(b,false); toast('Sign up cancelled: password too short.'); return; }
     const {error}=await L.sb.auth.signUp({email:$('#su-email').value.trim(),password:pass,options:{data:{full_name:$('#su-name').value.trim(),phone:$('#su-phone').value.trim(),company:$('#su-company').value.trim(),website:$('#su-site').value.trim(),designation:$('#su-role').value.trim()}}}); busy(b,false);
     if(error){ toast(error.message); return; } toast('Account created. Check your email to confirm, then log in.'); $('#view-signup').reset(); showView('login'); return;
   }
-  setTimeout(()=>{ busy(b,false); toast('Account request sent. Use the demo login to explore.'); $('#view-signup').reset(); showView('login'); },900); });
+  setTimeout(()=>{ busy(b,false); toast('Account request sent. Use the demo login to explore.'); $('#view-signup').reset(); showView('login'); },900);
+});
 const scrim=$('#scrim'); let lf=null;
 function openReset(){ lf=document.activeElement; $('#reset-email').value=$('#email').value; scrim.classList.add('open'); setTimeout(()=>$('#reset-email').focus(),30); }
 window.closeReset=function(){ scrim.classList.remove('open'); $('#f-reset').classList.remove('invalid'); if(lf) lf.focus(); };
 $('#forgot').addEventListener('click',openReset); $('#reset-cancel').addEventListener('click',window.closeReset); scrim.addEventListener('click',e=>{ if(e.target===scrim) window.closeReset(); });
 $('#reset-form').addEventListener('submit',async e=>{ e.preventDefault(); if(!mark($('#f-reset'),!emailOk($('#reset-email').value))){ $('#reset-email').focus(); return; } const b=$('#reset-send'); busy(b,true); const em=$('#reset-email').value.trim();
+  if(L.mode==='api'){
+    try{ await fetch('/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em})}); busy(b,false); window.closeReset(); toast('Password reset instructions sent to '+em); return; }catch(e){}
+  }
   if(L.mode==='supabase'&&L.sb){ const {error}=await L.sb.auth.resetPasswordForEmail(em,{redirectTo:location.href.split('#')[0]}); busy(b,false); window.closeReset(); toast(error?error.message:'Reset link sent to '+em); return; }
-  setTimeout(()=>{ busy(b,false); window.closeReset(); toast('Reset link sent to '+em); },800); });
+  setTimeout(()=>{ busy(b,false); window.closeReset(); toast('Reset link sent to '+em); },800);
+});
 
 /* =================== INIT =================== */
+async function checkBackend(){
+  try{
+    const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),2500);
+    const res=await fetch('/api/health',{signal:ctrl.signal}); clearTimeout(t);
+    if(res.ok){ const j=await res.json(); return j.status==='ok'; }
+  }catch(e){ return false; }
+  return false;
+}
 (async function init(){
+  const hasBackend=await checkBackend();
+  if(hasBackend){
+    L.mode='api'; setDemoBox();
+    const token=localStorage.getItem('lh_jwt');
+    if(token){
+      try{
+        const meRes=await fetch('/api/auth/me',{headers:{'Authorization':'Bearer '+token}});
+        if(meRes.ok){
+          const meData=await meRes.json();
+          const emp=meData.data.employee||meData.data.user;
+          L.ME={...emp,ini:L.ini(emp.name),av:L.avFor(emp.name)};
+          await L.loadAllApi();
+          enterApp();
+          return;
+        } else { localStorage.removeItem('lh_jwt'); }
+      }catch(e){}
+    }
+    await L.loadAllApi();
+    if(localStorage.getItem('lh-auth')==='1'){ enterApp(); return; }
+    showView('login');
+    return;
+  }
   const cfg=L.sbConfig();
   if(cfg && !L.inArtifact()){
     const ok=await L.connectSupabase(cfg); setDemoBox();

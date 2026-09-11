@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Database
+backend/database/*.db
+backend/database/*.db-wal
+backend/database/*.db-shm
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# OS
+Thumbs.db
+.DS_Store
