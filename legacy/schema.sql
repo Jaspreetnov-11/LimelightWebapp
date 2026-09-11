@@ -1,13 +1,40 @@
--- ============================================================
--- Limelight Workspace — Supabase schema
--- Run once: Supabase dashboard → SQL editor → New query → paste → Run.
--- Safe to re-run (everything is "if not exists").
---
--- Design: one table per collection the app keeps in memory. Each row is one
--- record; the app's object is stored as-is in `data` (jsonb), keyed by the
--- app's numeric id. Frequently-queried fields are exposed as generated
--- columns so you can filter/report on them in SQL without touching the app.
--- ============================================================
+-- Limelight: compatibility setup for the supplied JSON-based application schema.
+-- Run the WHOLE file in Supabase SQL Editor.
+-- IMPORTANT: existing incompatible expenses/holidays/tasks tables are MOVED
+-- to limelight_legacy, not deleted. New public tables start empty.
+-- Old records are NOT automatically migrated. Existing integrations referring
+-- to the old public tables must be reviewed before running this file.
+-- ACCESS: preserves the supplied app's anonymous read/write access model.
+-- Anyone with the public key can read/change the NEW application tables.
+-- Use with non-sensitive demo data only until server-enforced Auth/RLS is added.
+-- Optional reporting columns/views are omitted: text-to-date generated columns
+-- in the original script are not suitable immutable generation expressions.
+-- This file has been statically checked, not executed against your database.
+
+begin;
+
+create schema if not exists limelight_legacy;
+revoke all on schema limelight_legacy from public, anon, authenticated;
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['expenses', 'holidays', 'tasks'] loop
+    if to_regclass(format('public.%I', t)) is not null
+       and not exists (
+         select 1 from information_schema.columns
+         where table_schema = 'public' and table_name = t
+           and column_name = 'data' and data_type = 'jsonb'
+       ) then
+      if to_regclass(format('limelight_legacy.%I', t)) is not null then
+        raise exception 'Archive table limelight_legacy.% already exists. Nothing committed; review before retrying.', t;
+      end if;
+      execute format('alter table public.%I set schema limelight_legacy', t);
+      execute format('revoke all on table limelight_legacy.%I from public, anon, authenticated', t);
+    end if;
+  end loop;
+end $$;
 
 -- company-wide settings: a single row, id = 1
 create table if not exists public.settings (
@@ -65,75 +92,33 @@ do $$ begin
   end if;
 end $$;
 
--- ---------- generated columns for reporting (optional but handy) ----------
-alter table public.users
-  add column if not exists email      text    generated always as (data->>'email') stored,
-  add column if not exists role       text    generated always as (data->>'role') stored,
-  add column if not exists department text    generated always as (data->>'department') stored,
-  add column if not exists active     boolean generated always as ((data->>'active')::boolean) stored;
-create unique index if not exists users_email_key on public.users (email);
 
-alter table public.attendance
-  add column if not exists user_id bigint generated always as ((data->>'user_id')::bigint) stored,
-  add column if not exists date    date   generated always as ((data->>'date')::date) stored,
-  add column if not exists mode    text   generated always as (data->>'mode') stored;
-create unique index if not exists attendance_user_date_key on public.attendance (user_id, date);
-create index if not exists attendance_date_idx on public.attendance (date);
+-- Explicit API permissions for the application's supplied access model.
+do $$
+declare t text;
+begin
+  foreach t in array array[
+    'settings', 'users', 'attendance', 'leaves', 'regs', 'expenses',
+    'worklogs', 'tasks', 'comments', 'announcements', 'acks',
+    'notifications', 'holidays', 'todos'
+  ] loop
+    execute format('grant select, insert, update, delete on table public.%I to anon, authenticated', t);
+  end loop;
+end $$;
 
-alter table public.leaves
-  add column if not exists user_id   bigint generated always as ((data->>'user_id')::bigint) stored,
-  add column if not exists status    text   generated always as (data->>'status') stored,
-  add column if not exists from_date date   generated always as ((data->>'from')::date) stored,
-  add column if not exists to_date   date   generated always as ((data->>'to')::date) stored;
-create index if not exists leaves_user_idx on public.leaves (user_id, status);
+notify pgrst, 'reload schema';
+commit;
 
-alter table public.regs
-  add column if not exists user_id bigint generated always as ((data->>'user_id')::bigint) stored,
-  add column if not exists status  text   generated always as (data->>'status') stored,
-  add column if not exists date    date   generated always as ((data->>'date')::date) stored;
-
-alter table public.expenses
-  add column if not exists user_id bigint  generated always as ((data->>'user_id')::bigint) stored,
-  add column if not exists status  text    generated always as (data->>'status') stored,
-  add column if not exists date    date    generated always as ((data->>'date')::date) stored,
-  add column if not exists amount  numeric generated always as ((data->>'amount')::numeric) stored;
-
-alter table public.worklogs
-  add column if not exists user_id bigint generated always as ((data->>'user_id')::bigint) stored,
-  add column if not exists date    date   generated always as ((data->>'date')::date) stored;
-create index if not exists worklogs_date_idx on public.worklogs (date);
-
-alter table public.tasks
-  add column if not exists department text generated always as (data->>'department') stored,
-  add column if not exists status     text generated always as (data->>'status') stored,
-  add column if not exists due        date generated always as (nullif(data->>'due', '')::date) stored;
-
-alter table public.comments
-  add column if not exists task_id bigint generated always as ((data->>'task_id')::bigint) stored;
-create index if not exists comments_task_idx on public.comments (task_id);
-
-alter table public.notifications
-  add column if not exists user_id bigint generated always as ((data->>'user_id')::bigint) stored,
-  add column if not exists read    int    generated always as (coalesce((data->>'read')::int, 0)) stored;
-create index if not exists notifications_user_idx on public.notifications (user_id, read);
-
-alter table public.todos
-  add column if not exists user_id bigint generated always as ((data->>'user_id')::bigint) stored;
-
-alter table public.holidays
-  add column if not exists date date generated always as ((data->>'date')::date) stored;
-
--- ---------- a few reporting views ----------
-create or replace view public.v_attendance as
-select a.id, a.user_id, u.data->>'name' as name, u.department, a.date, a.mode,
-       (a.data->>'in')::timestamptz  as clock_in,
-       (a.data->>'out')::timestamptz as clock_out,
-       a.data->>'note' as note
-from public.attendance a left join public.users u on u.id = a.user_id;
-
-create or replace view public.v_pending_approvals as
-select 'leave' as kind, id, user_id, status, updated_at from public.leaves    where status = 'pending'
-union all
-select 'regularization',  id, user_id, status, updated_at from public.regs      where status = 'pending'
-union all
-select 'expense',         id, user_id, status, updated_at from public.expenses  where status = 'pending';
+-- All 14 rows should report ready = true.
+select expected.table_name,
+       exists (
+         select 1 from information_schema.columns c
+         where c.table_schema = 'public'
+           and c.table_name = expected.table_name
+           and c.column_name = 'data' and c.data_type = 'jsonb'
+       ) as ready
+from unnest(array[
+  'settings', 'users', 'attendance', 'leaves', 'regs', 'expenses',
+  'worklogs', 'tasks', 'comments', 'announcements', 'acks',
+  'notifications', 'holidays', 'todos'
+]) as expected(table_name);
