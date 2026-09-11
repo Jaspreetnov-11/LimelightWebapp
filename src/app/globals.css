@@ -841,3 +841,21 @@ td{padding:13px 16px}
   .bnav a.bnav-clock .ring svg{width:24px;height:24px}
   .bnav a.bnav-clock.active span:last-child{color:var(--accent)}
 }
+
+/* ---------- Welcome card on phones: stacked full-width date / time pills, nothing overflows ---------- */
+@media (max-width:768px){
+  .welcome{padding:18px 16px; gap:14px}
+  .welcome h1{font-size:22px; overflow-wrap:anywhere}
+  .welcome .meta{display:grid; grid-template-columns:1fr; gap:8px; width:100%; flex-wrap:nowrap}
+  .welcome .meta div{flex:none; width:100%; min-width:0; padding:8px 12px 8px 8px; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; justify-content:flex-start}
+  .welcome .meta div > div{display:flex; align-items:baseline; gap:10px; min-width:0}
+  .welcome .meta div small{display:inline; font-size:9px; letter-spacing:.1em; flex:0 0 auto}
+  .welcome .meta div span{overflow:hidden; text-overflow:ellipsis}
+  .welcome .meta .ic{width:28px; height:28px; flex:0 0 auto}
+}
+@media (min-width:420px) and (max-width:768px){
+  .welcome .meta{grid-template-columns:1fr 1fr}
+}
+@media (max-width:768px){
+  .clock-card .st small{white-space:normal; overflow:visible; text-overflow:clip; line-height:1.4}
+}
