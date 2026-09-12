@@ -73,8 +73,10 @@ export function DataProvider({ children }) {
     const empById = Object.fromEntries(state.employees.map(e => [e.id, e]));
     const projById = Object.fromEntries(state.projects.map(p => [p.id, p]));
     const taskAssignees = t => String((t && t.assignee) || '').split(',').map(s => s.trim()).filter(Boolean).map(id => empById[id]).filter(Boolean);
-    const assignableProjects = isAdmin ? state.projects : state.projects.filter(p => managerIds(p).includes(meId));
-    const isLeaderOf = projectId => isAdmin || Boolean(projById[projectId] && managerIds(projById[projectId]).includes(meId));
+    // Admins and team leaders see every project when assigning; staff who lead a project see theirs
+    const isMgr = Boolean(me && me.access === 'manager');
+    const assignableProjects = isAdmin || isMgr ? state.projects : state.projects.filter(p => managerIds(p).includes(meId));
+    const isLeaderOf = projectId => isAdmin || isMgr || Boolean(projById[projectId] && managerIds(projById[projectId]).includes(meId));
     return {
       empById, projById, taskAssignees,
       taskAssigneeNames: t => { const a = taskAssignees(t); return a.length ? a.map(e => e.name).join(', ') : 'Unassigned'; },

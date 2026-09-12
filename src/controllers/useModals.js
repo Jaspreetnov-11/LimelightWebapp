@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { useAuth } from './AuthController';
 import { useData } from './DataController';
 import { useUi } from './UiController';
-import { AttendanceModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
+import { AttendanceModel, AuthModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
 import { ACCESS_LABEL, avFor, ini, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO } from '@/lib/format';
 
 export function useModals() {
@@ -186,6 +186,20 @@ export function useModals() {
           toast('Attendance saved.');
           await reload('today', 'employees');
           if (preset.after) preset.after();
+        }
+      });
+    } else if (kind === 'password') {
+      openModal({
+        title: 'Change password', sub: 'You stay signed in on this device; use the new password on your next login.', ok: 'Change password',
+        fields: [
+          { name: 'current', label: 'Current password', type: 'password', required: true, value: '' },
+          { name: 'next', label: 'New password', type: 'password', required: true, value: '', validate: v => (v && v.length >= 6) || 'At least 6 characters.' },
+          { name: 'confirm', label: 'Confirm new password', type: 'password', required: true, value: '' }
+        ],
+        onSubmit: async d => {
+          if (d.next !== d.confirm) throw new Error('New passwords do not match.');
+          const r = await AuthModel.changePassword(d.current, d.next);
+          toast((r && r.message) || 'Password changed.');
         }
       });
     } else if (kind === 'holiday') {

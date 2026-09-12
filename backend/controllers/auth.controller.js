@@ -37,4 +37,15 @@ const forgotPassword = catchAsync(async (req, res) => {
   return apiResponse.success(res, null, `If an account exists for ${email}, password reset instructions have been sent.`);
 });
 
-module.exports = { register, login, getMe, forgotPassword };
+/** Anyone signed in can change their own password: the current one is verified first. */
+const changePassword = catchAsync(async (req, res) => {
+  const current = String(req.body.currentPassword || '');
+  const next = String(req.body.newPassword || '').trim();
+  if (next.length < 6) throw new AppError('New password must be at least 6 characters.', 400);
+  if (!current) throw new AppError('Enter your current password.', 400);
+  try { await supabase.signIn(req.user.email, current); } catch (e) { throw new AppError('Current password is incorrect.', 400); }
+  await supabase.updateUser(req.user.id, { password: next });
+  return apiResponse.success(res, null, 'Password changed. Use the new one next time you log in.');
+});
+
+module.exports = { register, login, getMe, forgotPassword, changePassword };

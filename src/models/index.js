@@ -9,6 +9,7 @@ export const AuthModel = {
   login: (email, password) => data(api.post('/auth/login', { email, password })),
   register: payload => data(api.post('/auth/register', payload)),
   forgotPassword: email => api.post('/auth/forgot-password', { email }),
+  changePassword: (currentPassword, newPassword) => api.post('/auth/change-password', { currentPassword, newPassword }),
   me: () => data(api.get('/auth/me')),
   health: () => api.get('/health')
 };

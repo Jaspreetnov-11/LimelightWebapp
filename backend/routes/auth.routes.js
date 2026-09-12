@@ -14,5 +14,6 @@ router.post('/register', authLimiter, validate(registerSchema), authController.r
 router.post('/login', authLimiter, validate(loginSchema), authController.login);
 router.post('/forgot-password', authLimiter, authController.forgotPassword);
 router.get('/me', protect, authController.getMe);
+router.post('/change-password', protect, authController.changePassword);
 
 module.exports = router;

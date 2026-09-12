@@ -116,15 +116,11 @@ export function SettingsScreen() {
         <div><b style={{ fontSize: 15 }}>Appearance</b><div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>Dark keeps the yellow accent; Light is white with a graphite accent. Saved on this device.</div></div>
         <Seg items={THEMES} value={theme} onChange={setTheme} />
       </div>
-      <div className="grid" style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+      <div className="grid" style={{ gridTemplateColumns: '1fr' }}>
         <div className="panel" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><b style={{ fontSize: 15 }}>Your account</b><Chip tone={isAdmin ? 'pu' : 'gy'}>{role}</Chip></div>
           <div className="kv"><div><span>Name</span><b>{me.name}</b></div><div><span>Email</span><b>{me.email}</b></div><div><span>Designation</span><b>{me.role || '—'}</b></div><div><span>Department</span><b>{me.dept || '—'}</b></div><div><span>Employee ID</span><b>{me.empId || '—'}</b></div><div><span>Shift</span><b>{SHIFTS[(meRow && meRow.shift) || me.shift] || SHIFTS.day}</b></div>{(isAdmin || meRow) && meRow && meRow.salary !== undefined && <div><span>Monthly salary</span><b className="money">{inr(meRow.salary)}</b></div>}{meRow && meRow.pendingBal !== undefined && <div><span>Pending this month</span><b className="money">{inr(meRow.pendingBal)}</b></div>}</div>
-          {meRow && <div><button className="date-btn" onClick={() => modals.open('employee', meRow.id)}><Icon name="file" />{isAdmin ? 'Edit profile / password' : 'Change name, phone or password'}</button></div>}
-        </div>
-        <div className="panel" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <b style={{ fontSize: 15 }}>How it works</b>
-          <div className="steps"><div>Clock in from Home. Shift 11 am–7 pm (or 2–10 pm) with 20 min grace; overtime after 8 pm (11 pm) is paid at 1× hourly.</div><div>Tasks: your team leader assigns, you accept (timer starts), submit for approval, they approve or request changes.</div><div>Admins add staff, run payroll, record payments and download reports.</div></div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className="date-btn" onClick={() => modals.open('password')}><Icon name="file" />Change password</button>{isAdmin && meRow && <button className="date-btn" onClick={() => modals.open('employee', meRow.id)}><Icon name="users" />Edit my profile</button>}</div>
           <div className="kv"><div><span>API</span><b>{health ? (health.status === 'ok' ? 'Online · v' + health.version : 'Unreachable') : 'Checking…'}</b></div><div><span>Signed in as</span><b>{user ? user.email : ''}</b></div></div>
         </div>
       </div>

@@ -25,7 +25,7 @@ const nowISO = () => new Date().toISOString();
 const minsSince = iso => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
 
 async function assertCanManage(req, projectId, task = null) {
-  if (req.user.role === 'admin') return null;
+  if (req.user.role === 'admin' || req.user.role === 'manager') return null; // team leaders may assign on any project
   if (task && task.assigned_by === req.user.id) return null;
   if (!projectId) throw new AppError('Select a project. Only its team leader can assign tasks.', 403);
   const project = await projectModel.findById(projectId);
