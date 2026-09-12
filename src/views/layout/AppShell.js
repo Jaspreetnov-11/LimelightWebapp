@@ -12,6 +12,7 @@ import { Icon } from '@/views/ui/Icons';
 import { Avatar } from '@/views/ui';
 import { ClockSplash, SPLASH_KEY } from '@/views/layout/ClockSplash';
 import { usePush } from '@/controllers/usePush';
+import { SimranChat } from '@/views/ui/SimranChat';
 
 // [key, label, icon, who] — who: 'all' | 'admin'
 export const NAV = [
@@ -125,6 +126,7 @@ export function AppShell({ children }) {
             </div>
           </div>
         </div>
+        <SimranChat />
       </div>
     </div>
   );

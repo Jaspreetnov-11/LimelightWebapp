@@ -24,6 +24,7 @@ const settingsRoutes = require('./settings.routes');
 const pushRoutes = require('./push.routes');
 const performanceRoutes = require('./performance.routes');
 const productivityRoutes = require('./productivity.routes');
+const assistantRoutes = require('./assistant.routes');
 
 // Healthcheck
 router.get('/health', (req, res) => {
@@ -60,5 +61,6 @@ router.use('/settings', settingsRoutes);
 router.use('/push', pushRoutes);
 router.use('/performance', performanceRoutes);
 router.use('/productivity', productivityRoutes);
+router.use('/assistant', assistantRoutes);
 
 module.exports = router;

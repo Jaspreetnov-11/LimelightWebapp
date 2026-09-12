@@ -144,6 +144,11 @@ export const ProductivityModel = {
   get: month => data(api.get('/productivity', { month }))
 };
 
+export const AssistantModel = {
+  chat: messages => data(api.post('/assistant/chat', { messages })),
+  whatsapp: text => data(api.post('/assistant/whatsapp', { text }))
+};
+
 export const ReportModel = {
   // Returns a Blob for the CSV; the caller triggers the download.
   download: async (name, params) => {

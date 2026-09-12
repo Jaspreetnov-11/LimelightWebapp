@@ -19,6 +19,7 @@
     "test:all": "node backend/tests/test_production_readiness.js && node backend/tests/test_security.js && node backend/tests/test_recheck.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "@supabase/supabase-js": "^2.49.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

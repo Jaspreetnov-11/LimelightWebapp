@@ -33,7 +33,8 @@ const DEFAULTS = {
   selfieRetentionDays: 30,
   leavesPerYear: 12,      // paid leave quota per person per calendar year
   managerShare: 0.25,     // share of a task's time credited to whoever assigned it (coordination)
-  assignMins: 15          // fixed minutes credited to the assigner per task (briefing / planning)
+  assignMins: 15,         // fixed minutes credited to the assigner per task (briefing / planning)
+  whatsappNumber: ''      // admin WhatsApp (with country code) that Simran forwards questions to
 };
 
 let current = { ...DEFAULTS };
@@ -65,6 +66,7 @@ function validate(patch) {
   if (patch.leavesPerYear !== undefined) out.leavesPerYear = Math.min(365, Math.max(0, Number(patch.leavesPerYear) || 0));
   if (patch.managerShare !== undefined) out.managerShare = Math.min(1, Math.max(0, Number(patch.managerShare) || 0));
   if (patch.assignMins !== undefined) out.assignMins = Math.min(240, Math.max(0, Number(patch.assignMins) || 0));
+  if (patch.whatsappNumber !== undefined) { const n = String(patch.whatsappNumber || '').replace(/\D/g, ''); if (n && (n.length < 10 || n.length > 15)) throw new AppError('WhatsApp number must include the country code, e.g. 919876543210', 400); out.whatsappNumber = n; }
   return out;
 }
 
@@ -92,7 +94,7 @@ const service = {
   publicView() {
     const shifts = {};
     for (const [k, s] of Object.entries(current.shifts)) shifts[k] = { ...s, display: shiftLabel(s) };
-    return { companyName: current.companyName, shifts, graceMins: current.graceMins, hoursPerDay: current.hoursPerDay, otRate: current.otRate, weekOff: current.weekOff, staffCanSeeTeamTasks: current.staffCanSeeTeamTasks, staffCanApplyLeave: current.staffCanApplyLeave, autoOvertime: current.autoOvertime, selfieOnClockIn: current.selfieOnClockIn, selfieOnClockOut: current.selfieOnClockOut, selfieRetentionDays: current.selfieRetentionDays, leavesPerYear: current.leavesPerYear, managerShare: current.managerShare, assignMins: current.assignMins };
+    return { companyName: current.companyName, shifts, graceMins: current.graceMins, hoursPerDay: current.hoursPerDay, otRate: current.otRate, weekOff: current.weekOff, staffCanSeeTeamTasks: current.staffCanSeeTeamTasks, staffCanApplyLeave: current.staffCanApplyLeave, autoOvertime: current.autoOvertime, selfieOnClockIn: current.selfieOnClockIn, selfieOnClockOut: current.selfieOnClockOut, selfieRetentionDays: current.selfieRetentionDays, leavesPerYear: current.leavesPerYear, managerShare: current.managerShare, assignMins: current.assignMins, whatsappNumber: current.whatsappNumber || '' };
   },
   adminView() { return { ...this.publicView(), defaultPassword: current.defaultPassword, extraAdminEmails: current.extraAdminEmails, adminEmails: env.ADMIN_EMAILS }; },
   isAdminEmail(email) { const e = String(email || '').toLowerCase(); return env.ADMIN_EMAILS.includes(e) || (current.extraAdminEmails || []).includes(e); },

@@ -33,5 +33,9 @@ module.exports = {
   UPLOAD_DIR: isVercel
     ? (String(process.env.UPLOAD_DIR || '').startsWith('/tmp') ? process.env.UPLOAD_DIR : '/tmp/uploads')
     : (process.env.UPLOAD_DIR || path.resolve(process.cwd(), 'uploads')),
-  GIT_COMMIT: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7)
+  GIT_COMMIT: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7),
+  // Simran assistant (optional): Claude answers when a key is set; WhatsApp Cloud API sends when both are set
+  ANTHROPIC_API_KEY: (process.env.ANTHROPIC_API_KEY || '').trim(),
+  WHATSAPP_TOKEN: (process.env.WHATSAPP_TOKEN || '').trim(),
+  WHATSAPP_PHONE_ID: (process.env.WHATSAPP_PHONE_ID || '').trim()
 };
