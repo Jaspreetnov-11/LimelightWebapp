@@ -6,7 +6,7 @@ import { useAuth } from '@/controllers/AuthController';
 import { useUi } from '@/controllers/UiController';
 import { AssistantModel } from '@/models';
 
-const QUICK = ['Aaj kitna kaam hua?', 'Mere tasks', 'Leaves kitni bachi?', 'Mera score', 'Shift timing'];
+const QUICK = ['Aaj kitna kaam hua?', 'Mere tasks', 'Leaves kitni bachi?', 'Mera score', 'Shift timing', 'App kaise use karein?', 'Task accept kaise kare?'];
 const KEY = 'lh-simran';
 
 export function SimranChat() {

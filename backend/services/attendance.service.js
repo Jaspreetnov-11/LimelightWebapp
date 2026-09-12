@@ -5,7 +5,8 @@ const employeeModel = require('../models/employee.model');
 const leaveModel = require('../models/leave.model');
 const activityModel = require('../models/activity.model');
 const AppError = require('../utils/appError');
-const { todayISO, thisMonth, nowHHMM, workdaysIn, isLate, otHoursFor, punchMinutes, shiftOf, hoursPerDay, toMins } = require('../utils/calculations');
+const { todayISO, thisMonth, nowHHMM, workdaysIn, isLate, otHoursFor, punchMinutes, shiftOf, hoursPerDay, toMins, weekOff } = require('../utils/calculations');
+const holidayModel = require('../models/holiday.model');
 const yesterdayOf = iso => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
 const MODES = ['office', 'wfh', 'field'];
 const parseBreaks = v => { if (!v) return []; try { const l = typeof v === 'string' ? JSON.parse(v) : v; return Array.isArray(l) ? l : []; } catch (e) { return []; } };
@@ -41,7 +42,9 @@ async function purgeOldSelfies() {
 }
 
 /** Pure computation: month stats from preloaded rows. */
-function computeMonthStats(rows, leaves, month) {
+function computeMonthStats(rows, leaves, month, opts = {}) {
+  const holidaySet = new Set((opts.holidays || []).map(h => String(h.date || h).slice(0, 10)));
+  const startFrom = [opts.joined ? String(opts.joined).slice(0, 10) : '', String((settingsService.get() || {}).attendanceFrom || '').slice(0, 10)].filter(Boolean).sort().pop() || '';
   let present = 0, half = 0, absent = 0, late = 0, otHours = 0, fineHours = 0, totalWorkedMinutes = 0, daysWithOut = 0, breakMinutes = 0;
 
   for (const r of rows) {
@@ -71,6 +74,28 @@ function computeMonthStats(rows, leaves, month) {
     }
   }
 
+  // Absent = a working day that has already passed (before today) with no punch, no approved leave and no holiday.
+  const today = todayISO();
+  const punched = new Set(rows.filter(r => r.clock_in || r.status).map(r => String(r.date).slice(0, 10)));
+  const leaveSet = new Set();
+  for (const l of leaves) {
+    if ((l.status && l.status !== 'approved') || l.kind === 'wfh') continue;
+    const a = new Date(String(l.from_date).slice(0, 10) + 'T00:00:00'), b = new Date(String(l.to_date).slice(0, 10) + 'T00:00:00');
+    for (const d = new Date(a); d <= b; d.setDate(d.getDate() + 1)) leaveSet.add(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+  }
+  const [yy, mm] = month.split('-').map(Number);
+  const lastDay = new Date(yy, mm, 0).getDate();
+  let missed = 0;
+  const missedDays = [];
+  for (let d = 1; d <= lastDay; d++) {
+    const iso = month + '-' + String(d).padStart(2, '0');
+    if (iso >= today) break;
+    if (startFrom && iso < startFrom) continue;
+    if (weekOff().includes(new Date(yy, mm - 1, d).getDay()) || holidaySet.has(iso)) continue;
+    if (punched.has(iso) || leaveSet.has(iso)) continue;
+    missed++; missedDays.push(iso);
+  }
+  absent += missed;
   const workdaysSoFar = workdaysIn(month, true);
   const workdaysTotal = workdaysIn(month, false);
   const unaccounted = Math.max(0, workdaysSoFar - present - half - absent - leaveDays);
@@ -80,7 +105,7 @@ function computeMonthStats(rows, leaves, month) {
   const days = rows.map(r => ({ date: r.date, mins: r.clock_in && r.clock_out ? punchMinutes(r) : 0, open: Boolean(r.clock_in && !r.clock_out), status: r.status || (r.clock_in ? 'present' : ''), late: Number(r.late) ? 1 : 0, mode: r.mode || 'office', ot: Number(r.ot_hours) || 0, breakMins: Number(r.break_mins) || 0 })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
   return {
-    month, present, half, absent, late, leave: leaveDays, otHours, fineHours, days, breakMinutes,
+    month, present, half, absent, late, leave: leaveDays, otHours, fineHours, days, breakMinutes, missedDays,
     workdaysSoFar, workdaysTotal, unaccounted, avgWorkingMinutes, totalWorkedMinutes,
     expectedMinutesSoFar: workdaysSoFar * hoursPerDay() * 60,
     expectedMinutesTotal: workdaysTotal * hoursPerDay() * 60
@@ -296,25 +321,28 @@ class AttendanceService {
   }
 
   async getMonthStats(empId, month = thisMonth()) {
-    const [rows, leaves] = await Promise.all([
+    const [rows, leaves, holidays, emp] = await Promise.all([
       attendanceModel.getMonthAttendance(empId, month),
-      leaveModel.getEmployeeLeaves(empId, month)
+      leaveModel.getEmployeeLeaves(empId, month),
+      holidayModel.findAll().catch(() => []),
+      employeeModel.findById(empId)
     ]);
-    return computeMonthStats(rows, leaves, month);
+    return computeMonthStats(rows, leaves, month, { holidays, joined: emp ? emp.joined : '' });
   }
 
   /** Per-employee month summary for the whole team (dashboard + reports). */
   async getTeamSummary(month = thisMonth()) {
-    const [employees, rows, leaves] = await Promise.all([
+    const [employees, rows, leaves, holidays] = await Promise.all([
       employeeModel.findAll({}, { orderBy: 'name ASC' }),
       attendanceModel.getMonthAttendanceAll(month),
-      leaveModel.getLeavesInMonthAll(month)
+      leaveModel.getLeavesInMonthAll(month),
+      holidayModel.findAll().catch(() => [])
     ]);
     const byEmp = {}; for (const r of rows) (byEmp[r.emp] = byEmp[r.emp] || []).push(r);
     const lvEmp = {}; for (const l of leaves) (lvEmp[l.emp] = lvEmp[l.emp] || []).push(l);
     const staff = employees.map(e => ({
       id: e.id, name: e.name, dept: e.dept, emp_id: e.emp_id, shift: e.shift || 'day', shiftLabel: shiftOf(e.shift).label,
-      ...computeMonthStats(byEmp[e.id] || [], lvEmp[e.id] || [], month)
+      ...computeMonthStats(byEmp[e.id] || [], lvEmp[e.id] || [], month, { holidays, joined: e.joined })
     }));
     const withHours = staff.filter(s => s.totalWorkedMinutes > 0);
     return {

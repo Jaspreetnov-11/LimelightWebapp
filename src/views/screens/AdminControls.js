@@ -75,7 +75,7 @@ function WorkRules() {
   const save = async () => {
     setBusy(true);
     try {
-      await SettingsModel.update({ companyName: f.companyName, shifts: f.shifts, graceMins: Number(f.graceMins), hoursPerDay: Number(f.hoursPerDay), otRate: Number(f.otRate), leavesPerYear: Number(f.leavesPerYear), managerShare: Number(f.managerShare), assignMins: Number(f.assignMins), whatsappNumber: f.whatsappNumber || '', weekOff: f.weekOff, defaultPassword: f.defaultPassword, extraAdminEmails: f.extraAdminEmails, staffCanApplyLeave: f.staffCanApplyLeave, autoOvertime: f.autoOvertime, selfieOnClockIn: f.selfieOnClockIn, selfieOnClockOut: f.selfieOnClockOut, selfieRetentionDays: Number(f.selfieRetentionDays) || 30 });
+      await SettingsModel.update({ companyName: f.companyName, shifts: f.shifts, graceMins: Number(f.graceMins), hoursPerDay: Number(f.hoursPerDay), otRate: Number(f.otRate), leavesPerYear: Number(f.leavesPerYear), managerShare: Number(f.managerShare), assignMins: Number(f.assignMins), whatsappNumber: f.whatsappNumber || '', attendanceFrom: f.attendanceFrom || '', weekOff: f.weekOff, defaultPassword: f.defaultPassword, extraAdminEmails: f.extraAdminEmails, staffCanApplyLeave: f.staffCanApplyLeave, autoOvertime: f.autoOvertime, selfieOnClockIn: f.selfieOnClockIn, selfieOnClockOut: f.selfieOnClockOut, selfieRetentionDays: Number(f.selfieRetentionDays) || 30 });
       toast('Work rules saved. New clock-ins use them from now on.'); await d.reload('settings'); setF(null);
     } catch (err) { toast(err.message); } finally { setBusy(false); }
   };
@@ -93,6 +93,7 @@ function WorkRules() {
           <Field label="Assigner credit (share of task time)" help="0.25 = whoever assigned a task gets 25% of its time as productive hours"><input type="number" min={0} max={1} step={0.05} value={f.managerShare ?? 0.25} onChange={e => set('managerShare', e.target.value)} /></Field>
           <Field label="Minutes per task assigned" help="Fixed briefing / planning credit for the assigner"><input type="number" min={0} max={240} value={f.assignMins ?? 15} onChange={e => set('assignMins', e.target.value)} /></Field>
           <Field label="Admin WhatsApp number" help="With country code, e.g. 919876543210. Simran forwards questions here."><input value={f.whatsappNumber || ''} onChange={e => set('whatsappNumber', e.target.value)} placeholder="91XXXXXXXXXX" /></Field>
+          <Field label="Count absents from" help="Working days before this date are not marked absent (the day the team started clocking in)"><input type="date" value={f.attendanceFrom || ''} onChange={e => set('attendanceFrom', e.target.value)} /></Field>
         </div>
         <div>
           <b style={{ fontSize: 13.5 }}>Shifts</b>
