@@ -13,6 +13,7 @@ router.get('/:id', protect, taskController.getTaskById);
 router.post('/', protect, validate(createTaskSchema), taskController.createTask);
 router.put('/:id', protect, taskController.updateTask);
 router.post('/:id/reassign', protect, taskController.reassignTask);
+router.post('/:id/reject', protect, taskController.rejectTask);
 router.patch('/:id/status', protect, validate(updateTaskStatusSchema), taskController.updateTaskStatus);
 router.delete('/:id', protect, taskController.deleteTask);
 

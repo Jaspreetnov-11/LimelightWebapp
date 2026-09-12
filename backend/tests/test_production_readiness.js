@@ -96,25 +96,25 @@ async function runTests() {
   const existingAtt = await attendanceModel.findByEmpAndDate(staff1.id, today);
   if (existingAtt) await attendanceModel.delete(existingAtt.id);
 
-  // Admin marks attendance as leave with leave_type = Sick Leave
+  // Admin marks attendance as leave with leave_type = Weekly Off
   const markReq = mockReq(adminUser, {
     emp: staff1.id,
     date: today,
     status: 'leave',
-    leave_type: 'Sick Leave'
+    leave_type: 'Weekly Off'
   });
   const markRes = await callCtrl(attendanceController.markAttendance, markReq, mockRes());
   assert.strictEqual(markRes.statusCode, 200, 'Attendance marking failed');
   assert.strictEqual(markRes.data.data.status, 'leave');
-  assert.strictEqual(markRes.data.data.leave_type, 'Sick Leave');
+  assert.strictEqual(markRes.data.data.leave_type, 'Weekly Off');
 
   // Fetch via list and verify leave_type is included in response
   const listReq = mockReq(adminUser, {}, {}, { date: today });
   const listRes = await callCtrl(attendanceController.getAttendanceList, listReq, mockRes());
   const found = (listRes.data.data || []).find(x => x.emp === staff1.id);
   assert(found, 'Employee attendance record must be in day list');
-  assert.strictEqual(found.leave_type, 'Sick Leave', 'Returned leave_type should match Sick Leave');
-  console.log('   ✓ Leave deducted with Sick Leave and verified in listDayAttendance');
+  assert.strictEqual(found.leave_type, 'Weekly Off', 'Returned leave_type should match Weekly Off');
+  console.log('   ✓ Leave deducted with Weekly Off and verified in listDayAttendance');
 
   // ----------------------------------------------------
   // TEST 3: Multi-Leader Projects
@@ -159,9 +159,9 @@ async function runTests() {
   console.log('   ✓ Both team leaders have authorization; unauthorized staff rejected with 403');
 
   // ----------------------------------------------------
-  // TEST 4: Direct Task Reassignment by Assignee
+  // TEST 4: Direct Task Reassignment & Rejection Lifecycle
   // ----------------------------------------------------
-  console.log('\n4. Testing Direct Task Reassignment by Assignee:');
+  console.log('\n4. Testing Direct Task Reassignment & Rejection:');
   // Create a task assigned to staff1
   const tId = 't_prod_reassign_' + Date.now();
   const task = await taskModel.create({
@@ -170,7 +170,8 @@ async function runTests() {
     project: pId,
     assignee: staff1.id,
     assigned_by: lead1.id,
-    status: 'pipeline',
+    status: 'progress',
+    started_at: new Date().toISOString(),
     mins: 60
   });
 
@@ -179,16 +180,28 @@ async function runTests() {
   const reassignRes = await callCtrl(taskController.reassignTask, reassignReq, mockRes());
   assert.strictEqual(reassignRes.statusCode, 200, 'Reassignment by assignee failed');
   assert.strictEqual(reassignRes.data.data.assignee, staff2.id, 'Task assignee should be updated to staff2');
+  assert.strictEqual(reassignRes.data.data.reassigned_by, staff1.id, 'reassigned_by should be staff1');
+  assert.strictEqual(reassignRes.data.data.status, 'pipeline', 'Status should be reset to pipeline');
+  assert.strictEqual(reassignRes.data.data.started_at, null, 'started_at timer should be reset');
+  console.log('   ✓ Reassigned to staff2: removed from staff1, reset to pipeline with reassigned_by');
 
-  // Verify third party cannot reassign
+  // Staff 2 rejects the reassigned task -> should return to Staff 1's pipeline
+  const rejectReq = mockReq(staff2, { reason: 'No bandwidth today' }, { id: tId });
+  const rejectRes = await callCtrl(taskController.rejectTask, rejectReq, mockRes());
+  assert.strictEqual(rejectRes.statusCode, 200, 'Rejection failed');
+  assert.strictEqual(rejectRes.data.data.assignee, staff1.id, 'Task assignee should revert to staff1');
+  assert.strictEqual(rejectRes.data.data.status, 'pipeline', 'Task should be in staff1 pipeline');
+  console.log('   ✓ Staff 2 rejected task -> successfully reverted to Staff 1 in pipeline');
+
+  // Verify non-assignee cannot reject
   try {
-    const intruderReq = mockReq(staff1, { assignee: lead1.id }, { id: tId }); // staff1 is no longer assignee!
-    await callCtrl(taskController.reassignTask, intruderReq, mockRes());
-    assert.fail('Former assignee or non-leader should be rejected');
+    const unauthReject = mockReq(staff2, {}, { id: tId }); // staff2 is no longer assignee!
+    await callCtrl(taskController.rejectTask, unauthReject, mockRes());
+    assert.fail('Non-assignee should not be allowed to reject');
   } catch (err) {
     assert.strictEqual(err.statusCode, 403, 'Should reject with 403 Forbidden');
   }
-  console.log('   ✓ Assignee directly reallocated task without leader approval; outsider rejected');
+  console.log('   ✓ Non-assignee rejected with 403 Forbidden');
 
   // ----------------------------------------------------
   // TEST 5: Self Task Creation, Movement & Deletion

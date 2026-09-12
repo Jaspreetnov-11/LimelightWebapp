@@ -36,20 +36,22 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
 
   const currentAssignees = employees.filter(e => currentIds.includes(e.id));
   const candidateList = employees.filter(e => {
+    if (currentUserId && e.id === currentUserId) return false;
+    if (currentIds.includes(e.id)) return false;
     const s = q.toLowerCase().trim();
     if (!s) return true;
     return (e.name || '').toLowerCase().includes(s) || (e.role || '').toLowerCase().includes(s) || (e.dept || '').toLowerCase().includes(s);
   });
 
-  const toggleSelect = id => {
-    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const selectColleague = id => {
+    setSelected([id]);
     setErr('');
   };
 
   const handleReassign = async e => {
     e.preventDefault();
     if (!selected.length) {
-      setErr('Please select at least one colleague to reassign this task to.');
+      setErr('Please select a colleague to reassign this task to.');
       return;
     }
     setBusy(true);
@@ -106,7 +108,7 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
         </div>
 
         <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>
-          Directly hand over this task to a colleague if you have a full workload.
+          Directly hand over this task to a colleague. It will be moved to their pipeline and removed from yours.
         </p>
 
         <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--line-soft)', borderRadius: 14, padding: '12px 14px', marginBottom: 16 }}>
@@ -129,7 +131,7 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
         <form onSubmit={handleReassign}>
           <div className="field" style={{ marginBottom: 14 }}>
             <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>
-              Select New Assignee(s) <span style={{ color: 'var(--accent)' }}>*</span>
+              Select New Assignee <span style={{ color: 'var(--accent)' }}>*</span>
             </label>
             <input
               type="text"
@@ -164,6 +166,7 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
                 return (
                   <label
                     key={emp.id}
+                    onClick={() => selectColleague(emp.id)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -177,9 +180,10 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
                     }}
                   >
                     <input
-                      type="checkbox"
+                      type="radio"
+                      name="reassign_colleague"
                       checked={isChecked}
-                      onChange={() => toggleSelect(emp.id)}
+                      onChange={() => selectColleague(emp.id)}
                     />
                     <Avatar e={emp} cls="sm" />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -195,12 +199,12 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
               })}
               {!candidateList.length && (
                 <div style={{ padding: '16px', textAlign: 'center', color: 'var(--muted)', fontSize: 12.5 }}>
-                  No colleagues match
+                  No colleagues available for reassignment
                 </div>
               )}
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-              {selected.length} colleague{selected.length === 1 ? '' : 's'} selected
+              {selected.length ? `${selected.length} colleague selected` : 'Select one colleague'}
             </div>
           </div>
 

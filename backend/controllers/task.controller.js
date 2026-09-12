@@ -190,13 +190,17 @@ const reassignTask = catchAsync(async (req, res) => {
     throw new AppError('Only the current assignee, project team leader, or admin can reassign this task.', 403);
   }
 
-  const newIds = splitIds(assignee);
+  const newIds = splitIds(assignee).filter(x => x !== req.user.id);
   if (!newIds.length) {
-    throw new AppError('Select at least one new assignee for reassignment.', 400);
+    throw new AppError('Select at least one colleague (other than yourself) to reassign this task to.', 400);
   }
 
   const updated = await taskModel.update(existing.id, {
-    assignee: newIds.join(',')
+    assignee: newIds.join(','),
+    reassigned_by: req.user.id,
+    reassign_note: String(note || '').trim(),
+    status: 'pipeline',
+    started_at: null
   });
 
   const who = req.user.name;
@@ -209,7 +213,7 @@ const reassignTask = catchAsync(async (req, res) => {
   if (projectRow && projectRow.manager) {
     const leaderIds = splitIds(projectRow.manager).filter(lid => lid !== req.user.id);
     if (leaderIds.length) {
-      await activityModel.notify(leaderIds, `${who} reassigned "${existing.title}"${noteSuffix}`, {
+      await activityModel.notify(leaderIds, `${who} reassigned "${existing.title}" to ${newIds.join(', ')}${noteSuffix}`, {
         kind: 'task',
         link: '/tasks?task=' + existing.id,
         ref_type: 'task',
@@ -220,6 +224,55 @@ const reassignTask = catchAsync(async (req, res) => {
 
   await activityModel.log(`${who} reassigned "${existing.title}"${noteSuffix}`);
   return apiResponse.success(res, updated, 'Task reassigned successfully');
+});
+
+/**
+ * Reject a reassigned task:
+ * When the recipient of a reassigned task rejects it, it automatically returns
+ * back to the user who reassigned/assigned it, placing it back in their pipeline.
+ */
+const rejectTask = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { reason = '' } = req.body;
+  const existing = await taskModel.findById(id);
+  if (!existing) throw new AppError('Task not found', 404);
+
+  const currentAssignees = splitIds(existing.assignee);
+  if (!currentAssignees.includes(req.user.id)) {
+    throw new AppError('Only the current assignee can reject this task.', 403);
+  }
+
+  // Determine who to return the task to: the person who reassigned it, or who assigned it
+  const returnTo = existing.reassigned_by || existing.assigned_by;
+  if (!returnTo || returnTo === req.user.id) {
+    throw new AppError('No prior assigner found to return this task to.', 400);
+  }
+
+  const updated = await taskModel.update(existing.id, {
+    assignee: returnTo,
+    reassigned_by: '',
+    reassign_note: '',
+    status: 'pipeline',
+    started_at: null
+  });
+
+  const who = req.user.name;
+  const reasonSuffix = reason ? ` (Reason: ${reason})` : '';
+
+  // Notify the user who originally reassigned/assigned the task
+  await activityModel.notify(
+    [returnTo],
+    `${who} rejected task "${existing.title}". It has been returned to your pipeline.${reasonSuffix}`,
+    {
+      kind: 'task',
+      link: '/tasks?task=' + existing.id,
+      ref_type: 'task',
+      ref_id: existing.id
+    }
+  );
+
+  await activityModel.log(`${who} rejected task "${existing.title}" · returned to previous assigner${reasonSuffix}`);
+  return apiResponse.success(res, updated, 'Task rejected and returned to assigner');
 });
 
 /**
@@ -277,5 +330,6 @@ module.exports = {
   updateTaskStatus,
   deleteTask,
   reassignTask,
+  rejectTask,
   createSelfTask
 };

@@ -88,7 +88,7 @@ export function AttendanceScreen() {
       const sessTooltip = sess.map((s, i) => `S${i + 1}: ${s.clock_in} - ${s.clock_out} (${Math.floor((s.mins || 0) / 60)}h ${(s.mins || 0) % 60}m)`).join('\n');
       return (
         <span className="st" style={{ color: { present: 'var(--ok)', half: 'var(--warn)', absent: 'var(--danger)', leave: 'var(--info)' }[st] }}>
-          {st === 'leave' && a.leave_type ? `Leave (${a.leave_type})` : ATT[st][1]}
+          {st === 'leave' ? (a.leave_type === 'Weekly Off' ? 'Weekly Off' : (a.leave_type ? `Leave (${a.leave_type})` : 'Leave')) : ATT[st][1]}
           {a.clock_in ? <> · in {a.clock_in} <GeoLink lat={a.in_lat} lng={a.in_lng} addr={a.in_addr || 'map'} />{isAdmin && a.in_selfie ? <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'in')} title="View clock-in selfie">📷</button> : null}</> : null}
           {a.clock_out ? <> · out {a.clock_out}{Number(a.out_next_day) ? <sup title="next day">+1</sup> : null} <GeoLink lat={a.out_lat} lng={a.out_lng} addr={a.out_addr || 'map'} />{isAdmin && a.out_selfie ? <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'out')} title="View clock-out selfie">📷</button> : null}</> : null}
           {sess.length > 0 && !a.clock_out ? <Chip tone="or" style={{ marginLeft: 6 }} title={sessTooltip}>Re-checked in (S{sess.length + 1})</Chip> : null}
@@ -127,7 +127,15 @@ export function AttendanceScreen() {
                 <div className="att-line" key={e.id}>
                   <div className="who"><Avatar e={e} cls="" /><div><b>{e.name}</b> <span style={{ color: 'var(--muted)', fontSize: 12, marginLeft: 6 }}>{e.emp_id || ''}</span><small>{stLabel(a, l)}</small><div className="links"><LinkBtn onClick={() => notePrompt(e)}>{a && a.note ? 'Note: ' + a.note : 'Add Note'}</LinkBtn><span style={{ color: 'var(--muted)' }}>–</span><LinkBtn onClick={() => modals.open('attendance', null, { row: a, after: load })}>{a ? 'Edit' : 'Logs'}</LinkBtn></div></div></div>
                   <div className="att-mark">
-                    {Object.entries(ATT).map(([k, [c, l2, cls]]) => <button key={k} className={st === k ? 'on ' + cls : ''} onClick={() => mark(e, k)}><b>{c}</b>{l2}</button>)}
+                    {Object.entries(ATT).map(([k, [c, l2, cls]]) => {
+                      const isWeeklyOff = k === 'leave' && st === 'leave' && a && a.leave_type === 'Weekly Off';
+                      return (
+                        <button key={k} className={st === k ? 'on ' + cls : ''} onClick={() => mark(e, k)}>
+                          <b>{isWeeklyOff ? 'WO' : c}</b>
+                          {isWeeklyOff ? 'Weekly Off' : l2}
+                        </button>
+                      );
+                    })}
                     <button className={a && Number(a.fine_hours) ? 'on pk' : ''} onClick={() => hoursPrompt(e, 'fine_hours')}><b>F</b>Fine{a && Number(a.fine_hours) ? ' ' + a.fine_hours + 'h' : ''}</button>
                     <button className={a && Number(a.ot_hours) ? 'on gr' : ''} onClick={() => hoursPrompt(e, 'ot_hours')}><b>OT</b>Overtime{a && Number(a.ot_hours) ? ' ' + a.ot_hours + 'h' : ''}</button>
                   </div>
@@ -149,7 +157,7 @@ export function AttendanceScreen() {
         onSave={async selectedType => {
           if (leaveModalTarget) {
             await send({ emp: leaveModalTarget.employee.id, status: 'leave', leave_type: selectedType });
-            toast(`Marked ${leaveModalTarget.employee.name} as Leave (${selectedType}).`);
+            toast(selectedType === 'Weekly Off' ? `Marked ${leaveModalTarget.employee.name} as Weekly Off.` : `Marked ${leaveModalTarget.employee.name} as Leave (${selectedType}).`);
           }
         }}
         onClear={async () => {

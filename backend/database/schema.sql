@@ -75,6 +75,8 @@ CREATE TABLE IF NOT EXISTS lh_tasks (
   mins REAL DEFAULT 0,
   type TEXT DEFAULT 'Other',
   flag INTEGER DEFAULT 0,
+  reassigned_by TEXT DEFAULT '',
+  reassign_note TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );

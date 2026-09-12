@@ -58,6 +58,7 @@ export const TaskModel = {
   update: (id, body) => data(api.put('/tasks/' + id, body)),
   setStatus: (id, status) => data(api.patch('/tasks/' + id + '/status', { status })),
   reassign: (id, assignee, note) => data(api.post('/tasks/' + id + '/reassign', { assignee, note })),
+  reject: (id, reason) => data(api.post('/tasks/' + id + '/reject', { reason })),
   selfAssign: body => data(api.post('/tasks/self', body)),
   remove: id => api.del('/tasks/' + id)
 };

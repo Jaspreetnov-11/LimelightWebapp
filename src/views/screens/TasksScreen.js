@@ -14,7 +14,6 @@ import { assigneeIds, fmtD, hm, isRunning, overdue, STATUSES, STATUS_LABEL, take
 
 const COL_CLS = { pipeline: '', progress: 'ip', approval: 'pa', completed: 'cp', changes: 'oh' };
 
-/** Workflow buttons for a task, depending on who is looking at it. */
 function useTaskActions() {
   const { me } = useAuth();
   const { isLeaderOf } = useData();
@@ -27,7 +26,11 @@ function useTaskActions() {
     if (t.status === 'changes' && mine) acts.push(['progress', '▶ Resume', 'go']);
     if (t.status === 'approval' && lead) { acts.push(['completed', '✓ Approve', 'ok']); acts.push(['changes', 'Request changes', 'warn']); }
     if (lead) STATUSES.filter(k => k !== t.status && !acts.some(a => a[0] === k)).forEach(k => acts.push([k, '→ ' + STATUS_LABEL[k], '']));
-    return { acts, mine, lead };
+    const canReject = mine && t.status === 'pipeline' && Boolean(
+      (t.reassigned_by && t.reassigned_by !== me.id) ||
+      (t.assigned_by && t.assigned_by !== me.id)
+    );
+    return { acts, mine, lead, canReject };
   };
 }
 
@@ -85,25 +88,43 @@ export function TasksScreen() {
 
   const move = async (id, to) => { const t = d.tasks.find(x => x.id === id); if (!t || t.status === to) return; try { await TaskModel.setStatus(id, to); toast(to === 'progress' && t.status === 'pipeline' ? 'Accepted. Timer started.' : 'Moved to ' + STATUS_LABEL[to]); await d.reload('tasks', 'projects', 'activity', 'alerts'); } catch (err) { toast(err.message); } };
   const del = async t => { if (!confirm('Delete "' + t.title + '"?')) return; try { await TaskModel.remove(t.id); toast('Task deleted.'); await d.reload('tasks', 'projects'); } catch (err) { toast(err.message); } };
+  const reject = async t => {
+    const reason = window.prompt(`Reject task "${t.title}" and return to previous assigner?\nOptional reason:`, '');
+    if (reason === null) return;
+    try {
+      await TaskModel.reject(t.id, reason.trim());
+      toast('Task rejected. Returned to previous assigner.');
+      await d.reload('tasks', 'projects', 'activity', 'alerts');
+    } catch (err) {
+      toast(err.message || 'Failed to reject task.');
+    }
+  };
   const exportCsv = () => saveCsv('tasks.csv', [['Title', 'Project', 'Department', 'Assignee', 'Assigned', 'Deadline', 'Est. hours', 'Taken hours', 'Status']].concat(tasks.map(t => [t.title, t.project_name || d.projName(t.project), t.dept || '', d.taskAssigneeNames(t), t.assigned, t.deadline, Math.round((Number(t.mins) || 0) / 6) / 10, Math.round(takenMins(t, now) / 6) / 10, STATUS_LABEL[t.status]])));
 
   const tabs = [['me', 'file', 'My tasks'], ['byme', 'check', 'Assigned by me'], ...(d.canAssign ? [['lead', 'brief', 'My projects']] : []), ['team', 'users', 'My department'], ['org', 'circle-check', 'Everyone']];
 
   const card = t => {
     const od = overdue(t);
-    const { acts, lead, mine } = actionsFor(t);
+    const { acts, lead, mine, canReject } = actionsFor(t);
     const canReassign = (mine || lead) && t.status !== 'completed';
     return (
       <div className={'tcard' + (dragId === t.id ? ' dragging' : '') + (hl === t.id ? ' hl' : '')} data-task={t.id} key={t.id} draggable={lead} onDragStart={ev => { if (!lead) { ev.preventDefault(); return; } setDragId(t.id); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', t.id); } catch (x) { /* ignore */ } }} onDragEnd={() => { setDragId(null); setOverCol(''); }}>
         <div className="p"><span>{t.project_name || d.projName(t.project)}</span><span style={{ display: 'flex', gap: 4, alignItems: 'center' }}><i className={od ? 'r' : ''} title={od ? 'Overdue' : ''}><Icon name="flag" size={14} /></i>{canReassign && <button type="button" onClick={() => setReassignTaskTarget(t)} title="Reassign task" style={{ background: 'none', border: 0, color: 'var(--muted)', cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}>⇄</button>}{lead && <><button onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="file" /></button><button onClick={() => del(t)} aria-label="Delete">✕</button></>}</span></div>
         <small>{t.type || 'Other'}{t.dept ? ' · ' + t.dept : ''}</small>
         <div>{t.title}</div>
+        {t.reassigned_by && (
+          <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>⇄ Reassigned by <b>{d.empName(t.reassigned_by)}</b></span>
+            {t.reassign_note && <span title={t.reassign_note} style={{ color: 'var(--muted)', cursor: 'help' }}>💬</span>}
+          </div>
+        )}
         <div className="dates"><div><small>Assigned</small>{fmtD(t.assigned)}</div><div className={t.status === 'completed' ? 'ok' : ''} style={od ? { borderColor: 'rgba(255,92,122,.5)' } : undefined}><small>{t.status === 'completed' ? 'Completed' : 'Deadline'}</small>{fmtD(t.status === 'completed' ? (t.completed || t.deadline) : t.deadline)}</div></div>
         <Timer t={t} now={now} />
         <Assignees task={t} />
-        {(acts.length > 0 || canReassign) && (
+        {(acts.length > 0 || canReassign || canReject) && (
           <div className="move">
             {acts.map(([k, l, cls]) => <button key={k} className={cls} onClick={() => move(t.id, k)}>{l}</button>)}
+            {canReject && <button type="button" className="pill" onClick={() => reject(t)} style={{ color: 'var(--danger)', borderColor: 'rgba(255,100,100,0.3)', fontSize: 11, padding: '3px 8px' }}>✕ Reject</button>}
             {canReassign && <button type="button" className="pill" onClick={() => setReassignTaskTarget(t)} style={{ fontSize: 11, padding: '3px 8px' }}>⇄ Reassign</button>}
           </div>
         )}
@@ -137,6 +158,7 @@ export function TasksScreen() {
               <div className="tcard" style={{ padding: 0, border: 0, background: 'none' }}><Timer t={t} now={now} /></div>
               <div className="mtask-actions" style={{ flexWrap: 'wrap', gap: 6 }}>
                 {acts.slice(0, 2).map(([k, l, cls]) => <button key={k} className={cls === 'go' || cls === 'ok' ? 'mtask-done' : 'pill'} onClick={() => move(t.id, k)}>{l}</button>)}
+                {actionsFor(t).canReject && <button className="pill" onClick={() => reject(t)} style={{ color: 'var(--danger)', borderColor: 'rgba(255,100,100,0.3)' }}>✕ Reject</button>}
                 {(actionsFor(t).mine || actionsFor(t).lead) && t.status !== 'completed' && <button className="pill" onClick={() => setReassignTaskTarget(t)}>⇄ Reassign</button>}
                 {lead && <button className="mini-btn" onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="file" /></button>}
                 {lead && <button className="mini-btn" onClick={() => del(t)} aria-label="Delete">✕</button>}
@@ -179,7 +201,7 @@ export function TasksScreen() {
           <div className="content"><div className="panel">
             <div className="task-row head"><span>Task</span><span>Project</span><span>Assignee</span><span>Assigned</span><span>Deadline</span><span>Est / Taken</span><span>Status</span><span>Action</span></div>
             {listPager.items.map(t => {
-              const { lead, mine } = actionsFor(t);
+              const { lead, mine, canReject } = actionsFor(t);
               const canReassign = (mine || lead) && t.status !== 'completed';
               return (
                 <div className="task-row" key={t.id}>
@@ -191,6 +213,7 @@ export function TasksScreen() {
                   <span>{hm(t.mins)} / {hm(takenMins(t, now))}</span>
                   <TaskChip status={t.status} />
                   <span>
+                    {canReject && <button type="button" className="pill" onClick={() => reject(t)} style={{ color: 'var(--danger)', borderColor: 'rgba(255,100,100,0.3)', fontSize: 11, padding: '2px 8px', marginRight: 6 }}>✕ Reject</button>}
                     {canReassign && <button type="button" className="pill" onClick={() => setReassignTaskTarget(t)} style={{ fontSize: 11, padding: '2px 8px' }}>⇄ Reassign</button>}
                   </span>
                 </div>
