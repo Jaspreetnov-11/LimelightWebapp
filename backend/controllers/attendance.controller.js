@@ -154,7 +154,7 @@ const updateAttendance = catchAsync(async (req, res) => {
  * Creates the record when missing, updates it otherwise. Empty status clears the mark.
  */
 const markAttendance = catchAsync(async (req, res) => {
-  const { emp, date, status = '', mode, ot_hours, fine_hours, note, clock_in, clock_out } = req.body;
+  const { emp, date, status = '', mode, ot_hours, fine_hours, note, clock_in, clock_out, leave_type } = req.body;
   const employee = await employeeModel.findById(emp);
   if (!employee) {
     throw new AppError('Employee not found', 404);
@@ -168,6 +168,7 @@ const markAttendance = catchAsync(async (req, res) => {
   if (note !== undefined) patch.note = String(note);
   if (clock_in !== undefined) patch.clock_in = clock_in;
   if (clock_out !== undefined) patch.clock_out = clock_out;
+  if (leave_type !== undefined) patch.leave_type = String(leave_type);
 
   let record;
   if (existing) {
@@ -189,6 +190,7 @@ const markAttendance = catchAsync(async (req, res) => {
       clock_out: clock_out || '',
       mode: mode || 'office',
       status,
+      leave_type: leave_type ? String(leave_type) : '',
       ot_hours: Number(ot_hours) || 0,
       fine_hours: Number(fine_hours) || 0,
       note: note || ''

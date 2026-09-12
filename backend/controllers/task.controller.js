@@ -24,12 +24,14 @@ const splitIds = s => String(s || '').split(',').map(x => x.trim()).filter(Boole
 const nowISO = () => new Date().toISOString();
 const minsSince = iso => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
 
-async function assertCanManage(req, projectId) {
+async function assertCanManage(req, projectId, task = null) {
   if (req.user.role === 'admin') return null;
+  if (task && task.assigned_by === req.user.id) return null;
   if (!projectId) throw new AppError('Select a project. Only its team leader can assign tasks.', 403);
   const project = await projectModel.findById(projectId);
   if (!project) throw new AppError('Project not found', 404);
-  if (project.manager !== req.user.id) throw new AppError('Only the team leader of this project can assign or edit its tasks.', 403);
+  const managers = splitIds(project.manager);
+  if (!managers.includes(req.user.id)) throw new AppError('Only the team leader of this project can assign or edit its tasks.', 403);
   return project;
 }
 
@@ -91,7 +93,7 @@ const createTask = catchAsync(async (req, res) => {
 const updateTask = catchAsync(async (req, res) => {
   const existing = await taskModel.findById(req.params.id);
   if (!existing) throw new AppError('Task not found', 404);
-  await assertCanManage(req, req.body.project || existing.project);
+  await assertCanManage(req, req.body.project || existing.project, existing);
 
   const updateData = { ...req.body };
   for (const k of ['id', 'assigned_by', 'started_at', 'completed_at', 'taken_mins', 'project_name', 'assignee_name', 'assignee_role', 'assignee_av', 'assignee_ini']) delete updateData[k];
@@ -120,12 +122,13 @@ const updateTaskStatus = catchAsync(async (req, res) => {
   if (existing.status === status) return apiResponse.success(res, existing, 'No change');
 
   const isAssignee = splitIds(existing.assignee).includes(req.user.id);
-  let isLeader = req.user.role === 'admin';
+  const isCreator = existing.assigned_by === req.user.id;
+  let isLeader = req.user.role === 'admin' || isCreator;
   if (!isLeader && existing.project) {
     const p = await projectModel.findById(existing.project);
-    isLeader = Boolean(p && p.manager === req.user.id);
+    isLeader = Boolean(p && splitIds(p.manager).includes(req.user.id));
   }
-  // Assignees: accept, submit for approval, resume after changes. Leaders: everything.
+  // Assignees: accept, submit for approval, resume after changes. Leaders & Creators: everything.
   const assigneeMoves = { pipeline: ['progress'], progress: ['approval'], changes: ['progress'] };
   const allowed = isLeader || (isAssignee && (assigneeMoves[existing.status] || []).includes(status));
   if (!allowed) {
@@ -140,7 +143,13 @@ const updateTaskStatus = catchAsync(async (req, res) => {
   if (status === 'progress' && existing.status === 'pipeline') await activityModel.log(`${who} accepted "${existing.title}"`);
   else if (status === 'approval') {
     await activityModel.log(`${who} submitted "${existing.title}" for approval`);
-    if (existing.project) { const p = await projectModel.findById(existing.project); if (p && p.manager) await activityModel.notify(p.manager, `"${existing.title}" is waiting for your approval`, { kind: 'task', link: '/tasks?task=' + existing.id, ref_type: 'task', ref_id: existing.id }); }
+    if (existing.project) {
+      const p = await projectModel.findById(existing.project);
+      if (p && p.manager) {
+        const mgrs = splitIds(p.manager).filter(id => id !== req.user.id);
+        if (mgrs.length) await activityModel.notify(mgrs, `"${existing.title}" is waiting for your approval`, { kind: 'task', link: '/tasks?task=' + existing.id, ref_type: 'task', ref_id: existing.id });
+      }
+    }
   } else if (status === 'completed') await notifyAssignees(ids, updated, `"${existing.title}" was approved and marked completed`);
   else if (status === 'changes') await notifyAssignees(ids, updated, `Changes requested on "${existing.title}"`);
 
@@ -150,9 +159,123 @@ const updateTaskStatus = catchAsync(async (req, res) => {
 const deleteTask = catchAsync(async (req, res) => {
   const existing = await taskModel.findById(req.params.id);
   if (!existing) throw new AppError('Task not found', 404);
-  await assertCanManage(req, existing.project);
+  await assertCanManage(req, existing.project, existing);
   await taskModel.delete(existing.id);
   return apiResponse.success(res, null, 'Task deleted successfully');
 });
 
-module.exports = { getAllTasks, getTaskById, createTask, updateTask, updateTaskStatus, deleteTask };
+/**
+ * Direct task reassignment:
+ * Any current assignee can reassign their task to another colleague (e.g. when overloaded),
+ * without requiring team leader intervention. Project team leaders and admins can also reassign.
+ */
+const reassignTask = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { assignee, note = '' } = req.body;
+  const existing = await taskModel.findById(id);
+  if (!existing) throw new AppError('Task not found', 404);
+
+  const currentAssignees = splitIds(existing.assignee);
+  const isAssignee = currentAssignees.includes(req.user.id);
+  let isLeader = req.user.role === 'admin';
+  let projectRow = null;
+  if (existing.project) {
+    projectRow = await projectModel.findById(existing.project);
+    if (projectRow && splitIds(projectRow.manager).includes(req.user.id)) {
+      isLeader = true;
+    }
+  }
+
+  if (!isAssignee && !isLeader) {
+    throw new AppError('Only the current assignee, project team leader, or admin can reassign this task.', 403);
+  }
+
+  const newIds = splitIds(assignee);
+  if (!newIds.length) {
+    throw new AppError('Select at least one new assignee for reassignment.', 400);
+  }
+
+  const updated = await taskModel.update(existing.id, {
+    assignee: newIds.join(',')
+  });
+
+  const who = req.user.name;
+  const noteSuffix = note ? ` (Note: ${note})` : '';
+
+  // Notify new assignees
+  await notifyAssignees(newIds, updated, `${who} reassigned task to you: "${existing.title}"${noteSuffix}`);
+
+  // Notify project leaders if reassigned by assignee
+  if (projectRow && projectRow.manager) {
+    const leaderIds = splitIds(projectRow.manager).filter(lid => lid !== req.user.id);
+    if (leaderIds.length) {
+      await activityModel.notify(leaderIds, `${who} reassigned "${existing.title}"${noteSuffix}`, {
+        kind: 'task',
+        link: '/tasks?task=' + existing.id,
+        ref_type: 'task',
+        ref_id: existing.id
+      });
+    }
+  }
+
+  await activityModel.log(`${who} reassigned "${existing.title}"${noteSuffix}`);
+  return apiResponse.success(res, updated, 'Task reassigned successfully');
+});
+
+/**
+ * Self Task Assign:
+ * Allows any staff member to create and assign tasks to themselves.
+ */
+const createSelfTask = catchAsync(async (req, res) => {
+  const { title, project = '', dept = '', deadline = todayISO(), mins = 120, type = 'Feature', status = 'progress' } = req.body;
+  if (!title || title.trim().length < 2) {
+    throw new AppError('Task title must be at least 2 characters.', 400);
+  }
+
+  const userEmp = await employeeModel.findById(req.user.id);
+  const taskDept = dept || (userEmp ? userEmp.dept : '') || '';
+  const assigned = todayISO();
+  const taskDeadline = deadline < assigned ? assigned : deadline;
+
+  const id = 't_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+  const base = {
+    id,
+    title: title.trim(),
+    project: project || '',
+    dept: taskDept,
+    assignee: req.user.id,
+    assigned_by: req.user.id,
+    assigned,
+    deadline: taskDeadline,
+    mins: Number(mins) || 120,
+    type: type || 'Feature',
+    flag: 0,
+    status: 'pipeline',
+    started_at: null,
+    completed_at: null,
+    taken_mins: 0
+  };
+
+  const initialStatus = ['pipeline', 'progress'].includes(status) ? status : 'progress';
+  const task = await taskModel.create({ ...base, ...statusPatch(base, initialStatus) });
+
+  let projName = 'Personal / Operational';
+  if (project) {
+    const p = await projectModel.findById(project);
+    if (p) projName = p.name;
+  }
+
+  await activityModel.log(`${req.user.name} created self-assigned task "${title.trim()}" (${projName})`);
+  return apiResponse.created(res, task, 'Self-task created successfully');
+});
+
+module.exports = {
+  getAllTasks,
+  getTaskById,
+  createTask,
+  updateTask,
+  updateTaskStatus,
+  deleteTask,
+  reassignTask,
+  createSelfTask
+};

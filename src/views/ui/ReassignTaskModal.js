@@ -1,0 +1,258 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { Avatar } from './index';
+
+export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId, onClose, onReassign }) {
+  const [selected, setSelected] = useState([]);
+  const [note, setNote] = useState('');
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const currentIds = useMemo(() => {
+    if (!task || !task.assignee) return [];
+    return String(task.assignee).split(',').map(s => s.trim()).filter(Boolean);
+  }, [task]);
+
+  useEffect(() => {
+    if (isOpen && task) {
+      setSelected([]);
+      setNote('');
+      setQ('');
+      setBusy(false);
+      setErr('');
+    }
+  }, [isOpen, task]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !task) return null;
+
+  const currentAssignees = employees.filter(e => currentIds.includes(e.id));
+  const candidateList = employees.filter(e => {
+    const s = q.toLowerCase().trim();
+    if (!s) return true;
+    return (e.name || '').toLowerCase().includes(s) || (e.role || '').toLowerCase().includes(s) || (e.dept || '').toLowerCase().includes(s);
+  });
+
+  const toggleSelect = id => {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    setErr('');
+  };
+
+  const handleReassign = async e => {
+    e.preventDefault();
+    if (!selected.length) {
+      setErr('Please select at least one colleague to reassign this task to.');
+      return;
+    }
+    setBusy(true);
+    setErr('');
+    try {
+      await onReassign(selected, note.trim());
+      onClose();
+    } catch (error) {
+      setErr(error.message || 'Failed to reassign task.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="scrim open"
+      onClick={e => { if (e.target === e.currentTarget && !busy) onClose(); }}
+      role="presentation"
+      style={{ zIndex: 60 }}
+    >
+      <div
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        style={{
+          maxWidth: 480,
+          background: 'var(--panel-solid)',
+          borderRadius: 22,
+          border: '1px solid var(--line)',
+          boxShadow: '0 40px 90px -20px rgba(0,0,0,.9)',
+          padding: '24px 26px 20px'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>Reassign Task</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Close"
+            style={{
+              background: 'transparent',
+              border: 0,
+              color: 'var(--muted)',
+              fontSize: 18,
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: 8
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>
+          Directly hand over this task to a colleague if you have a full workload.
+        </p>
+
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--line-soft)', borderRadius: 14, padding: '12px 14px', marginBottom: 16 }}>
+          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--muted)', marginBottom: 4 }}>
+            Task
+          </div>
+          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 8 }}>
+            {task.title}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--t2)' }}>
+            <span style={{ color: 'var(--muted)' }}>Current Assignee:</span>
+            {currentAssignees.length ? currentAssignees.map(e => (
+              <span key={e.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Avatar e={e} cls="sm" /> {e.name}
+              </span>
+            )) : <span>Unassigned</span>}
+          </div>
+        </div>
+
+        <form onSubmit={handleReassign}>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>
+              Select New Assignee(s) <span style={{ color: 'var(--accent)' }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Search colleagues by name, role or dept..."
+              style={{
+                width: '100%',
+                height: 36,
+                padding: '0 12px',
+                borderRadius: 10,
+                border: '1px solid var(--line-soft)',
+                background: 'rgba(255,255,255,0.04)',
+                color: 'var(--text)',
+                fontSize: 13,
+                marginBottom: 8
+              }}
+            />
+            <div
+              className="ms-box"
+              style={{
+                maxHeight: 180,
+                overflowY: 'auto',
+                border: '1px solid var(--line)',
+                borderRadius: 12,
+                background: 'rgba(20,20,23,0.5)',
+                padding: '4px'
+              }}
+            >
+              {candidateList.map(emp => {
+                const isChecked = selected.includes(emp.id);
+                return (
+                  <label
+                    key={emp.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      background: isChecked ? 'rgba(255,210,31,0.08)' : 'transparent',
+                      border: isChecked ? '1px solid var(--accent-line)' : '1px solid transparent',
+                      marginBottom: 2
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleSelect(emp.id)}
+                    />
+                    <Avatar e={emp} cls="sm" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: isChecked ? 600 : 500, color: 'var(--text)' }}>
+                        {emp.name}
+                      </div>
+                      <small style={{ color: 'var(--muted)', fontSize: 11 }}>
+                        {emp.role || ''}{emp.dept ? ' · ' + emp.dept : ''}
+                      </small>
+                    </div>
+                  </label>
+                );
+              })}
+              {!candidateList.length && (
+                <div style={{ padding: '16px', textAlign: 'center', color: 'var(--muted)', fontSize: 12.5 }}>
+                  No colleagues match
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+              {selected.length} colleague{selected.length === 1 ? '' : 's'} selected
+            </div>
+          </div>
+
+          <div className="field" style={{ marginBottom: 18 }}>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 6 }}>
+              Reason / Handover Note <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span>
+            </label>
+            <textarea
+              rows={2}
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="e.g. Overloaded with tasks, reassigning to you."
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--line-soft)',
+                background: 'rgba(255,255,255,0.04)',
+                color: 'var(--text)',
+                fontSize: 13,
+                resize: 'none'
+              }}
+            />
+          </div>
+
+          {err && (
+            <div style={{ color: 'var(--danger)', fontSize: 12.5, marginBottom: 14 }}>
+              {err}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={onClose}
+              disabled={busy}
+              style={{ height: 38, padding: '0 18px', fontSize: 13 }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={'tb-btn solid' + (busy ? ' loading' : '')}
+              disabled={busy || !selected.length}
+              style={{ height: 38, padding: '0 20px', fontSize: 13, fontWeight: 600 }}
+            >
+              Reassign Task
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

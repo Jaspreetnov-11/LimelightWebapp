@@ -45,13 +45,14 @@ export function AppShell({ children }) {
 
   const nav = NAV.filter(([, , , who]) => who === 'all' || isAdmin);
   const quick = [
-    canAssign && ['task', 'check', 'Assign task'],
-    canCreateProject && ['project', 'brief', 'Add project'],
-    isAdmin && ['employee', 'users', 'Add staff'],
-    isAdmin && ['dept', 'build', 'Add department'],
-    ['leave', 'leaf', 'Apply leave / WFH'],
-    isAdmin && ['payment', 'file', 'Add payment'],
-    ['file', 'file', 'Upload file']
+    canAssign && ['modal', 'task', 'check', 'Assign task'],
+    ['link', '/self-task', 'circle-check', 'Self Task'],
+    canCreateProject && ['modal', 'project', 'brief', 'Add project'],
+    isAdmin && ['modal', 'employee', 'users', 'Add staff'],
+    isAdmin && ['modal', 'dept', 'build', 'Add department'],
+    ['modal', 'leave', 'leaf', 'Apply leave / WFH'],
+    isAdmin && ['modal', 'payment', 'file', 'Add payment'],
+    ['modal', 'file', 'file', 'Upload file']
   ].filter(Boolean);
 
   if (splash) return <ClockSplash onDone={closeSplash} />;
@@ -78,7 +79,18 @@ export function AppShell({ children }) {
           <div className="rel tb-qa">
             <button className="tb-btn solid" data-menu-btn onClick={() => setMenu(m => (m === 'qa' ? '' : 'qa'))} aria-haspopup="true" aria-expanded={menu === 'qa'} aria-label="Quick actions"><span className="tb-text">Quick Actions</span><span className="tb-plus">+</span><Icon name="chev" /></button>
             <div className={'menu' + (menu === 'qa' ? ' open' : '')}>
-              {quick.map(([kind, icon, label]) => <button key={kind} onClick={() => { setMenu(''); modals.open(kind); }}><Icon name={icon} />{label}</button>)}
+              {quick.map(([type, target, icon, label]) => (
+                <button
+                  key={target}
+                  onClick={() => {
+                    setMenu('');
+                    if (type === 'link') router.push(target);
+                    else modals.open(target);
+                  }}
+                >
+                  <Icon name={icon} />{label}
+                </button>
+              ))}
             </div>
           </div>
           <Link href="/notifications" className="tb-btn tb-icon rel tb-bell" aria-label="Notifications"><Icon name="bell" /><span className="badge" hidden={!activity.unread}>{activity.unread}</span></Link>

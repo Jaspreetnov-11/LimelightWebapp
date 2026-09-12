@@ -4,7 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityModel, AttendanceModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, ProjectModel, SettingsModel, TaskModel, TodoModel } from '@/models';
 import { useAuth } from './AuthController';
-import { thisMonth } from '@/lib/format';
+import { managerIds, thisMonth } from '@/lib/format';
 
 const DataContext = createContext(null);
 
@@ -73,11 +73,12 @@ export function DataProvider({ children }) {
     const empById = Object.fromEntries(state.employees.map(e => [e.id, e]));
     const projById = Object.fromEntries(state.projects.map(p => [p.id, p]));
     const taskAssignees = t => String((t && t.assignee) || '').split(',').map(s => s.trim()).filter(Boolean).map(id => empById[id]).filter(Boolean);
-    const assignableProjects = isAdmin ? state.projects : state.projects.filter(p => p.manager === meId);
-    const isLeaderOf = projectId => isAdmin || Boolean(projById[projectId] && projById[projectId].manager === meId);
+    const assignableProjects = isAdmin ? state.projects : state.projects.filter(p => managerIds(p).includes(meId));
+    const isLeaderOf = projectId => isAdmin || Boolean(projById[projectId] && managerIds(projById[projectId]).includes(meId));
     return {
       empById, projById, taskAssignees,
       taskAssigneeNames: t => { const a = taskAssignees(t); return a.length ? a.map(e => e.name).join(', ') : 'Unassigned'; },
+      projectManagers: p => managerIds(p).map(id => empById[id]).filter(Boolean),
       empName: id => (empById[id] ? empById[id].name : '—'),
       projName: id => (projById[id] ? projById[id].name : 'Personal / Operational'),
       // Who may assign tasks: admins and team leaders of at least one project

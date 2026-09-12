@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS lh_attendance (
   out_acc REAL,
   out_addr TEXT DEFAULT '',
   sessions TEXT DEFAULT '[]',
+  leave_type TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
   UNIQUE(emp, date)

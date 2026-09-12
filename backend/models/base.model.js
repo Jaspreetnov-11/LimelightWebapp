@@ -97,6 +97,9 @@ class BaseModel {
   async create(data) {
     const now = new Date().toISOString();
     const record = await this.filterKnownColumns(data);
+    if (!record[this.pk]) {
+      record[this.pk] = this.table.replace(/^lh_/, '').slice(0, 3) + '_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+    }
     if (!record.created_at) record.created_at = now;
     if (!record.updated_at) record.updated_at = now;
 

@@ -40,14 +40,18 @@ async function resolveClient(body, fallbackBillable) {
   return out;
 }
 
+const splitIds = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
+
 const createProject = catchAsync(async (req, res) => {
   const { name, manager = '', start = todayISO(), alloc = 0, status = 'Approved' } = req.body;
   const id = 'p_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
-  const lead = manager || req.user.id;
+  const mgrIds = splitIds(manager);
+  const lead = mgrIds.length ? mgrIds.join(',') : req.user.id;
   const cl = await resolveClient(req.body, true);
   const proj = await projectModel.create({ id, name, client: '', client_id: '', fee: 0, billable: 1, ...cl, manager: lead, start, alloc: Number(alloc) || 0, status });
   await activityModel.log(`${req.user.name} created project "${name}"`);
-  if (lead !== req.user.id) await activityModel.notify(lead, `You are the team leader of "${name}"`, { kind: 'project', link: '/projects' });
+  const notifyLeads = splitIds(lead).filter(x => x !== req.user.id);
+  if (notifyLeads.length) await activityModel.notify(notifyLeads, `You are a team leader of "${name}"`, { kind: 'project', link: '/projects' });
   return apiResponse.created(res, proj, 'Project created successfully');
 });
 
@@ -55,14 +59,21 @@ const updateProject = catchAsync(async (req, res) => {
   const { id } = req.params;
   const existing = await projectModel.findById(id);
   if (!existing) throw new AppError('Project not found', 404);
-  if (req.user.role !== 'admin' && existing.manager !== req.user.id) throw new AppError('Only the team leader of this project can edit it.', 403);
+  const currentLeads = splitIds(existing.manager);
+  if (req.user.role !== 'admin' && !currentLeads.includes(req.user.id)) throw new AppError('Only the team leader of this project can edit it.', 403);
 
   const updateData = { ...req.body, ...(await resolveClient(req.body)) };
   for (const k of ['id', 'consumed_mins', 'est_mins', 'task_count', 'completed_task_count', 'tasks']) delete updateData[k];
   if (updateData.billable !== undefined) updateData.billable = updateData.billable ? 1 : 0;
   if (updateData.alloc !== undefined) updateData.alloc = Number(updateData.alloc) || 0;
+  if (updateData.manager !== undefined) {
+    const mgrIds = splitIds(updateData.manager);
+    updateData.manager = mgrIds.join(',');
+    const oldSet = new Set(currentLeads);
+    const addedLeads = mgrIds.filter(x => !oldSet.has(x) && x !== req.user.id);
+    if (addedLeads.length) await activityModel.notify(addedLeads, `You are now a team leader of "${existing.name}"`, { kind: 'project', link: '/projects' });
+  }
   const updated = await projectModel.update(id, updateData);
-  if (updateData.manager && updateData.manager !== existing.manager) await activityModel.notify(updateData.manager, `You are now the team leader of "${updated.name}"`, { kind: 'project', link: '/projects' });
   return apiResponse.success(res, updated, 'Project updated successfully');
 });
 
@@ -70,6 +81,8 @@ const deleteProject = catchAsync(async (req, res) => {
   const { id } = req.params;
   const existing = await projectModel.findById(id);
   if (!existing) throw new AppError('Project not found', 404);
+  const currentLeads = splitIds(existing.manager);
+  if (req.user.role !== 'admin' && !currentLeads.includes(req.user.id)) throw new AppError('Only the team leader of this project can delete it.', 403);
   await projectModel.delete(id);
   return apiResponse.success(res, null, 'Project deleted successfully');
 });

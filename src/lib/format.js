@@ -83,6 +83,11 @@ export const nextOccurrence = mmdd => { const y = new Date().getFullYear(); let 
 export const daysUntil = d => Math.round((d - new Date(todayISO() + 'T00:00:00')) / 86400000);
 export const whenLabel = d => { const n = daysUntil(d); return n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }); };
 export const assigneeIds = t => String(t.assignee || '').split(',').map(s => s.trim()).filter(Boolean);
+export const managerIds = p => {
+  if (!p || !p.manager) return [];
+  if (Array.isArray(p.manager)) return p.manager;
+  return String(p.manager).split(',').map(s => s.trim()).filter(Boolean);
+};
 export const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; };
 
 /** Minutes taken on a task: stored when completed, live (since accept) while in progress. */

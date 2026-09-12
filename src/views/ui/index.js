@@ -117,3 +117,8 @@ export function GeoLink({ lat, lng, addr, acc }) {
   if (!lat) return null;
   return <a className="geo-link" target="_blank" rel="noopener noreferrer" href={'https://maps.google.com/?q=' + lat + ',' + lng}>📍 {addr || ('±' + Math.round(acc || 0) + ' m')}</a>;
 }
+
+export { DeductLeaveModal } from './DeductLeaveModal';
+export { ReassignTaskModal } from './ReassignTaskModal';
+
+

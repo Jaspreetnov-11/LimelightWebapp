@@ -7,7 +7,7 @@ import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
 import { AttendanceModel, ReportModel } from '@/models';
 import { saveBlob, saveCsv } from '@/lib/download';
-import { Avatar, Chip, Empty, GeoLink, LinkBtn, Search, Seg, Sq } from '@/views/ui';
+import { Avatar, Chip, DeductLeaveModal, Empty, GeoLink, LinkBtn, Search, Seg, Sq } from '@/views/ui';
 import { Pager, usePager } from '@/views/ui/Pager';
 import { ATT, attStatus, fmtD, fmtDY, isoLocal, todayISO } from '@/lib/format';
 
@@ -22,6 +22,7 @@ export function AttendanceScreen() {
   const [tab, setTab] = useState('all');
   const [q, setQ] = useState('');
   const [rows, setRows] = useState([]);
+  const [leaveModalTarget, setLeaveModalTarget] = useState(null);
   const isToday = date === todayISO();
 
   const load = useCallback(async () => { try { setRows(await AttendanceModel.list({ date })); } catch (err) { toast(err.message); } }, [date, toast]);
@@ -48,7 +49,19 @@ export function AttendanceScreen() {
     if (!isAdmin) { toast('Only admins can mark attendance. Staff clock in from the dashboard.'); return; }
     try { await AttendanceModel.mark({ date, ...body }); await Promise.all([load(), d.reload('today', 'employees')]); } catch (err) { toast(err.message); }
   };
-  const mark = (e, status) => { const a = rec[e.id]; send({ emp: e.id, status: attStatus(a) === status ? '' : status }); };
+  const mark = (e, status) => {
+    const a = rec[e.id];
+    if (status === 'leave') {
+      if (!isAdmin) { toast('Only admins can mark attendance. Staff clock in from the dashboard.'); return; }
+      setLeaveModalTarget({
+        employee: e,
+        currentLeaveType: (a && a.leave_type) || '',
+        isAlreadyLeave: attStatus(a) === 'leave'
+      });
+      return;
+    }
+    send({ emp: e.id, status: attStatus(a) === status ? '' : status });
+  };
   const hoursPrompt = (e, kind) => {
     const a = rec[e.id] || {};
     const v = window.prompt((kind === 'ot_hours' ? 'Overtime' : 'Fine') + ' hours for ' + e.name + ' on ' + fmtD(date) + ':', a[kind] || 1);
@@ -75,7 +88,7 @@ export function AttendanceScreen() {
       const sessTooltip = sess.map((s, i) => `S${i + 1}: ${s.clock_in} - ${s.clock_out} (${Math.floor((s.mins || 0) / 60)}h ${(s.mins || 0) % 60}m)`).join('\n');
       return (
         <span className="st" style={{ color: { present: 'var(--ok)', half: 'var(--warn)', absent: 'var(--danger)', leave: 'var(--info)' }[st] }}>
-          {ATT[st][1]}
+          {st === 'leave' && a.leave_type ? `Leave (${a.leave_type})` : ATT[st][1]}
           {a.clock_in ? <> · in {a.clock_in} <GeoLink lat={a.in_lat} lng={a.in_lng} addr={a.in_addr || 'map'} />{isAdmin && a.in_selfie ? <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'in')} title="View clock-in selfie">📷</button> : null}</> : null}
           {a.clock_out ? <> · out {a.clock_out}{Number(a.out_next_day) ? <sup title="next day">+1</sup> : null} <GeoLink lat={a.out_lat} lng={a.out_lng} addr={a.out_addr || 'map'} />{isAdmin && a.out_selfie ? <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'out')} title="View clock-out selfie">📷</button> : null}</> : null}
           {sess.length > 0 && !a.clock_out ? <Chip tone="or" style={{ marginLeft: 6 }} title={sessTooltip}>Re-checked in (S{sess.length + 1})</Chip> : null}
@@ -127,6 +140,25 @@ export function AttendanceScreen() {
         <div className="panel"><Pager pager={pager} /></div>
         <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Showing {fmtDY(date)}. Staff clock in themselves with GPS; admins can adjust status, overtime, fines and notes here.</p>
       </div>
+      <DeductLeaveModal
+        isOpen={!!leaveModalTarget}
+        employee={leaveModalTarget ? leaveModalTarget.employee : null}
+        currentLeaveType={leaveModalTarget ? leaveModalTarget.currentLeaveType : ''}
+        isAlreadyLeave={leaveModalTarget ? leaveModalTarget.isAlreadyLeave : false}
+        onClose={() => setLeaveModalTarget(null)}
+        onSave={async selectedType => {
+          if (leaveModalTarget) {
+            await send({ emp: leaveModalTarget.employee.id, status: 'leave', leave_type: selectedType });
+            toast(`Marked ${leaveModalTarget.employee.name} as Leave (${selectedType}).`);
+          }
+        }}
+        onClear={async () => {
+          if (leaveModalTarget) {
+            await send({ emp: leaveModalTarget.employee.id, status: '', leave_type: '' });
+            toast(`Cleared leave for ${leaveModalTarget.employee.name}.`);
+          }
+        }}
+      />
     </>
   );
 }

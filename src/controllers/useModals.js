@@ -45,12 +45,13 @@ export function useModals() {
     } else if (kind === 'project') {
       const p = id ? projects.find(x => x.id === id) : null;
       const clientOpts = clients.map(c => ({ v: c.id, l: c.name + (c.billing === 'non-billable' ? ' · non-billable' : '') }));
+      const leaderPeople = employees.map(e => ({ v: e.id, l: e.name, sub: e.role || '', av: e.av || avFor(e.name), ini: e.ini || ini(e.name) }));
       openModal({
-        title: p ? 'Edit project' : 'Add project', sub: 'Pick the client: billing follows the client and the project counts in that client\'s monthly profit. The team leader assigns and approves its tasks.', ok: p ? 'Save changes' : 'Add project',
+        title: p ? 'Edit project' : 'Add project', sub: 'Pick the client: billing follows the client and the project counts in that client\'s monthly profit. Team leader(s) assign and approve its tasks.', ok: p ? 'Save changes' : 'Add project',
         fields: [
           { name: 'name', label: 'Project name', required: true, value: p ? p.name : '', placeholder: 'e.g. Bihar Project' },
           { name: 'client_id', label: 'Client', type: 'select', required: true, placeholder: clientOpts.length ? 'Select client' : 'No clients yet — add one under Clients', options: clientOpts, value: p ? (p.client_id || '') : (preset.client_id || ''), onChange: v => { const c = clients.find(x => x.id === v); return c ? { billable: c.billing === 'non-billable' ? '0' : '1' } : {}; } },
-          { name: 'manager', label: 'Team leader', type: 'select', required: true, options: isAdmin ? empOnly : empOnly.filter(o => o.v === meId), value: p ? p.manager : meId },
+          { name: 'manager', label: 'Team leader(s)', type: 'multiselect', required: true, span: true, error: 'Select at least one team leader.', options: isAdmin ? leaderPeople : leaderPeople.filter(o => o.v === meId), value: p ? (Array.isArray(p.manager) ? p.manager : String(p.manager || '').split(',').map(s => s.trim()).filter(Boolean)) : (meId ? [meId] : []) },
           { name: 'billable', label: 'Billing', type: 'select', options: [{ v: '1', l: 'Billable' }, { v: '0', l: 'Non-billable' }], value: p ? (p.billable ? '1' : '0') : '1', help: 'Set from the client; change only for an exception.' },
           { name: 'fee', label: 'Project fee (₹, one-time)', type: 'number', value: p ? (Number(p.fee) || 0) : 0, min: 0, step: 500, help: 'Counted as revenue in the month the project starts. Leave 0 for retainer clients.' },
           { name: 'start', label: 'Start date', type: 'date', required: true, value: p ? (p.start || '') : todayISO() },
@@ -58,7 +59,8 @@ export function useModals() {
           { name: 'status', label: 'Status', type: 'select', options: ['Draft', 'Approved', 'On Hold', 'Closed'].map(x => ({ v: x, l: x })), value: p ? p.status : 'Approved' }
         ],
         onSubmit: async d => {
-          const body = { name: d.name, client_id: d.client_id, manager: d.manager, billable: d.billable === '1', fee: Number(d.fee) || 0, start: d.start, alloc: Math.round(Number(d.alloc) * 60), status: d.status };
+          const mgrIds = Array.isArray(d.manager) ? d.manager.filter(Boolean) : String(d.manager || '').split(',').map(s => s.trim()).filter(Boolean);
+          const body = { name: d.name, client_id: d.client_id, manager: mgrIds.join(','), billable: d.billable === '1', fee: Number(d.fee) || 0, start: d.start, alloc: Math.round(Number(d.alloc) * 60), status: d.status };
           if (p) { await ProjectModel.update(p.id, body); toast('Project updated.'); } else { await ProjectModel.create(body); toast('Project added.'); }
           await reload('projects', 'clients', 'activity');
         }

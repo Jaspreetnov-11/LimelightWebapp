@@ -8,9 +8,11 @@ const validate = require('../middleware/validate.middleware');
 const { createTaskSchema, updateTaskStatusSchema } = require('../validators/task.validator');
 
 router.get('/', protect, taskController.getAllTasks);
+router.post('/self', protect, taskController.createSelfTask);
 router.get('/:id', protect, taskController.getTaskById);
 router.post('/', protect, validate(createTaskSchema), taskController.createTask);
 router.put('/:id', protect, taskController.updateTask);
+router.post('/:id/reassign', protect, taskController.reassignTask);
 router.patch('/:id/status', protect, validate(updateTaskStatusSchema), taskController.updateTaskStatus);
 router.delete('/:id', protect, taskController.deleteTask);
 

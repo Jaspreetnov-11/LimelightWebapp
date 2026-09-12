@@ -68,9 +68,33 @@ export function ProjectsScreen() {
       </aside>
       <div className="content">
         {p && (<>
-          <div className="panel"><div className="proj-head"><span className="ini">{ini(p.name)}</span><h2>{p.name}</h2><Chip tone="gy">{p.billable ? 'Billable' : 'Non-Billable'}</Chip><Chip tone="pu">Project</Chip><Chip tone={p.status === 'Approved' ? 'gr' : 'or'}>{p.status === 'Approved' ? '✓ ' : ''}{p.status || ''}</Chip>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>{d.isLeaderOf(p.id) && <Sq icon="file" label="Edit project" onClick={() => modals.open('project', p.id)} />}{d.isLeaderOf(p.id) && <Sq label="Delete project" onClick={remove} style={{ color: 'var(--danger)' }}>✕</Sq>}</div></div>
-            <div className="proj-meta"><span>Project Start Date: <b>{fmtDY(p.start)}</b></span><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>Team leader: <Avatar e={d.empById[p.manager]} /> {d.empName(p.manager)}</span><span>Assigned Members: {members.length ? members.map(e => e.name).join(', ') : '—'}</span></div></div>
+          <div className="panel">
+            <div className="proj-head">
+              <span className="ini">{ini(p.name)}</span>
+              <h2>{p.name}</h2>
+              <Chip tone="gy">{p.billable ? 'Billable' : 'Non-Billable'}</Chip>
+              <Chip tone="pu">Project</Chip>
+              <Chip tone={p.status === 'Approved' ? 'gr' : 'or'}>{p.status === 'Approved' ? '✓ ' : ''}{p.status || ''}</Chip>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+                {d.isLeaderOf(p.id) && <Sq icon="file" label="Edit project" onClick={() => modals.open('project', p.id)} />}
+                {d.isLeaderOf(p.id) && <Sq label="Delete project" onClick={remove} style={{ color: 'var(--danger)' }}>✕</Sq>}
+              </div>
+            </div>
+            <div className="proj-meta">
+              <span>Project Start Date: <b>{fmtDY(p.start)}</b></span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                Team leader{(d.projectManagers ? d.projectManagers(p) : []).length > 1 ? 's' : ''}:
+                {(d.projectManagers ? d.projectManagers(p) : []).length ? (d.projectManagers(p)).map(m => (
+                  <span key={m.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <Avatar e={m} /> {m.name}
+                  </span>
+                )) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Avatar e={d.empById[p.manager]} /> {d.empName(p.manager)}</span>
+                )}
+              </span>
+              <span>Assigned Members: {members.length ? members.map(e => e.name).join(', ') : '—'}</span>
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}><div className="proj-tabs">{[['overview', 'chart', 'Overview'], ['tasks', 'circle-check', 'Tasks'], ['files', 'folder', 'Files'], ['members', 'users', 'Members']].map(([k, ic, l]) => <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}><Icon name={ic} size={14} />{l}</button>)}</div>{d.isLeaderOf(p.id) && <button className="tb-btn solid" onClick={() => modals.open('task', null, { project: p.id })}>+ Assign task</button>}</div>
         </>)}
         {body()}
