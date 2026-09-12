@@ -163,8 +163,12 @@ export function useModals() {
       });
     } else if (kind === 'attendance') {
       const a = preset.row || null;
+      const sess = a && Array.isArray(a.sessions) ? a.sessions : [];
+      const sessSub = sess.length > 0
+        ? `${sess.length} previous completed session(s): ` + sess.map((s, idx) => `[S${idx + 1}: ${s.clock_in}-${s.clock_out}]`).join(', ')
+        : '';
       openModal({
-        title: a ? 'Edit attendance' : 'Mark attendance', ok: 'Save',
+        title: a ? 'Edit attendance' : 'Mark attendance', sub: sessSub || undefined, ok: 'Save',
         fields: [
           { name: 'status', label: 'Status', type: 'select', options: [{ v: 'present', l: 'Present' }, { v: 'half', l: 'Half day' }, { v: 'absent', l: 'Absent' }, { v: 'leave', l: 'Leave' }], value: a ? (a.status || 'present') : 'present' },
           { name: 'mode', label: 'Mode', type: 'select', options: [{ v: 'office', l: 'Office' }, { v: 'wfh', l: 'Work from home' }, { v: 'field', l: 'On field' }], value: a ? a.mode : 'office' },

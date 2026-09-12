@@ -60,7 +60,7 @@ export function AttendanceScreen() {
     const v = window.prompt('Note for ' + e.name + ':', a.note || ''); if (v === null) return;
     send({ emp: e.id, status: attStatus(a), note: v.trim() });
   };
-  const exportDay = () => saveCsv('attendance-' + date + '.csv', [['Employee', 'Emp ID', 'Date', 'Status', 'Clock In', 'Clock Out', 'OT hours', 'Fine hours', 'Note', 'In location', 'Out location']].concat(d.employees.map(e => { const a = rec[e.id] || {}; return [e.name, e.emp_id || '', date, attStatus(a) || 'not marked', a.clock_in || '', a.clock_out || '', a.ot_hours || 0, a.fine_hours || 0, a.note || '', a.in_addr || (a.in_lat ? a.in_lat + ',' + a.in_lng : ''), a.out_addr || (a.out_lat ? a.out_lat + ',' + a.out_lng : '')]; })));
+  const exportDay = () => saveCsv('attendance-' + date + '.csv', [['Employee', 'Emp ID', 'Date', 'Status', 'Clock In', 'Clock Out', 'Sessions', 'OT hours', 'Fine hours', 'Note', 'In location', 'Out location']].concat(d.employees.map(e => { const a = rec[e.id] || {}; const sCount = (a.sessions && a.sessions.length ? a.sessions.length + (a.clock_in ? 1 : 0) : (a.clock_in ? 1 : 0)); return [e.name, e.emp_id || '', date, attStatus(a) || 'not marked', a.clock_in || '', a.clock_out || '', sCount || 0, a.ot_hours || 0, a.fine_hours || 0, a.note || '', a.in_addr || (a.in_lat ? a.in_lat + ',' + a.in_lng : ''), a.out_addr || (a.out_lat ? a.out_lat + ',' + a.out_lng : '')]; })));
   const viewSelfie = async (id, which) => {
     try { const blob = await AttendanceModel.selfie(id, which); const url = URL.createObjectURL(blob); window.open(url, '_blank', 'noopener'); setTimeout(() => URL.revokeObjectURL(url), 60000); }
     catch (err) { toast(err.message); }
@@ -69,7 +69,23 @@ export function AttendanceScreen() {
 
   const stLabel = (a, l) => {
     const st = attStatus(a);
-    if (st) return <span className="st" style={{ color: { present: 'var(--ok)', half: 'var(--warn)', absent: 'var(--danger)', leave: 'var(--info)' }[st] }}>{ATT[st][1]}{a.clock_in ? <> · in {a.clock_in} <GeoLink lat={a.in_lat} lng={a.in_lng} addr={a.in_addr || 'map'} />{a.in_selfie && <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'in')} title="View clock-in selfie">📷</button>}</> : null}{a.clock_out ? <> · out {a.clock_out}{Number(a.out_next_day) ? <sup title="next day">+1</sup> : null} <GeoLink lat={a.out_lat} lng={a.out_lng} addr={a.out_addr || 'map'} />{a.out_selfie && <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'out')} title="View clock-out selfie">📷</button>}</> : null}{a.mode && a.mode !== 'office' ? <Chip tone={a.mode === 'wfh' ? 'gr' : 'bl'} style={{ marginLeft: 6 }}>{a.mode === 'wfh' ? 'WFH' : 'Field'}</Chip> : null}{Number(a.late) ? <Chip tone="or" style={{ marginLeft: 6 }}>Late</Chip> : null}{Number(a.ot_hours) ? ' · OT ' + a.ot_hours + 'h' : ''}{Number(a.fine_hours) ? ' · Fine ' + a.fine_hours + 'h' : ''}</span>;
+    if (st) {
+      const sess = Array.isArray(a.sessions) ? a.sessions : [];
+      const sessTooltip = sess.map((s, i) => `S${i + 1}: ${s.clock_in} - ${s.clock_out} (${Math.floor((s.mins || 0) / 60)}h ${(s.mins || 0) % 60}m)`).join('\n');
+      return (
+        <span className="st" style={{ color: { present: 'var(--ok)', half: 'var(--warn)', absent: 'var(--danger)', leave: 'var(--info)' }[st] }}>
+          {ATT[st][1]}
+          {a.clock_in ? <> · in {a.clock_in} <GeoLink lat={a.in_lat} lng={a.in_lng} addr={a.in_addr || 'map'} />{a.in_selfie && <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'in')} title="View clock-in selfie">📷</button>}</> : null}
+          {a.clock_out ? <> · out {a.clock_out}{Number(a.out_next_day) ? <sup title="next day">+1</sup> : null} <GeoLink lat={a.out_lat} lng={a.out_lng} addr={a.out_addr || 'map'} />{a.out_selfie && <button type="button" className="selfie-btn" onClick={() => viewSelfie(a.id, 'out')} title="View clock-out selfie">📷</button>}</> : null}
+          {sess.length > 0 && !a.clock_out ? <Chip tone="or" style={{ marginLeft: 6 }} title={sessTooltip}>Re-checked in (S{sess.length + 1})</Chip> : null}
+          {sess.length > 0 && a.clock_out ? <Chip tone="pu" style={{ marginLeft: 6 }} title={sessTooltip}>{sess.length + 1} sessions</Chip> : null}
+          {a.mode && a.mode !== 'office' ? <Chip tone={a.mode === 'wfh' ? 'gr' : 'bl'} style={{ marginLeft: 6 }}>{a.mode === 'wfh' ? 'WFH' : 'Field'}</Chip> : null}
+          {Number(a.late) && !(sess.length > 0) ? <Chip tone="or" style={{ marginLeft: 6 }}>Late</Chip> : null}
+          {Number(a.ot_hours) ? ' · OT ' + a.ot_hours + 'h' : ''}
+          {Number(a.fine_hours) ? ' · Fine ' + a.fine_hours + 'h' : ''}
+        </span>
+      );
+    }
     if (l) return <span className="st" style={{ color: l.status === 'pending' ? 'var(--warn)' : l.kind === 'wfh' ? 'var(--ok)' : 'var(--info)' }}>{l.kind === 'wfh' ? 'Work from home' : 'On leave'}{l.status === 'pending' ? ' (pending approval)' : ''} ({l.reason || ''}){l.remarks ? ' · ' + l.remarks : ''}</span>;
     return <span className="st" style={{ color: 'var(--danger)' }}>Not Marked</span>;
   };

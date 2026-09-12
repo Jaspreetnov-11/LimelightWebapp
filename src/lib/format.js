@@ -26,14 +26,37 @@ export const hm = mins => { mins = Math.round(mins || 0); return String(Math.flo
 /** Hours + minutes, e.g. "8h 20m" (no leading zero on hours). */
 export const hrs1 = mins => { const m = Math.max(0, Math.round(Number(mins) || 0)); return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
 const toMins = s => { if (!s || !s.includes(':')) return null; const [h, m] = s.split(':').map(Number); return h * 60 + m; };
-/** Minutes of a punch: finished (handles clock-out after midnight) or live until now. */
+/** Minutes of a punch: finished (handles clock-out after midnight, sessions/rechecking) or live until now. */
 export const punchMinutes = (punch, now = new Date()) => {
   if (!punch || !punch.clock_in) return 0;
+  let total = 0;
+  if (punch.sessions) {
+    try {
+      const list = typeof punch.sessions === 'string' ? JSON.parse(punch.sessions) : punch.sessions;
+      if (Array.isArray(list)) {
+        for (const s of list) {
+          if (s && s.mins !== undefined && s.mins !== null) {
+            total += Number(s.mins) || 0;
+          } else if (s && (s.clock_in || s.in) && (s.clock_out || s.out)) {
+            const cin = s.clock_in || s.in;
+            const cout = s.clock_out || s.out;
+            const [h1, m1] = cin.split(':').map(Number);
+            const [h2, m2] = cout.split(':').map(Number);
+            total += Math.max(0, (h2 * 60 + m2) + (Number(s.out_next_day) ? 1440 : 0) - (h1 * 60 + m1));
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
   const a = toMins(punch.clock_in);
-  if (punch.clock_out) return Math.max(0, toMins(punch.clock_out) + (Number(punch.out_next_day) ? 1440 : 0) - a);
-  const nowM = now.getHours() * 60 + now.getMinutes();
-  const startedYesterday = punch.date && punch.date < isoLocal(now);
-  return Math.max(0, nowM + (startedYesterday ? 1440 : 0) - a);
+  if (punch.clock_out) {
+    total += Math.max(0, toMins(punch.clock_out) + (Number(punch.out_next_day) ? 1440 : 0) - a);
+  } else {
+    const nowM = now.getHours() * 60 + now.getMinutes();
+    const startedYesterday = punch.date && punch.date < isoLocal(now);
+    total += Math.max(0, nowM + (startedYesterday ? 1440 : 0) - a);
+  }
+  return total;
 };
 /** Minutes worked so far today from a punch (live while clocked in). */
 export const workedToday = (punch, now = new Date()) => punchMinutes(punch, now);

@@ -29,19 +29,45 @@ function ClockCard() {
   const st = clock.state;
   const fromYesterday = r && r.date && r.date < todayISO();
   const modeTxt = r && r.mode && r.mode !== 'office' ? ' · ' + (MODE_LABEL[r.mode] || r.mode) : '';
-  const head = st === 'in' ? 'Clocked in at ' + r.clock_in + (fromYesterday ? ' (yesterday)' : '') + modeTxt : st === 'done' ? 'Done for today · ' + hm(punchMinutes(r)) + ' worked' + modeTxt : 'Not clocked in yet';
+  const sessList = clock.sessions || [];
+  const prevMins = sessList.reduce((acc, s) => acc + (Number(s.mins) || 0), 0);
+
+  const head = st === 're_in'
+    ? 'Re-clocked in at ' + r.clock_in + ' (Session ' + clock.sessionCount + ')' + modeTxt
+    : st === 'in'
+    ? 'Clocked in at ' + r.clock_in + (fromYesterday ? ' (yesterday)' : '') + modeTxt
+    : st === 'done'
+    ? 'Done · ' + hm(punchMinutes(r)) + ' worked' + (sessList.length > 0 ? ' (' + (sessList.length + 1) + ' sessions)' : '') + modeTxt
+    : 'Not clocked in yet';
+
+  const isClockedOut = st === 'done';
+  const isOpen = st === 'in' || st === 're_in';
+
   return (
     <div className={'clock-card ' + st}>
       <div className="st"><span className="dot"></span>
-        <div style={{ minWidth: 0 }}><b>{head}{r && Number(r.late) ? <Chip tone="or" style={{ marginLeft: 8 }}>Late</Chip> : null}</b>
+        <div style={{ minWidth: 0 }}>
+          <b>
+            {head}
+            {st === 're_in' && <Chip tone="or" style={{ marginLeft: 8 }}>Re-checked in</Chip>}
+            {r && Number(r.late) && !clock.isRecheck ? <Chip tone="or" style={{ marginLeft: 8 }}>Late</Chip> : null}
+          </b>
           <small>
+            {st === 're_in' && <>Active since {r.clock_in} <GeoLink lat={r.in_lat} lng={r.in_lng} addr={r.in_addr} acc={r.in_acc} /> · {hm(prevMins)} worked earlier · tap Clock Out when done</>}
             {st === 'in' && <>Since {r.clock_in} <GeoLink lat={r.in_lat} lng={r.in_lng} addr={r.in_addr} acc={r.in_acc} /> · tap Clock Out when you leave</>}
-            {st === 'done' && <>In {r.clock_in} <GeoLink lat={r.in_lat} lng={r.in_lng} addr={r.in_addr} acc={r.in_acc} /> · Out {r.clock_out} <GeoLink lat={r.out_lat} lng={r.out_lng} addr={r.out_addr} acc={r.out_acc} />{Number(r.ot_hours) ? ' · OT ' + r.ot_hours + 'h' : ''}</>}
+            {st === 'done' && <>Last out {r.clock_out} <GeoLink lat={r.out_lat} lng={r.out_lng} addr={r.out_addr} acc={r.out_acc} />{Number(r.ot_hours) ? ' · OT ' + r.ot_hours + 'h' : ''} · tap Re-Clock In to start another session</>}
             {st === 'off' && <>{me.name.split(' ')[0]}, your shift is {me.shift === 'evening' ? '2 pm – 10 pm' : '11 am – 7 pm'} · {clock.selfieIn ? 'selfie + location' : 'location'} is saved with each punch</>}
           </small>
         </div>
       </div>
-      <button className="big" onClick={clock.act} disabled={clock.busy || st === 'done'}><Icon name={st === 'in' ? 'logout' : 'login'} />{clock.busy ? 'Getting location…' : st === 'in' ? 'Clock Out' : st === 'done' ? 'Clocked out' : 'Clock In'}</button>
+      <button
+        className={'big' + (isClockedOut ? ' recheck-btn' : '')}
+        onClick={clock.act}
+        disabled={clock.busy}
+      >
+        <Icon name={isOpen ? 'logout' : 'login'} />
+        {clock.busy ? 'Getting location…' : isOpen ? 'Clock Out' : isClockedOut ? 'Re-Clock In' : 'Clock In'}
+      </button>
     </div>
   );
 }

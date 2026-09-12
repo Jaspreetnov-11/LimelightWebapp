@@ -89,11 +89,15 @@ function computeMonthStats(rows, leaves, month) {
 class AttendanceService {
   async processClockIn(empId, { lat = null, lng = null, acc = null, addr = '', mode = 'office', selfie = '' } = {}) {
     const today = todayISO();
-    const [existing, emp, open] = await Promise.all([attendanceModel.findByEmpAndDate(empId, today), employeeModel.findById(empId), attendanceModel.findOpenPunch(empId, yesterdayOf(today))]);
+    const [existing, emp, open] = await Promise.all([
+      attendanceModel.findByEmpAndDate(empId, today),
+      employeeModel.findById(empId),
+      attendanceModel.findOpenPunch(empId, yesterdayOf(today))
+    ]);
 
     if (open && open.date !== today) throw new AppError(`You are still clocked in from ${open.date} (${open.clock_in}). Clock out first.`, 400);
-    if (existing && existing.clock_in && !existing.clock_out) throw new AppError('Already clocked in for today.', 400);
-    if (existing && existing.clock_out) throw new AppError('Already completed attendance for today.', 400);
+    if (existing && existing.clock_in && !existing.clock_out) throw new AppError('Already clocked in right now. Clock out first.', 400);
+
     const inSelfie = cleanSelfie(selfie, settingsService.get().selfieOnClockIn, 'clock in');
     purgeOldSelfies();
 
@@ -104,7 +108,42 @@ class AttendanceService {
 
     const timeStr = nowHHMM();
     const shift = emp ? emp.shift : 'day';
-    const late = isLate(shift, timeStr) ? 1 : 0;
+
+    // Parse existing sessions
+    let sessions = [];
+    if (existing && existing.sessions) {
+      try {
+        sessions = typeof existing.sessions === 'string' ? JSON.parse(existing.sessions) : existing.sessions;
+        if (!Array.isArray(sessions)) sessions = [];
+      } catch (e) { sessions = []; }
+    }
+
+    // Is this a re-checkin? (User already clocked in & out previously today)
+    const isRecheck = Boolean(existing && existing.clock_in && existing.clock_out);
+    if (isRecheck) {
+      // Archive previous session into sessions array
+      const prevMins = punchMinutes({ clock_in: existing.clock_in, clock_out: existing.clock_out, out_next_day: existing.out_next_day });
+      sessions.push({
+        in: existing.clock_in,
+        out: existing.clock_out,
+        clock_in: existing.clock_in,
+        clock_out: existing.clock_out,
+        mins: prevMins,
+        mode: existing.mode || 'office',
+        in_lat: existing.in_lat,
+        in_lng: existing.in_lng,
+        in_addr: existing.in_addr,
+        out_lat: existing.out_lat,
+        out_lng: existing.out_lng,
+        out_addr: existing.out_addr,
+        in_selfie: existing.in_selfie,
+        out_selfie: existing.out_selfie,
+        out_next_day: existing.out_next_day || 0
+      });
+    }
+
+    // Only the first punch checks if the user is late for the shift
+    const late = (existing && existing.clock_in) ? (Number(existing.late) || 0) : (isLate(shift, timeStr) ? 1 : 0);
 
     const record = await attendanceModel.upsertPunch({
       id: existing ? existing.id : newId('a_'),
@@ -115,14 +154,19 @@ class AttendanceService {
       mode: mode || 'office',
       status: 'present',
       late,
+      sessions: JSON.stringify(sessions),
       ot_hours: existing ? existing.ot_hours : 0,
       fine_hours: existing ? existing.fine_hours : 0,
       note: existing ? existing.note : '',
       in_lat: lat, in_lng: lng, in_acc: acc, in_addr: addr || '',
-      in_selfie: inSelfie
+      in_selfie: inSelfie,
+      out_lat: null, out_lng: null, out_acc: null, out_addr: '',
+      out_selfie: null, out_next_day: 0
     });
 
-    await activityModel.log(`${emp ? emp.name : 'Employee'} clocked in at ${timeStr}${late ? ' (late)' : ''}${mode === 'wfh' ? ' · work from home' : mode === 'field' ? ' · on field' : ''}${addr ? ' from ' + addr : ''}`);
+    const sessionNum = sessions.length + 1;
+    const recheckMsg = isRecheck ? ` (re-checkin, Session ${sessionNum})` : '';
+    await activityModel.log(`${emp ? emp.name : 'Employee'} clocked in${recheckMsg} at ${timeStr}${late && !isRecheck ? ' (late)' : ''}${mode === 'wfh' ? ' · work from home' : mode === 'field' ? ' · on field' : ''}${addr ? ' from ' + addr : ''}`);
     return record;
   }
 
@@ -133,7 +177,7 @@ class AttendanceService {
 
     if (!existing || !existing.clock_in) {
       const todays = await attendanceModel.findByEmpAndDate(empId, today);
-      if (todays && todays.clock_out) throw new AppError('Already clocked out today.', 400);
+      if (todays && todays.clock_out) throw new AppError('Already clocked out. Tap Re-Clock In if you want to start another session.', 400);
       throw new AppError('You have not clocked in yet today.', 400);
     }
     const outSelfie = cleanSelfie(selfie, settingsService.get().selfieOnClockOut, 'clock out');
@@ -141,12 +185,46 @@ class AttendanceService {
     const timeStr = nowHHMM();
     const nextDay = existing.date !== today;
     const shift = emp ? emp.shift : 'day';
-    // Overtime is automatic (when enabled): hours after the shift's OT threshold, counting past midnight
-    const ot = settingsService.get().autoOvertime === false ? (Number(existing.ot_hours) || 0) : Math.max(Number(existing.ot_hours) || 0, otHoursFor(shift, timeStr, nextDay));
-    const record = await attendanceModel.update(existing.id, { clock_out: timeStr, out_next_day: nextDay ? 1 : 0, ot_hours: ot, out_lat: lat, out_lng: lng, out_acc: acc, out_addr: addr || '', out_selfie: outSelfie });
 
-    const workedMins = punchMinutes(record);
-    await activityModel.log(`${emp ? emp.name : 'Employee'} clocked out at ${timeStr} (${Math.floor(workedMins / 60)}h ${workedMins % 60}m worked${ot ? ', OT ' + ot + 'h' : ''})`);
+    // Calculate total worked minutes across all sessions
+    let sessions = [];
+    if (existing.sessions) {
+      try {
+        sessions = typeof existing.sessions === 'string' ? JSON.parse(existing.sessions) : existing.sessions;
+        if (!Array.isArray(sessions)) sessions = [];
+      } catch (e) { sessions = []; }
+    }
+
+    // Temporary record to compute cumulative worked minutes
+    const tempRecord = { ...existing, clock_out: timeStr, out_next_day: nextDay ? 1 : 0 };
+    const workedMins = punchMinutes(tempRecord);
+
+    // Overtime calculation:
+    // Overtime is automatic (when enabled): hours after the shift's OT threshold or hours exceeding daily standard
+    let ot = 0;
+    if (settingsService.get().autoOvertime !== false) {
+      const standardMins = hoursPerDay() * 60;
+      const otFromHours = workedMins > standardMins ? Math.round(((workedMins - standardMins) / 60) * 100) / 100 : 0;
+      const otFromShift = otHoursFor(shift, timeStr, nextDay);
+      ot = Math.max(Number(existing.ot_hours) || 0, otFromHours, otFromShift);
+    } else {
+      ot = Number(existing.ot_hours) || 0;
+    }
+
+    const record = await attendanceModel.update(existing.id, {
+      clock_out: timeStr,
+      out_next_day: nextDay ? 1 : 0,
+      ot_hours: ot,
+      out_lat: lat,
+      out_lng: lng,
+      out_acc: acc,
+      out_addr: addr || '',
+      out_selfie: outSelfie
+    });
+
+    const sessionCount = sessions.length + 1;
+    const sessionText = sessionCount > 1 ? ` across ${sessionCount} sessions` : '';
+    await activityModel.log(`${emp ? emp.name : 'Employee'} clocked out at ${timeStr} (${Math.floor(workedMins / 60)}h ${workedMins % 60}m worked${sessionText}${ot ? ', OT ' + ot + 'h' : ''})`);
     return record;
   }
 

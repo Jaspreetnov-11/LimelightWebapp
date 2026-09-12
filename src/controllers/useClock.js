@@ -38,24 +38,44 @@ export function useClock() {
   const { toast, askSelfie } = useUi();
   const [busy, setBusy] = useState(false);
   const punch = today ? today.myPunch : null;
-  const state = punch && punch.clock_in && !punch.clock_out ? 'in' : punch && punch.clock_out ? 'done' : 'off';
-  const label = busy ? 'Locating…' : state === 'in' ? 'Clock Out' : state === 'done' ? 'Clocked out' : 'Clock In';
+
+  const sessions = punch ? (Array.isArray(punch.sessions) ? punch.sessions : (() => { try { return JSON.parse(punch.sessions || '[]'); } catch (e) { return []; } })()) : [];
+  const isOpen = Boolean(punch && punch.clock_in && !punch.clock_out);
+  const isDone = Boolean(punch && punch.clock_out);
+  const isRecheck = Boolean(isOpen && sessions.length > 0);
+
+  const state = isOpen ? (isRecheck ? 're_in' : 'in') : isDone ? 'done' : 'off';
+  const label = busy ? 'Locating…' : isOpen ? 'Clock Out' : isDone ? 'Re-Clock In' : 'Clock In';
+  const sessionCount = sessions.length + (isOpen ? 1 : 0);
   const selfieIn = !settings || settings.selfieOnClockIn !== false;
   const selfieOut = Boolean(settings && settings.selfieOnClockOut);
 
   const act = useCallback(async () => {
     if (busy) return;
-    if (state === 'done') { toast('Already clocked out today. Ask an admin to correct it if needed.'); return; }
-    const needSelfie = state === 'off' ? selfieIn : selfieOut;
+    const isClockingIn = state === 'off' || state === 'done';
+    const needSelfie = isClockingIn ? selfieIn : selfieOut;
     let selfie = '', mode = 'office';
-    if (needSelfie || state === 'off') {
+    if (needSelfie || isClockingIn) {
+      const isRecheckAction = state === 'done';
+      const actionTitle = isRecheckAction ? `Re-check In (Session ${sessions.length + 1})` : (state === 'off' ? 'Clock in' : 'Clock out');
+      const actionSub = isClockingIn
+        ? (isRecheckAction ? 'Starting an extra work session today.' : 'Where are you working from today?') + (needSelfie ? ' Then look at the camera and tap Capture.' : '')
+        : 'Look at the camera and tap Capture.';
+
       const r = await askSelfie({
-        title: state === 'off' ? 'Clock in' : 'Clock out',
-        sub: state === 'off' ? 'Where are you working from today?' + (needSelfie ? ' Then look at the camera and tap Capture.' : '') : 'Look at the camera and tap Capture.',
-        askMode: state === 'off', needSelfie, defaultMode: 'office', okLabel: state === 'off' ? 'Clock in' : 'Clock out'
+        title: actionTitle,
+        sub: actionSub,
+        askMode: isClockingIn,
+        needSelfie,
+        defaultMode: 'office',
+        okLabel: isRecheckAction ? 'Re-Clock In' : (state === 'off' ? 'Clock in' : 'Clock out')
       });
-      if (!r) { toast(needSelfie ? 'Selfie is needed to ' + (state === 'off' ? 'clock in' : 'clock out') + '.' : 'Cancelled.'); return; }
-      selfie = r.selfie || ''; mode = r.mode || 'office';
+      if (!r) {
+        toast(needSelfie ? 'Selfie is needed to ' + (isClockingIn ? 'clock in' : 'clock out') + '.' : 'Cancelled.');
+        return;
+      }
+      selfie = r.selfie || '';
+      mode = r.mode || 'office';
     }
     setBusy(true);
     try {
@@ -64,9 +84,10 @@ export function useClock() {
       const body = g ? { lat: g.lat, lng: g.lng, acc: g.acc, addr } : { addr: '' };
       if (selfie) body.selfie = selfie;
       const where = g ? (addr ? ' · ' + addr : ' · location saved') : ' · no location';
-      if (state === 'off') {
+      if (isClockingIn) {
         await AttendanceModel.clockIn({ ...body, mode });
-        toast('Clocked in at ' + hhmm(new Date()) + ' · ' + (MODE_LABEL[mode] || mode) + where);
+        const prefix = state === 'done' ? `Re-clocked in (Session ${sessions.length + 1})` : 'Clocked in';
+        toast(prefix + ' at ' + hhmm(new Date()) + ' · ' + (MODE_LABEL[mode] || mode) + where);
         if (!g) toast('Location not available. Allow location access in the browser to record it next time.');
       } else {
         const rec = await AttendanceModel.clockOut(body);
@@ -78,7 +99,7 @@ export function useClock() {
     } finally {
       setBusy(false);
     }
-  }, [busy, state, selfieIn, selfieOut, askSelfie, toast, reload]);
+  }, [busy, state, sessions, selfieIn, selfieOut, askSelfie, toast, reload]);
 
-  return { punch, state, label, busy, act, selfieIn, selfieOut };
+  return { punch, state, label, busy, act, selfieIn, selfieOut, isRecheck, sessions, sessionCount };
 }

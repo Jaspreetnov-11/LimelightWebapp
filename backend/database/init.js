@@ -19,7 +19,7 @@ const EXTRA_COLUMNS = {
   lh_tasks: [['dept', "TEXT DEFAULT ''"], ['started_at', 'TEXT'], ['completed_at', 'TEXT'], ['taken_mins', 'NUMERIC DEFAULT 0']],
   lh_projects: [['client_id', "TEXT DEFAULT ''"], ['fee', 'NUMERIC DEFAULT 0']],
   lh_leaves: [['kind', "TEXT DEFAULT 'leave'"], ['remarks', "TEXT DEFAULT ''"]],
-  lh_attendance: [['late', 'INTEGER DEFAULT 0'], ['in_selfie', 'TEXT'], ['out_selfie', 'TEXT'], ['out_next_day', 'INTEGER DEFAULT 0']],
+  lh_attendance: [['late', 'INTEGER DEFAULT 0'], ['in_selfie', 'TEXT'], ['out_selfie', 'TEXT'], ['out_next_day', 'INTEGER DEFAULT 0'], ['sessions', "TEXT DEFAULT '[]'"]],
   lh_activity: [['user_id', "TEXT DEFAULT ''"], ['kind', "TEXT DEFAULT 'info'"], ['link', "TEXT DEFAULT ''"], ['ref_type', "TEXT DEFAULT ''"], ['ref_id', "TEXT DEFAULT ''"]]
 };
 

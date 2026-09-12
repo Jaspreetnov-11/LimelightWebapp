@@ -532,13 +532,17 @@
   .clock-card .st{display:flex; align-items:center; gap:14px; min-width:0}
   .clock-card .st .dot{width:12px;height:12px;border-radius:50%;background:var(--dim);flex:0 0 auto}
   .clock-card.in .st .dot{background:var(--ok); box-shadow:0 0 0 5px rgba(74,222,149,.18); animation:pulse 1.6s ease-in-out infinite}
+  .clock-card.re_in .st .dot{background:var(--warn); box-shadow:0 0 0 5px rgba(245,158,11,.22); animation:pulse 1.6s ease-in-out infinite}
   .clock-card.done .st .dot{background:var(--muted)}
   .clock-card b{display:block; font-size:16px; font-weight:700}
   .clock-card small{display:block; color:var(--muted); font-size:12px; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .clock-card .big{height:48px; padding:0 22px; border-radius:100px; border:0; font:inherit; font-weight:700; font-size:14px; cursor:pointer; background:var(--accent); color:var(--ink); display:inline-flex; align-items:center; gap:10px; box-shadow:0 14px 30px -12px var(--ac-08); white-space:nowrap}
   .clock-card .big svg{width:18px;height:18px}
-  .clock-card.in .big{background:#FF5C7A; color:#fff; box-shadow:0 14px 30px -12px rgba(255,92,122,.8)}
+  .clock-card.in .big, .clock-card.re_in .big{background:#FF5C7A; color:#fff; box-shadow:0 14px 30px -12px rgba(255,92,122,.8)}
   .clock-card.done .big{background:var(--ov-08); color:var(--t3); box-shadow:none}
+  .clock-card.done .big.recheck-btn{background:var(--accent); color:var(--ink); box-shadow:0 14px 30px -12px var(--ac-08); cursor:pointer; opacity:1}
+  .clock-card.done .big.recheck-btn:hover{filter:brightness(1.08); transform:translateY(-1px)}
+  .clock-card.re_in{background:linear-gradient(120deg, rgba(245,158,11,.14), var(--ov-03) 55%); border-color:rgba(245,158,11,.3)}
   .clock-card .big[disabled]{opacity:.7; cursor:progress}
   .clock-card a{color:var(--accent)}
   @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
@@ -904,6 +908,7 @@ html[data-theme="light"] .welcome{background:#FFFFFF}
 html[data-theme="light"] .welcome::before{background:radial-gradient(50% 50% at 50% 50%, rgba(23,23,27,.05), transparent 70%)}
 html[data-theme="light"] .welcome::after{background:radial-gradient(50% 50% at 50% 50%, var(--accent-dim), transparent 70%)}
 html[data-theme="light"] .clock-card{background:linear-gradient(120deg, var(--accent-dim), #FFFFFF 58%); border-color:var(--accent-line)}
+html[data-theme="light"] .clock-card.re_in{background:linear-gradient(120deg, rgba(184,115,10,.12), #FFFFFF 58%); border-color:rgba(184,115,10,.3)}
 html[data-theme="light"] .clock-card .dot{box-shadow:0 0 0 5px rgba(23,23,27,.05)}
 html[data-theme="light"] .col{background:#F7F7F8; border-color:#E2E2E6}
 html[data-theme="light"] .col.ip{background:#EFEFF1; border-color:#DADADE}

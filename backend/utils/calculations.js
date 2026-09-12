@@ -72,12 +72,30 @@ const otHoursFor = (shiftKey, clockOut, nextDay = false) => {
   return extra > 0 ? Math.round((extra / 60) * 100) / 100 : 0;
 };
 
-/** Minutes worked on a punch (handles clock-outs after midnight via out_next_day). */
+/** Minutes worked on a punch across all sessions (handles multiple punches/rechecking and out_next_day). */
 const punchMinutes = row => {
-  if (!row || !row.clock_in || !row.clock_out) return 0;
-  const a = toMins(row.clock_in), b = toMins(row.clock_out);
-  if (a === null || b === null) return 0;
-  return Math.max(0, b + (Number(row.out_next_day) ? 1440 : 0) - a);
+  if (!row || !row.clock_in) return 0;
+  let total = 0;
+  if (row.sessions) {
+    try {
+      const list = typeof row.sessions === 'string' ? JSON.parse(row.sessions) : row.sessions;
+      if (Array.isArray(list)) {
+        for (const s of list) {
+          if (s && s.mins !== undefined && s.mins !== null) {
+            total += Number(s.mins) || 0;
+          } else if (s && (s.clock_in || s.in) && (s.clock_out || s.out)) {
+            const a = toMins(s.clock_in || s.in), b = toMins(s.clock_out || s.out);
+            if (a !== null && b !== null) total += Math.max(0, b + (Number(s.out_next_day) ? 1440 : 0) - a);
+          }
+        }
+      }
+    } catch (e) { /* ignore parse error */ }
+  }
+  if (row.clock_in && row.clock_out) {
+    const a = toMins(row.clock_in), b = toMins(row.clock_out);
+    if (a !== null && b !== null) total += Math.max(0, b + (Number(row.out_next_day) ? 1440 : 0) - a);
+  }
+  return total;
 };
 
 const workdaysIn = (month, upToToday = true) => {

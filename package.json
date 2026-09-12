@@ -14,7 +14,8 @@
     "lint": "next lint",
     "test": "node backend/tests/test_api.js",
     "test:security": "node backend/tests/test_security.js",
-    "test:all": "node backend/tests/test_api.js && node backend/tests/test_security.js"
+    "test:recheck": "node backend/tests/test_recheck.js",
+    "test:all": "node backend/tests/test_api.js && node backend/tests/test_security.js && node backend/tests/test_recheck.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

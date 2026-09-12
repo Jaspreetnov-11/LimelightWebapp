@@ -9,7 +9,30 @@ const AppError = require('../utils/appError');
 const { todayISO, thisMonth } = require('../utils/calculations');
 
 // Selfies are stored on the row; list responses only say whether one exists.
-const pub = a => { if (!a) return a; const { in_selfie, out_selfie, ...rest } = a; return { ...rest, in_selfie: Boolean(in_selfie), out_selfie: Boolean(out_selfie) }; };
+const pub = a => {
+  if (!a) return a;
+  const { in_selfie, out_selfie, ...rest } = a;
+  let sessions = [];
+  if (a.sessions) {
+    try {
+      sessions = typeof a.sessions === 'string' ? JSON.parse(a.sessions) : a.sessions;
+      if (!Array.isArray(sessions)) sessions = [];
+    } catch (e) { sessions = []; }
+  }
+  const cleanSessions = sessions.map(s => ({
+    ...s,
+    in_selfie: Boolean(s.in_selfie),
+    out_selfie: Boolean(s.out_selfie)
+  }));
+  return {
+    ...rest,
+    sessions: cleanSessions,
+    session_count: cleanSessions.length + (a.clock_in ? 1 : 0),
+    is_recheck: cleanSessions.length > 0,
+    in_selfie: Boolean(in_selfie),
+    out_selfie: Boolean(out_selfie)
+  };
+};
 const pubAll = rows => (rows || []).map(pub);
 
 const clockIn = catchAsync(async (req, res) => {
