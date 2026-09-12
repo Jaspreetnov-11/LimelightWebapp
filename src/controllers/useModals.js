@@ -5,7 +5,7 @@ import { useAuth } from './AuthController';
 import { useData } from './DataController';
 import { useUi } from './UiController';
 import { ActivityModel, AttendanceModel, AuthModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
-import { ACCESS_LABEL, avFor, ini, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO } from '@/lib/format';
+import { ACCESS_LABEL, avFor, ini, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO, WEEK_DAYS } from '@/lib/format';
 
 export function useModals() {
   const { me, isAdmin } = useAuth();
@@ -98,6 +98,7 @@ export function useModals() {
           { name: 'role', label: 'Designation', required: true, value: e ? e.role : '', placeholder: 'e.g. Video Editor' },
           { name: 'dept', label: 'Department', type: 'select', required: true, placeholder: 'Select department', options: deptOpts, value: e ? e.dept : '' },
           { name: 'shift', label: 'Shift', type: 'select', required: true, options: settings && settings.shifts ? Object.entries(settings.shifts).map(([v, s]) => ({ v, l: s.display || s.label })) : Object.entries(SHIFTS).map(([v, l]) => ({ v, l })), value: e ? (e.shift || 'day') : 'day', help: (settings ? settings.graceMins : 20) + ' min grace after shift start. Overtime after the shift OT time at ' + (settings ? settings.otRate : 1) + '× hourly pay. Change the rules under Settings → Admin controls.' },
+          { name: 'week_off', label: 'Weekly off', type: 'select', options: [{ v: '', l: 'Default (' + WEEK_DAYS[(settings && settings.weekOff && settings.weekOff[0]) ?? 0] + ')' }].concat(WEEK_DAYS.map((n, i) => ({ v: String(i), l: n }))).concat([{ v: '0,6', l: 'Saturday + Sunday' }, { v: '5,6', l: 'Friday + Saturday' }]), value: e ? (e.week_off || '') : '', help: 'Attendance, absents and leave balance skip this day' },
           { name: 'access', label: 'App access', type: 'select', required: true, options: Object.entries(ACCESS_LABEL).map(([v, l]) => ({ v, l })), value: e ? (e.access || 'staff') : 'staff' },
           { name: 'salary', label: 'Monthly salary (₹)', type: 'number', required: true, value: e ? (e.salary || 0) : 25000, min: 0, step: 500 },
           { name: 'emp_id', label: 'Employee ID', value: e ? e.emp_id : '', placeholder: 'Auto (LH0001…)' },
@@ -106,7 +107,7 @@ export function useModals() {
           { name: 'manager', label: 'Reporting manager', type: 'select', options: mgrOpts, value: currentMgr }
         ],
         onSubmit: async d => {
-          const body = { name: d.name, email: d.email, phone: d.phone, role: d.role, dept: d.dept, shift: d.shift, salary: Number(d.salary) || 0, emp_id: d.emp_id, joined: d.joined, dob: d.dob || null, access: d.access, managers: d.manager ? [d.manager] : [] };
+          const body = { name: d.name, email: d.email, phone: d.phone, role: d.role, dept: d.dept, shift: d.shift, week_off: d.week_off || '', salary: Number(d.salary) || 0, emp_id: d.emp_id, joined: d.joined, dob: d.dob || null, access: d.access, managers: d.manager ? [d.manager] : [] };
           if (d.password) body.password = d.password;
           if (e) { await EmployeeModel.update(e.id, body); toast('Staff updated.'); } else { const r = await EmployeeModel.create(body); toast(r && r.passwordSet ? 'Staff added. They can log in now.' : 'Staff added and linked to their existing login.'); }
           await reload('employees', 'departments', 'activity');

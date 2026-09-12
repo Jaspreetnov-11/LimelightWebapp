@@ -7,7 +7,7 @@ import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
 import { LeaveModel } from '@/models';
 import { Avatar, Chip, Empty, Pills, SectionTitle } from '@/views/ui';
-import { fmtD, fmtDY, leaveBalance } from '@/lib/format';
+import { fmtD, fmtDY, leaveBalance, weekOffOf } from '@/lib/format';
 
 const daysBetween = (a, b) => { const s = new Date(a + 'T00:00:00'), e = new Date(b + 'T00:00:00'); let n = 0; for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) if (d.getDay() !== 0) n++; return n; };
 const TONE = { pending: 'or', approved: 'gr', rejected: 'pk' };
@@ -27,8 +27,8 @@ export function LeavesScreen() {
   const list = tab === 'all' ? all : all.filter(l => l.status === tab);
   const quota = d.settings && d.settings.leavesPerYear !== undefined ? Number(d.settings.leavesPerYear) : 12;
   const weekOff = (d.settings && d.settings.weekOff) || [0];
-  const myBal = leaveBalance(d.leaves, me.id, quota, weekOff);
-  const balances = useMemo(() => (isAdmin ? d.employees.map(e => ({ e, b: leaveBalance(d.leaves, e.id, quota, weekOff) })).sort((x, y) => y.b.used - x.b.used || x.e.name.localeCompare(y.e.name)) : []), [isAdmin, d.employees, d.leaves, quota, weekOff]);
+  const myBal = leaveBalance(d.leaves, me.id, quota, weekOffOf(d.empById[me.id], weekOff));
+  const balances = useMemo(() => (isAdmin ? d.employees.map(e => ({ e, b: leaveBalance(d.leaves, e.id, quota, weekOffOf(e, weekOff)) })).sort((x, y) => y.b.used - x.b.used || x.e.name.localeCompare(y.e.name)) : []), [isAdmin, d.employees, d.leaves, quota, weekOff]);
 
   const act = async (l, fn, msg) => { setBusy(l.id); try { await fn(); toast(msg); await d.reload('leaves', 'activity', 'employees', 'myStats', 'teamSummary'); } catch (err) { toast(err.message); } finally { setBusy(''); } };
   const approve = l => act(l, () => LeaveModel.decide(l.id, 'approved'), 'Approved.');

@@ -9,7 +9,7 @@ import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
 import { ActivityModel, AttendanceModel, EmployeeModel, PerformanceModel, SettingsModel } from '@/models';
 import { Avatar, Chip, Empty, Pills, Sq } from '@/views/ui';
-import { ACCESS_LABEL, ATT, fmtD, inr, thisMonth, todayISO } from '@/lib/format';
+import { ACCESS_LABEL, ATT, fmtD, inr, thisMonth, todayISO, WEEK_DAYS } from '@/lib/format';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const inp = { height: 36, fontSize: 12.5, borderRadius: 10, padding: '0 10px', width: '100%' };
@@ -45,13 +45,14 @@ function StaffAccess() {
     <div className="panel" style={{ overflowX: 'auto' }}>
       <div className="panel-h">Access &amp; staff <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400 }}>changes save instantly</span></div>
       <table>
-        <thead><tr><th>Person</th><th>Access</th><th>Shift</th><th>Salary (₹/month)</th><th>Login</th><th></th></tr></thead>
+        <thead><tr><th>Person</th><th>Access</th><th>Shift</th><th>Week off</th><th>Salary (₹/month)</th><th>Login</th><th></th></tr></thead>
         <tbody>
           {d.employees.map(e => { const active = Number(e.active === undefined || e.active === null ? 1 : e.active) === 1; return (
             <tr key={e.id} style={{ opacity: busy === e.id ? 0.6 : active ? 1 : 0.55 }}>
               <td><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Avatar e={e} /><div><b>{e.name}</b>{e.id === me.id && <Chip tone="pu" style={{ marginLeft: 6 }}>you</Chip>}<small style={{ display: 'block', color: 'var(--muted)' }}>{e.email} · {e.role || '—'} · {e.dept || '—'}</small></div></div></td>
               <td><select value={e.access || 'staff'} style={{ ...inp, width: 200 }} disabled={e.id === me.id} onChange={ev => save(e, { access: ev.target.value }, 'Access updated')}>{Object.entries(ACCESS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></td>
               <td><select value={e.shift || 'day'} style={{ ...inp, width: 190 }} onChange={ev => save(e, { shift: ev.target.value }, 'Shift updated')}>{shifts.map(([v, s]) => <option key={v} value={v}>{s.display || s.label || v}</option>)}</select></td>
+              <td><select value={e.week_off || ''} style={{ ...inp, width: 150 }} onChange={ev => save(e, { week_off: ev.target.value }, 'Week off updated')}><option value="">Default ({WEEK_DAYS[(d.settings && d.settings.weekOff && d.settings.weekOff[0]) ?? 0]})</option>{WEEK_DAYS.map((n, i) => <option key={i} value={String(i)}>{n}</option>)}<option value="0,6">Saturday + Sunday</option><option value="5,6">Friday + Saturday</option></select></td>
               <td><input type="number" min={0} step={500} defaultValue={Number(e.salary) || 0} style={{ ...inp, width: 130 }} onBlur={ev => { const v = Math.max(0, Number(ev.target.value) || 0); if (v !== (Number(e.salary) || 0)) save(e, { salary: v }, 'Salary updated'); }} onKeyDown={ev => { if (ev.key === 'Enter') ev.currentTarget.blur(); }} /></td>
               <td><label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: 'pointer' }}><input type="checkbox" checked={active} onChange={() => toggleActive(e)} disabled={e.id === me.id} />{active ? 'Active' : 'Deactivated'}</label></td>
               <td style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'inline-flex', gap: 6 }}><button className="date-btn" style={{ height: 32 }} onClick={() => resetPw(e)}>Reset password</button><Sq icon="file" label="Edit profile" onClick={() => modals.open('employee', e.id)} /></span></td>

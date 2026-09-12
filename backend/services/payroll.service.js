@@ -6,7 +6,7 @@ const attendanceModel = require('../models/attendance.model');
 const leaveModel = require('../models/leave.model');
 const attendanceService = require('./attendance.service');
 const activityModel = require('../models/activity.model');
-const { thisMonth, workdaysIn, calculateEarnedSalary, todayISO } = require('../utils/calculations');
+const { thisMonth, workdaysIn, calculateEarnedSalary, todayISO, weekOffOf } = require('../utils/calculations');
 
 const groupBy = (rows, key) => {
   const m = {};
@@ -26,8 +26,8 @@ class PayrollService {
   }
 
   computeEmployeePayroll(employee, month, pre) {
-    const st = attendanceService.computeMonthStats(pre.attByEmp[employee.id] || [], pre.leavesByEmp[employee.id] || [], month);
-    const earned = calculateEarnedSalary(employee.salary, workdaysIn(month, false), st.present, st.half, st.leave, st.otHours, st.fineHours);
+    const st = attendanceService.computeMonthStats(pre.attByEmp[employee.id] || [], pre.leavesByEmp[employee.id] || [], month, { weekOff: weekOffOf(employee), joined: employee.joined });
+    const earned = calculateEarnedSalary(employee.salary, workdaysIn(month, false, weekOffOf(employee)), st.present, st.half, st.leave, st.otHours, st.fineHours);
     const paid = pre.paidByEmp[employee.id] || 0;
     const pending = earned - paid;
     return {
@@ -51,7 +51,7 @@ class PayrollService {
     const pre = { attByEmp: {}, leavesByEmp: {}, paidByEmp: { [employee.id]: paid } };
     const out = this.computeEmployeePayroll(employee, month, pre);
     out.stats = st;
-    out.earned = calculateEarnedSalary(employee.salary, workdaysIn(month, false), st.present, st.half, st.leave, st.otHours, st.fineHours);
+    out.earned = calculateEarnedSalary(employee.salary, workdaysIn(month, false, weekOffOf(employee)), st.present, st.half, st.leave, st.otHours, st.fineHours);
     out.pending = out.earned - paid;
     out.status = out.pending > 0 ? 'Pending' : out.pending < 0 ? 'Advance' : 'Settled';
     return out;

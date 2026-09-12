@@ -20,7 +20,8 @@ const activityModel = require('../models/activity.model');
 const employeeModel = require('../models/employee.model');
 const faq = require('./assistant.faq');
 const smalltalk = require('./assistant.smalltalk');
-const { todayISO, thisMonth, punchMinutes, nowHHMM } = require('../utils/calculations');
+const { todayISO, thisMonth, punchMinutes, nowHHMM, weekOffOf } = require('../utils/calculations');
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const NAME = 'Simran';
 const hm = m => { m = Math.max(0, Math.round(Number(m) || 0)); return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
@@ -58,7 +59,7 @@ async function buildContext(user) {
   const open = mine.filter(t => t.status !== 'completed');
   const byStatus = {};
   for (const t of mine) byStatus[t.status] = (byStatus[t.status] || 0) + 1;
-  const weekOff = Array.isArray(s.weekOff) ? s.weekOff : [0];
+  const weekOff = weekOffOf(emp);
   let used = 0, pending = 0;
   for (const l of leaves) { const st = l.status || 'approved'; if (st === 'approved') used += leaveDaysIn(l, year, weekOff); else if (st === 'pending') pending += leaveDaysIn(l, year, weekOff); }
   const quota = s.leavesPerYear !== undefined ? Number(s.leavesPerYear) : 12;
@@ -70,6 +71,7 @@ async function buildContext(user) {
     today, now: nowHHMM(), month,
     shift: shift ? { label: shift.label, start: shift.start, end: shift.end, otAfter: shift.otAfter, graceMins: s.graceMins } : null,
     hoursPerDay: s.hoursPerDay || 8,
+    weekOff: weekOff.map(d => DAYS[d]).join(', '),
     todayPunch: todayRow ? { clockedIn: true, open: todayRow.open, mins: todayRow.mins, late: Boolean(todayRow.late), mode: todayRow.mode, breakMins: todayRow.breakMins || 0 } : { clockedIn: false },
     monthStats: stats ? { present: stats.present, half: stats.half, absent: stats.absent, late: stats.late, leave: stats.leave, otHours: stats.otHours, totalWorked: hm(stats.totalWorkedMinutes), avgPerDay: hm(stats.avgWorkingMinutes), expected: hm(stats.expectedMinutesSoFar), breakMinutes: stats.breakMinutes || 0 } : null,
     tasks: { total: mine.length, open: open.length, byStatus, list: open.slice(0, 12).map(t => ({ title: t.title, status: t.status, deadline: t.deadline, project: t.project_name || '', type: t.type })) },
@@ -117,6 +119,7 @@ function answerWithRules(ctx, q) {
   if (st) return st;
   // How-to questions ("kaise", "how", "kahan", "kya hai") go to the app guide first
   if (/kaise|kese|\bhow\b|kahan|kya hai|kya hota|setting|option|button|enable|install/.test(t)) { const f = faq.match(t); if (f) return f.a; }
+  if (/week ?off|weekly off|off kab|off day|chhutti ka din|sunday|saturday/.test(t)) return `Aapka weekly off ${ctx.weekOff} hai. Us din attendance ya absent count nahi hota. Badalna ho to admin se bolo.`;
   if (has('break')) return p.clockedIn ? `Aaj aapne ${hm(p.breakMins)} break liya hai. Home page pe "Take a break" se break shuru aur "End break" se khatam hota hai; break ka time worked hours se minus hota hai.` : 'Break clock-in ke baad hi le sakte ho. Pehle Home se clock in karo.';
   if (has('clock', 'punch', 'aaj', 'today', 'kitna kaam', 'hours', 'ghante', 'worked', 'time')) {
     if (!p.clockedIn) return `Aaj (${ctx.today}) abhi tak clock-in nahi hua. Shift ${ctx.shift ? ctx.shift.start + ' – ' + ctx.shift.end : ''}${ctx.shift ? ', ' + ctx.shift.graceMins + ' min grace' : ''}.`;

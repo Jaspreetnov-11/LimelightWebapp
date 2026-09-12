@@ -33,6 +33,13 @@ const toDate = v => {
   const d = new Date(s); return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
 };
 
+const DAY_NAMES = { sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tues: 2, tuesday: 2, wed: 3, wednesday: 3, thu: 4, thur: 4, thurs: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6 };
+/** "Sunday", "sun, mon" or "0,6" -> "0,6"; blank = workspace default */
+function parseWeekOff(v) {
+  return String(v == null ? '' : v).toLowerCase().split(/[,/ ]+/).map(s => s.trim()).filter(Boolean)
+    .map(s => (/^[0-6]$/.test(s) ? Number(s) : DAY_NAMES[s])).filter(n => n !== undefined).join(',');
+}
+
 /** Normalise one row (from the form or a spreadsheet) and list its problems. */
 function normalizeRow(raw) {
   const r = {
@@ -48,7 +55,8 @@ function normalizeRow(raw) {
     joined: toDate(raw.joined),
     dob: toDate(raw.dob),
     manager: clean(raw.reporting_manager || raw.manager),
-    emp_id: clean(raw.emp_id)
+    emp_id: clean(raw.emp_id),
+    week_off: parseWeekOff(raw.week_off || raw.weekly_off || raw.weekoff)
   };
   const problems = [];
   if (!r.name) problems.push('name missing');
@@ -106,6 +114,7 @@ async function addStaff(raw, opts = {}) {
     salary: row.salary,
     access: settingsService.isAdminEmail(row.email) ? 'admin' : row.access,
     shift: row.shift,
+    week_off: row.week_off || '',
     av: avFor(authUser.id),
     ini: initialsOf(row.name),
     active: 1

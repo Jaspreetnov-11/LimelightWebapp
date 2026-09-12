@@ -14,6 +14,7 @@ const { todayISO, thisMonth, SHIFTS } = require('../utils/calculations');
 const settingsService = require('../services/settings.service');
 
 const ACCESS = ['admin', 'manager', 'staff'];
+const cleanWeekOff = v => (Array.isArray(v) ? v : String(v == null ? '' : v).split(',')).map(x => String(x).trim()).filter(x => /^[0-6]$/.test(x)).join(',');
 const initialsOf = name => String(name || '').trim().split(/\s+/).slice(0, 2).map(w => (w[0] || '').toUpperCase()).join('');
 const parseManagers = m => (typeof m === 'string' ? (() => { try { return JSON.parse(m || '[]'); } catch (e) { return []; } })() : (m || []));
 const AV = ['o', 'p', 'g', 'r', 'b', 'br', 't'];
@@ -78,6 +79,7 @@ const createEmployee = catchAsync(async (req, res) => {
     dept: dept || 'Operations',
     email: cleanEmail,
     phone: phone || '',
+    week_off: cleanWeekOff(req.body.week_off),
     emp_id: emp_id || await employeeModel.nextEmpId(),
     joined: joined || todayISO(),
     dob: dob || null,
@@ -106,7 +108,8 @@ const updateEmployee = catchAsync(async (req, res) => {
   delete updateData.password;
   for (const k of ['pending_bal', 'pendingBal', 'earned', 'paid', 'payroll', 'tasks', 'id', 'loginLinked', 'passwordSet']) delete updateData[k];
   // Only admins change pay, access, shift, employee code or joining date
-  if (!isAdmin) for (const k of ['salary', 'access', 'shift', 'emp_id', 'joined', 'active', 'managers', 'dept', 'role']) delete updateData[k];
+  if (!isAdmin) for (const k of ['salary', 'access', 'shift', 'emp_id', 'joined', 'active', 'managers', 'dept', 'role', 'week_off']) delete updateData[k];
+  if (updateData.week_off !== undefined) updateData.week_off = cleanWeekOff(updateData.week_off);
 
   if (updateData.managers && Array.isArray(updateData.managers)) updateData.managers = JSON.stringify(updateData.managers);
   if (updateData.email) updateData.email = String(updateData.email).trim().toLowerCase();

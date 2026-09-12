@@ -9,7 +9,7 @@ import { useModals } from '@/controllers/useModals';
 import { TaskModel, TodoModel } from '@/models';
 import { Avatar, Chip, Empty, GeoLink, Icon, LinkBtn, Panel, Pills, SectionTitle, StatusBars } from '@/views/ui';
 import { Bars, DonutChart, HBars, PairBars, Ring } from '@/views/ui/charts';
-import { assigneeIds, fmtD, hm, hrs1, inr, leaveBalance, MODE_LABEL, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
+import { assigneeIds, fmtD, hm, hrs1, inr, leaveBalance, MODE_LABEL, weekOffOf, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
 
 function TaskMini({ t, onOpen, onAccept }) {
   const { taskAssigneeNames } = useData();
@@ -110,7 +110,7 @@ export function DashboardScreen() {
   const prod = d.productivity;
   const myProd = prod && prod.list ? prod.list.find(e => e.id === me.id) : null;
   const leaveQuota = d.settings && d.settings.leavesPerYear !== undefined ? Number(d.settings.leavesPerYear) : 12;
-  const myLeave = leaveBalance(d.leaves, me.id, leaveQuota, (d.settings && d.settings.weekOff) || [0]);
+  const myLeave = leaveBalance(d.leaves, me.id, leaveQuota, weekOffOf(meRow, (d.settings && d.settings.weekOff) || [0]));
   const deliveredAll = d.tasks.filter(t => t.status === 'completed' && String(t.completed || '').slice(0, 7) === month);
   const totalPending = d.employees.reduce((a, e) => a + (Number(e.pendingBal) || 0), 0);
   const overdueAll = d.tasks.filter(overdue);

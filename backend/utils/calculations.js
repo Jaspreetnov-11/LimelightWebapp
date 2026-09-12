@@ -99,15 +99,24 @@ const punchMinutes = row => {
   return Math.max(0, total - breakMins);
 };
 
-const workdaysIn = (month, upToToday = true) => {
+/** Week-off days (0=Sun..6=Sat) for one employee: their own setting, else the workspace default. */
+const weekOffOf = emp => {
+  const raw = emp && emp.week_off != null ? String(emp.week_off).trim() : '';
+  if (!raw) return cfg.weekOff;
+  const days = raw.split(',').map(s => Number(s.trim())).filter(n => Number.isInteger(n) && n >= 0 && n <= 6);
+  return days.length ? days : cfg.weekOff;
+};
+
+const workdaysIn = (month, upToToday = true, offDays) => {
   if (!month) month = thisMonth();
+  const off = Array.isArray(offDays) ? offDays : cfg.weekOff;
   const [y, mo] = month.split('-').map(Number);
   const last = new Date(y, mo, 0).getDate();
   const isCurrentMonth = month === thisMonth();
   const limit = (upToToday && isCurrentMonth) ? Number(todayISO().slice(8, 10)) : last;
   let count = 0;
   for (let d = 1; d <= limit; d++) {
-    if (!cfg.weekOff.includes(new Date(y, mo - 1, d).getDay())) count++;
+    if (!off.includes(new Date(y, mo - 1, d).getDay())) count++;
   }
   return count;
 };
@@ -144,6 +153,7 @@ module.exports = {
   otHoursFor,
   punchMinutes,
   workdaysIn,
+  weekOffOf,
   calculateEarnedSalary,
   formatINR
 };

@@ -23,7 +23,7 @@ const FAQ = [
   { topic: 'Leave balance', keys: ['leave balance', 'leaves left', 'kitni leave', 'quota', 'bachi', 'remaining leave'],
     a: 'Saal mein 12 paid leaves milti hain (admin badal sakta hai). Balance dashboard ke "Leaves left" tile aur Leaves page ke upar dikhta hai: used, pending, left. WFH leave mein count nahi hoti, week-off ke din bhi nahi.' },
   { topic: 'Holidays & events', keys: ['holiday', 'events', 'birthday', 'anniversary', 'festival', 'off day', 'sunday'],
-    a: 'Events page (More menu) mein upcoming holidays, birthdays aur work anniversaries dikhte hain. Sunday week-off hai. Holiday ke din attendance count nahi hoti.' },
+    a: 'Events page (More menu) mein upcoming holidays, birthdays aur work anniversaries dikhte hain. Weekly off har person ka alag ho sakta hai (default Sunday), admin set karta hai. Holiday aur week-off ke din attendance count nahi hoti.' },
   { topic: 'Tasks workflow', keys: ['task kaise', 'task accept', 'accept', 'submit', 'approval', 'changes', 'in progress', 'pipeline', 'task flow', 'task status', 'timer'],
     a: 'Naya task "New" mein aata hai → "Accept" dabao to timer shuru aur task In progress. Kaam hone pe "Submit for approval" → team leader approve kare to Completed, ya "Changes" maange to wapas tumhare paas aata hai. Timer accept se completion tak chalta hai, isi se productive hours aur score bante hain.' },
   { topic: 'Self task', keys: ['self task', 'apna task', 'khud task', 'own task', 'task banana'],

@@ -123,3 +123,13 @@ export const leaveBalance = (leaves, empId, quota = 12, weekOff = [0], year = ne
   }
   return { quota, used, pending, left: Math.max(0, quota - used), year };
 };
+
+export const WEEK_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+/** Week-off days for a person: their own setting, else the workspace default (settings.weekOff). */
+export const weekOffOf = (e, fallback = [0]) => {
+  const raw = e && e.week_off != null ? String(e.week_off).trim() : '';
+  if (!raw) return Array.isArray(fallback) && fallback.length ? fallback : [0];
+  const days = raw.split(',').map(s => Number(s.trim())).filter(n => Number.isInteger(n) && n >= 0 && n <= 6);
+  return days.length ? days : fallback;
+};
+export const weekOffLabel = (e, fallback) => weekOffOf(e, fallback).map(d => WEEK_DAYS[d]).join(', ');

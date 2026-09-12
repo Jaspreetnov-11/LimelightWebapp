@@ -216,6 +216,7 @@ CREATE TABLE IF NOT EXISTS lh_clients (
   retainer REAL DEFAULT 0,
   notes TEXT DEFAULT '',
   active INTEGER DEFAULT 1,
+  week_off TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );

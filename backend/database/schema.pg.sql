@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS lh_employees (
   av TEXT,
   ini TEXT,
   active INTEGER DEFAULT 1,
+  week_off TEXT DEFAULT '',
   created_at TEXT DEFAULT (now())::text,
   updated_at TEXT DEFAULT (now())::text
 );

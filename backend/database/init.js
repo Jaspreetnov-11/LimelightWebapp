@@ -15,7 +15,7 @@ const env = require('../config/env');
 
 // Columns added after the initial schema. Applied with ALTER TABLE when missing.
 const EXTRA_COLUMNS = {
-  lh_employees: [['shift', "TEXT DEFAULT 'day'"], ['active', 'INTEGER DEFAULT 1']],
+  lh_employees: [['shift', "TEXT DEFAULT 'day'"], ['active', 'INTEGER DEFAULT 1'], ['week_off', "TEXT DEFAULT ''"]],
   lh_tasks: [
     ['dept', "TEXT DEFAULT ''"],
     ['started_at', 'TEXT'],

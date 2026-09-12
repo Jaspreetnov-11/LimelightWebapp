@@ -5,7 +5,7 @@ const employeeModel = require('../models/employee.model');
 const leaveModel = require('../models/leave.model');
 const activityModel = require('../models/activity.model');
 const AppError = require('../utils/appError');
-const { todayISO, thisMonth, nowHHMM, workdaysIn, isLate, otHoursFor, punchMinutes, shiftOf, hoursPerDay, toMins, weekOff } = require('../utils/calculations');
+const { todayISO, thisMonth, nowHHMM, workdaysIn, isLate, otHoursFor, punchMinutes, shiftOf, hoursPerDay, toMins, weekOff, weekOffOf } = require('../utils/calculations');
 const holidayModel = require('../models/holiday.model');
 const yesterdayOf = iso => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
 const MODES = ['office', 'wfh', 'field'];
@@ -44,6 +44,7 @@ async function purgeOldSelfies() {
 /** Pure computation: month stats from preloaded rows. */
 function computeMonthStats(rows, leaves, month, opts = {}) {
   const holidaySet = new Set((opts.holidays || []).map(h => String(h.date || h).slice(0, 10)));
+  const wo = Array.isArray(opts.weekOff) && opts.weekOff.length ? opts.weekOff : weekOff();
   const startFrom = [opts.joined ? String(opts.joined).slice(0, 10) : '', String((settingsService.get() || {}).attendanceFrom || '').slice(0, 10)].filter(Boolean).sort().pop() || '';
   let present = 0, half = 0, absent = 0, late = 0, otHours = 0, fineHours = 0, totalWorkedMinutes = 0, daysWithOut = 0, breakMinutes = 0;
 
@@ -70,7 +71,7 @@ function computeMonthStats(rows, leaves, month, opts = {}) {
     const end = new Date(String(l.to_date).slice(0, 10) + 'T00:00:00');
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-      if (iso.slice(0, 7) === month && d.getDay() !== 0) leaveDays++;
+      if (iso.slice(0, 7) === month && !wo.includes(d.getDay())) leaveDays++;
     }
   }
 
@@ -91,13 +92,13 @@ function computeMonthStats(rows, leaves, month, opts = {}) {
     const iso = month + '-' + String(d).padStart(2, '0');
     if (iso >= today) break;
     if (startFrom && iso < startFrom) continue;
-    if (weekOff().includes(new Date(yy, mm - 1, d).getDay()) || holidaySet.has(iso)) continue;
+    if (wo.includes(new Date(yy, mm - 1, d).getDay()) || holidaySet.has(iso)) continue;
     if (punched.has(iso) || leaveSet.has(iso)) continue;
     missed++; missedDays.push(iso);
   }
   absent += missed;
-  const workdaysSoFar = workdaysIn(month, true);
-  const workdaysTotal = workdaysIn(month, false);
+  const workdaysSoFar = workdaysIn(month, true, wo);
+  const workdaysTotal = workdaysIn(month, false, wo);
   const unaccounted = Math.max(0, workdaysSoFar - present - half - absent - leaveDays);
   const avgWorkingMinutes = daysWithOut > 0 ? Math.round(totalWorkedMinutes / daysWithOut) : 0;
 
@@ -327,7 +328,7 @@ class AttendanceService {
       holidayModel.findAll().catch(() => []),
       employeeModel.findById(empId)
     ]);
-    return computeMonthStats(rows, leaves, month, { holidays, joined: emp ? emp.joined : '' });
+    return computeMonthStats(rows, leaves, month, { holidays, joined: emp ? emp.joined : '', weekOff: weekOffOf(emp) });
   }
 
   /** Per-employee month summary for the whole team (dashboard + reports). */
@@ -342,7 +343,8 @@ class AttendanceService {
     const lvEmp = {}; for (const l of leaves) (lvEmp[l.emp] = lvEmp[l.emp] || []).push(l);
     const staff = employees.map(e => ({
       id: e.id, name: e.name, dept: e.dept, emp_id: e.emp_id, shift: e.shift || 'day', shiftLabel: shiftOf(e.shift).label,
-      ...computeMonthStats(byEmp[e.id] || [], lvEmp[e.id] || [], month, { holidays, joined: e.joined })
+      weekOff: weekOffOf(e),
+      ...computeMonthStats(byEmp[e.id] || [], lvEmp[e.id] || [], month, { holidays, joined: e.joined, weekOff: weekOffOf(e) })
     }));
     const withHours = staff.filter(s => s.totalWorkedMinutes > 0);
     return {
@@ -352,7 +354,7 @@ class AttendanceService {
       staffCount: staff.length,
       avgWorkingMinutes: withHours.length ? Math.round(withHours.reduce((a, s) => a + s.avgWorkingMinutes, 0) / withHours.length) : 0,
       totalWorkedMinutes: staff.reduce((a, s) => a + s.totalWorkedMinutes, 0),
-      expectedMinutesSoFar: staff.length * workdaysIn(month, true) * hoursPerDay() * 60,
+      expectedMinutesSoFar: staff.reduce((a, s) => a + (s.expectedMinutesSoFar || 0), 0),
       otHours: staff.reduce((a, s) => a + s.otHours, 0),
       lateCount: staff.reduce((a, s) => a + s.late, 0),
       staff
