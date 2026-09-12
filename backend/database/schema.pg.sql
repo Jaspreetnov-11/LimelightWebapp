@@ -197,6 +197,18 @@ CREATE TABLE IF NOT EXISTS lh_clients (
 ALTER TABLE lh_clients ENABLE ROW LEVEL SECURITY;
 
 -- Workspace settings (admin): shifts, grace, hours per day, default password, company name
+CREATE TABLE IF NOT EXISTS lh_push_subs (
+  id TEXT PRIMARY KEY,
+  emp TEXT NOT NULL,
+  endpoint TEXT UNIQUE NOT NULL,
+  keys TEXT NOT NULL,
+  ua TEXT DEFAULT '',
+  created_at TEXT DEFAULT (now())::text,
+  updated_at TEXT DEFAULT (now())::text
+);
+ALTER TABLE lh_push_subs ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_lh_push_subs_emp ON lh_push_subs (emp);
+
 CREATE TABLE IF NOT EXISTS lh_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL DEFAULT '{}',

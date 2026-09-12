@@ -1043,3 +1043,4 @@ html[data-theme="light"]{
 .viz-sw{display:inline-block; width:9px; height:9px; border-radius:2px; vertical-align:-1px; margin:0 3px 0 4px}
 @media (max-width:640px){ .viz-h{flex-direction:column; align-items:flex-start; gap:2px} .viz-h span{text-align:left} .viz-grid .viz-card{min-height:0} }
 @media (max-width:640px){ .viz-donut{flex-direction:column; align-items:center; gap:12px} .viz-legend.col{width:100%} }
+.push-banner{padding:14px 18px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; border-color:var(--accent); background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent)}

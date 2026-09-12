@@ -11,6 +11,7 @@ import { useModals } from '@/controllers/useModals';
 import { Icon } from '@/views/ui/Icons';
 import { Avatar } from '@/views/ui';
 import { ClockSplash, SPLASH_KEY } from '@/views/layout/ClockSplash';
+import { usePush } from '@/controllers/usePush';
 
 // [key, label, icon, who] — who: 'all' | 'admin'
 export const NAV = [
@@ -28,6 +29,7 @@ export function AppShell({ children }) {
   const { toast } = useUi();
   const clock = useClock();
   const modals = useModals();
+  usePush({ auto: true }); // subscribe this device to push notifications
   const [menu, setMenu] = useState(''); // 'qa' | 'user' | ''
   const [sheet, setSheet] = useState(false);
   const current = (pathname || '').split('/')[1] || 'dashboard';

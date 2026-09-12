@@ -121,7 +121,16 @@ export const ActivityModel = {
   markAllRead: () => api.post('/activity/read-all'),
   remove: id => api.del('/activity/' + id),
   clear: () => api.del('/activity'),
-  alerts: () => data(api.get('/activity/alerts'))
+  alerts: () => data(api.get('/activity/alerts')),
+  broadcast: (text, dept) => api.post('/activity/broadcast', { text, dept })
+};
+
+export const PushModel = {
+  key: () => data(api.get('/push/key')),
+  status: () => data(api.get('/push/status')),
+  subscribe: subscription => api.post('/push/subscribe', { subscription }),
+  unsubscribe: endpoint => api.post('/push/unsubscribe', { endpoint }),
+  test: () => api.post('/push/test')
 };
 
 export const ReportModel = {

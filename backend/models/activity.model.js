@@ -2,6 +2,7 @@
 
 const BaseModel = require('./base.model');
 const db = require('../config/db');
+const push = require('../services/push.service');
 
 const newId = () => 'act_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
@@ -28,6 +29,8 @@ class ActivityModel extends BaseModel {
   async notify(userIds, text, opts = {}) {
     const ids = [...new Set((Array.isArray(userIds) ? userIds : [userIds]).filter(Boolean))];
     for (const id of ids) await this.log(text, { ...opts, user_id: id, kind: opts.kind || 'task' });
+    // Web push to every subscribed device of those people (best effort)
+    if (ids.length && opts.push !== false) await push.sendTo(ids, { title: opts.title || 'Lighthouse', body: text, url: opts.link || '/notifications', tag: opts.ref_id ? String(opts.ref_type || 'n') + '-' + opts.ref_id : '' });
   }
 
   scopeSql(userId, isAdmin) {

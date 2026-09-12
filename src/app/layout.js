@@ -10,7 +10,7 @@ export const metadata = {
   title: 'Limelight',
   description: 'Limelight workspace: staff, attendance, payroll, projects and tasks',
   manifest: '/manifest.json',
-  icons: { icon: '/icon.svg' },
+  icons: { icon: [{ url: '/icon.svg', type: 'image/svg+xml' }, { url: '/icon-192.png', sizes: '192x192', type: 'image/png' }], apple: '/icon-192.png' },
   appleWebApp: { capable: true, title: 'Limelight', statusBarStyle: 'black-translucent' }
 };
 

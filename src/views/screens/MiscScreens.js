@@ -8,6 +8,7 @@ import { useModals } from '@/controllers/useModals';
 import { ActivityModel, AuthModel, FileModel, LeaveModel, TaskModel } from '@/models';
 import { Chip, Empty, Icon, LinkBtn, SectionTitle, Seg } from '@/views/ui';
 import { THEMES, useTheme } from '@/controllers/useTheme';
+import { usePush } from '@/controllers/usePush';
 import { AdminControls } from '@/views/screens/AdminControls';
 import { Pager, usePager } from '@/views/ui/Pager';
 import { fmtD, inr, pct, SHIFTS } from '@/lib/format';
@@ -50,6 +51,36 @@ function NotifActions({ n }) {
 }
 
 /** One screen for everything that needs attention plus the activity feed. */
+/** Banner shown until this device is subscribed to push. */
+function PushBanner({ push, onEnable }) {
+  return (
+    <div className="panel push-banner">
+      <div><b>Turn on push notifications</b><div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 3 }}>{push.standaloneNeeded ? 'On iPhone: tap Share → "Add to Home Screen", open Lighthouse from there, then enable.' : 'Get tasks, approvals and announcements on this device even when the app is closed.'}</div></div>
+      <button className="date-btn" onClick={onEnable} disabled={push.busy}><Icon name="bell" />{push.busy ? 'Enabling…' : 'Enable'}</button>
+    </div>
+  );
+}
+
+/** Settings card: status of push on this device with enable / disable / test. */
+function PushPanel() {
+  const { toast } = useUi();
+  const push = usePush();
+  const on = async () => { try { await push.enable(); toast('Push notifications enabled on this device.'); } catch (err) { toast(err.message); } };
+  const off = async () => { try { await push.disable(); toast('Push notifications turned off on this device.'); } catch (err) { toast(err.message); } };
+  const test = async () => { try { const r = await push.test(); toast((r && r.message) || 'Sent.'); } catch (err) { toast(err.message); } };
+  const status = !push.supported ? 'Not supported in this browser' : push.permission === 'denied' ? 'Blocked in browser settings' : push.subscribed ? 'On for this device' : 'Off on this device';
+  return (
+    <div className="panel" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+      <div><b style={{ fontSize: 15 }}>Push notifications</b><div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>{status}. {push.standaloneNeeded ? 'On iPhone, add Lighthouse to the Home Screen first (Share → Add to Home Screen).' : 'Tasks, approvals and announcements arrive even when the app is closed.'}</div></div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {push.supported && !push.subscribed && <button className="date-btn" onClick={on} disabled={push.busy || push.permission === 'denied'}><Icon name="bell" />Enable</button>}
+        {push.subscribed && <button className="date-btn" onClick={test} disabled={push.busy}>Send test</button>}
+        {push.subscribed && <button className="date-btn" onClick={off} disabled={push.busy} style={{ color: 'var(--danger)' }}>Turn off</button>}
+      </div>
+    </div>
+  );
+}
+
 export function NotificationsScreen() {
   const d = useData();
   const { toast } = useUi();
@@ -59,6 +90,10 @@ export function NotificationsScreen() {
     ...a.overdueTasks.map(t => ({ c: 'var(--warn)', t: '"' + t.title + '" (' + d.taskAssigneeNames(t) + ') was due ' + fmtD(t.deadline), m: 'Overdue task', go: '/tasks' }))
   ];
   const { confirm } = useUi();
+  const { isAdmin } = useAuth();
+  const modals = useModals();
+  const push = usePush();
+  const enablePush = async () => { try { await push.enable(); toast('Push notifications enabled on this device.'); } catch (err) { toast(err.message); } };
   const markAll = async () => { try { await ActivityModel.markAllRead(); await d.reload('activity'); } catch (err) { toast(err.message); } };
   const removeOne = async id => { try { await ActivityModel.remove(id); await d.reload('activity'); } catch (err) { toast(err.message); } };
   const clearAll = async () => { if (!confirm('Delete all notifications?')) return; try { await ActivityModel.clear(); await d.reload('activity'); toast('Notifications cleared.'); } catch (err) { toast(err.message); } };
@@ -66,15 +101,16 @@ export function NotificationsScreen() {
   const when = at => (at ? new Date(at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
   return (
     <div className="content">
+      {push.supported && !push.subscribed && push.permission !== 'denied' && <PushBanner push={push} onEnable={enablePush} />}
       {alerts.length > 0 && (<>
         <SectionTitle>Needs attention <Chip tone="pk">{alerts.length}</Chip></SectionTitle>
         <div className="panel panel-b list simple-list notif-alert" style={{ paddingTop: 4 }}>
           {alerts.map((i, k) => <div className="row" key={k}><i className="dot" style={{ background: i.c }}></i><div>{i.t}<small>{i.m}</small></div><LinkBtn href={i.go} style={{ marginLeft: 'auto' }}>Open</LinkBtn></div>)}
         </div>
       </>)}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><SectionTitle>Notifications {d.activity.unread > 0 && <Chip tone="pu">{d.activity.unread} new</Chip>}</SectionTitle><span style={{ display: 'flex', gap: 14 }}>{d.activity.unread > 0 && <LinkBtn onClick={markAll}>Mark all read</LinkBtn>}{d.activity.items.length > 0 && <LinkBtn onClick={clearAll} style={{ color: 'var(--danger)' }}>Clear all</LinkBtn>}</span></div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}><SectionTitle>Notifications {d.activity.unread > 0 && <Chip tone="pu">{d.activity.unread} new</Chip>}</SectionTitle><span style={{ display: 'flex', gap: 14, alignItems: 'center' }}>{isAdmin && <button className="date-btn" onClick={() => modals.open('announce')}><Icon name="bell" />Send announcement</button>}{d.activity.unread > 0 && <LinkBtn onClick={markAll}>Mark all read</LinkBtn>}{d.activity.items.length > 0 && <LinkBtn onClick={clearAll} style={{ color: 'var(--danger)' }}>Clear all</LinkBtn>}</span></div>
       <div className="panel panel-b list simple-list" style={{ paddingTop: 4 }}>
-        {pager.items.map(x => <div className="row" key={x.id} style={x.read ? undefined : { background: 'var(--ov-04)', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}><i className="dot" style={{ background: x.read ? 'var(--dim)' : x.kind === 'task' ? 'var(--accent)' : x.kind === 'project' ? 'var(--violet)' : 'var(--info)' }}></i><div style={{ flex: 1, minWidth: 0 }}>{x.text}<small>{when(x.at)}</small></div><NotifActions n={x} /><button className="mini-btn" onClick={() => removeOne(x.id)} aria-label="Delete notification" title="Delete">✕</button></div>)}
+        {pager.items.map(x => <div className="row" key={x.id} style={x.read ? undefined : { background: 'var(--ov-04)', margin: '0 -16px', paddingLeft: 16, paddingRight: 16 }}><i className="dot" style={{ background: x.read ? 'var(--dim)' : x.kind === 'announcement' ? 'var(--pink)' : x.kind === 'task' ? 'var(--accent)' : x.kind === 'project' ? 'var(--violet)' : 'var(--info)' }}></i><div style={{ flex: 1, minWidth: 0 }}>{x.text}<small>{when(x.at)}</small></div><NotifActions n={x} /><button className="mini-btn" onClick={() => removeOne(x.id)} aria-label="Delete notification" title="Delete">✕</button></div>)}
         {!d.activity.items.length && !alerts.length && <Empty ring title="All clear">Nothing needs your attention</Empty>}
         {!d.activity.items.length && alerts.length > 0 && <Empty>No notifications yet</Empty>}
         <Pager pager={pager} compact />
@@ -116,6 +152,7 @@ export function SettingsScreen() {
         <div><b style={{ fontSize: 15 }}>Appearance</b><div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>Dark keeps the yellow accent; Light is white with a graphite accent. Saved on this device.</div></div>
         <Seg items={THEMES} value={theme} onChange={setTheme} />
       </div>
+      <PushPanel />
       <div className="grid" style={{ gridTemplateColumns: '1fr' }}>
         <div className="panel" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><b style={{ fontSize: 15 }}>Your account</b><Chip tone={isAdmin ? 'pu' : 'gy'}>{role}</Chip></div>

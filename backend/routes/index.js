@@ -21,6 +21,7 @@ const activityRoutes = require('./activity.routes');
 const reportRoutes = require('./report.routes');
 const clientRoutes = require('./client.routes');
 const settingsRoutes = require('./settings.routes');
+const pushRoutes = require('./push.routes');
 
 // Healthcheck
 router.get('/health', (req, res) => {
@@ -54,5 +55,6 @@ router.use('/activity', activityRoutes);
 router.use('/reports', reportRoutes);
 router.use('/clients', clientRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/push', pushRoutes);
 
 module.exports = router;

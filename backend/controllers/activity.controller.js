@@ -1,6 +1,7 @@
 'use strict';
 
 const activityModel = require('../models/activity.model');
+const employeeModel = require('../models/employee.model');
 const taskModel = require('../models/task.model');
 const projectModel = require('../models/project.model');
 const apiResponse = require('../utils/apiResponse');
@@ -30,6 +31,18 @@ const deleteOne = catchAsync(async (req, res) => {
   return apiResponse.success(res, null, 'Notification removed');
 });
 
+/** Admin announcement: lands in everyone's notifications (optionally one department) and is pushed to their phones. */
+const broadcast = catchAsync(async (req, res) => {
+  if (!isAdmin(req)) throw new AppError('Only admins can send announcements.', 403);
+  const text = String(req.body.text || '').trim().slice(0, 500);
+  if (!text) throw new AppError('Write a message first.', 400);
+  const dept = String(req.body.dept || '').trim();
+  const all = await employeeModel.findAll(dept ? { dept } : {});
+  const ids = all.filter(e => e.active === undefined || e.active === null || Number(e.active) !== 0).map(e => e.id);
+  await activityModel.notify(ids, text, { kind: 'announcement', link: '/notifications', ref_type: 'announcement', title: 'Announcement · ' + req.user.name });
+  return apiResponse.success(res, { recipients: ids.length }, 'Sent to ' + ids.length + ' people');
+});
+
 const clearAll = catchAsync(async (req, res) => {
   const n = await activityModel.clearFor(req.user.id, isAdmin(req));
   return apiResponse.success(res, { removed: n }, 'Notifications cleared');
@@ -46,4 +59,4 @@ const getAlerts = catchAsync(async (req, res) => {
   return apiResponse.success(res, { totalAlerts: overdueTasks.length + overshotProjects.length, overdueTasks, overshotProjects });
 });
 
-module.exports = { getActivities, markAllRead, getAlerts, deleteOne, clearAll };
+module.exports = { broadcast, getActivities, markAllRead, getAlerts, deleteOne, clearAll };

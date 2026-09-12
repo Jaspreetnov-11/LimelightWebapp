@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { useAuth } from './AuthController';
 import { useData } from './DataController';
 import { useUi } from './UiController';
-import { AttendanceModel, AuthModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
+import { ActivityModel, AttendanceModel, AuthModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
 import { ACCESS_LABEL, avFor, ini, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO } from '@/lib/format';
 
 export function useModals() {
@@ -186,6 +186,19 @@ export function useModals() {
           toast('Attendance saved.');
           await reload('today', 'employees');
           if (preset.after) preset.after();
+        }
+      });
+    } else if (kind === 'announce') {
+      openModal({
+        title: 'Send announcement', sub: 'Goes to everybody as a notification and as a push notification on their phones.', ok: 'Send',
+        fields: [
+          { name: 'dept', label: 'Send to', type: 'select', options: [{ v: '', l: 'Everyone' }].concat(deptOpts), value: '' },
+          { name: 'text', label: 'Message', type: 'textarea', required: true, value: '', placeholder: 'e.g. Office closed tomorrow for Diwali. Enjoy the holiday!', validate: v => (v && v.length <= 500) || 'Keep it under 500 characters.' }
+        ],
+        onSubmit: async d => {
+          const r = await ActivityModel.broadcast(d.text, d.dept);
+          toast((r && r.message) || 'Announcement sent.');
+          await reload('activity');
         }
       });
     } else if (kind === 'password') {
