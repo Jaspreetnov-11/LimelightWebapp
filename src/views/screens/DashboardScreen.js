@@ -7,7 +7,7 @@ import { useUi } from '@/controllers/UiController';
 import { useClock } from '@/controllers/useClock';
 import { useModals } from '@/controllers/useModals';
 import { TaskModel, TodoModel } from '@/models';
-import { Chip, Empty, GeoLink, Icon, LinkBtn, Panel, Pills, SectionTitle, StatusBars } from '@/views/ui';
+import { Avatar, Chip, Empty, GeoLink, Icon, LinkBtn, Panel, Pills, SectionTitle, StatusBars } from '@/views/ui';
 import { Bars, DonutChart, HBars, PairBars, Ring } from '@/views/ui/charts';
 import { assigneeIds, fmtD, greeting, hhmm, hm, hrs1, inr, MODE_LABEL, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
 
@@ -133,6 +133,11 @@ export function DashboardScreen() {
   const [localTodos, setLocalTodos] = useState(null); // optimistic copy so a new to-do shows instantly
   useEffect(() => { setLocalTodos(null); }, [d.todos]);
   const todos = localTodos || d.todos;
+  const perf = d.performance;
+  const perfList = perf ? perf.list : [];
+  const top5 = perfList.filter(e => e.points > 0).slice(0, 5);
+  const mePerf = perfList.find(e => e.id === me.id);
+  const rankedCount = perfList.filter(e => e.points > 0).length;
   const [adding, setAdding] = useState(false);
 
   const addTodo = async e => {
@@ -191,6 +196,36 @@ export function DashboardScreen() {
         <Kpi label="Overtime" value={(Number(st.otHours) || 0) + 'h'} sub={'paid at ' + ((d.settings && d.settings.otRate) || 1) + '× hourly'} />
         <Kpi label="Tasks delivered" value={deliveredMine.length} sub={deliveredMine.length ? onTimeMine + ' on time' : 'this month'} tone={deliveredMine.length && onTimeMine === deliveredMine.length ? 'ok' : ''} />
         <Kpi label="Your pending pay" value={inr(meRow ? meRow.pendingBal : 0)} sub={meRow && meRow.earned !== undefined ? 'earned ' + inr(meRow.earned) + ' · paid ' + inr(meRow.paid) : 'this month'} />
+      </div>
+
+      <SectionTitle>Performance <span className="lb-hint" title="Points per delivered task = 10 × task type × timeliness × efficiency. Creative work (Shoot, Edit, Design) weighs 1.5, Content 1.3, Social Media 1.0, Client Call 0.8, Other 0.7. On or before deadline ×1.5, up to 2 days late ×0.9, later ×0.6. Finishing within the allocated hours adds up to ×1.25, going far over drops to ×0.75.">how points work</span></SectionTitle>
+      <div className="dash-2 lb-grid">
+        <div className="panel">
+          <div className="panel-h">Top performers this month<Chip tone="gy">{rankedCount} ranked</Chip></div>
+          <div className="panel-b">
+            {top5.length ? <div className="lb">{top5.map((e, i) => (
+              <div className={'lb-row' + (e.id === me.id ? ' me' : '')} key={e.id}>
+                <span className={'lb-rank r' + (i + 1)}>{i + 1}</span>
+                <Avatar e={e} cls="" />
+                <div className="lb-who"><b>{e.name}{e.id === me.id ? ' (you)' : ''}</b><small>{e.dept || '—'}{e.role ? ' · ' + e.role : ''}</small></div>
+                <div className="lb-stats"><span><b>{e.tasks}</b> tasks</span><span><b>{e.onTimePct === null ? '—' : e.onTimePct + '%'}</b> on time</span><span><b>{e.creative}</b> creative</span></div>
+                <div className="lb-pts"><b>{e.points}</b><small>pts</small></div>
+              </div>))}</div> : <Empty ring icon="chart" title="No tasks delivered yet">Points appear as tasks get approved this month</Empty>}
+          </div>
+        </div>
+        <div className="panel lb-me">
+          <div className="panel-h">Your score</div>
+          <div className="panel-b">
+            <div className="lb-hero"><b>{mePerf ? mePerf.points : 0}</b><span>points · {mePerf && mePerf.rank ? 'rank ' + mePerf.rank + ' of ' + rankedCount : 'not ranked yet'}</span></div>
+            <div className="kv">
+              <div><span>Tasks delivered</span><b>{mePerf ? mePerf.tasks : 0}</b></div>
+              <div><span>Delivered on time</span><b>{mePerf && mePerf.onTimePct !== null ? mePerf.onTimePct + '%' : '—'}</b></div>
+              <div><span>Creative tasks</span><b>{mePerf ? mePerf.creative : 0}</b></div>
+              <div><span>Avg time per task</span><b>{mePerf && mePerf.avgTakenMins ? hrs1(mePerf.avgTakenMins) : '—'}</b></div>
+            </div>
+            <small className="lb-tip">Creative work and on-time delivery earn the most. Finishing within the allocated hours adds a bonus.</small>
+          </div>
+        </div>
       </div>
 
       <div className="dash-2">

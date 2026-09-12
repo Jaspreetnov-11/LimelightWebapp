@@ -133,6 +133,10 @@ export const PushModel = {
   test: () => api.post('/push/test')
 };
 
+export const PerformanceModel = {
+  get: month => data(api.get('/performance', { month }))
+};
+
 export const ReportModel = {
   // Returns a Blob for the CSV; the caller triggers the download.
   download: async (name, params) => {

@@ -2,7 +2,7 @@
 // Data controller: in-memory store of every collection the screens need, loaded from the backend.
 // Screens read from here and call `reload(...)` after a write so all views stay consistent.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityModel, AttendanceModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, ProjectModel, SettingsModel, TaskModel, TodoModel } from '@/models';
+import { ActivityModel, AttendanceModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PerformanceModel, ProjectModel, SettingsModel, TaskModel, TodoModel } from '@/models';
 import { useAuth } from './AuthController';
 import { managerIds, thisMonth } from '@/lib/format';
 
@@ -25,10 +25,11 @@ const LOADERS = {
 // Loaders that depend on who is logged in
 const USER_LOADERS = {
   myStats: me => AttendanceModel.stats(me.id, thisMonth()),
+  performance: () => PerformanceModel.get(thisMonth()),
   teamSummary: (me, isAdmin) => (isAdmin || me.access === 'manager' ? AttendanceModel.teamSummary(thisMonth()) : Promise.resolve(null)),
   clients: (me, isAdmin) => (isAdmin || me.access === 'manager' ? ClientModel.list().then(r => r.data || []) : Promise.resolve([]))
 };
-const EMPTY = { employees: [], departments: [], projects: [], tasks: [], today: null, leaves: [], holidays: [], todos: [], files: [], activity: { items: [], unread: 0 }, alerts: null, myStats: null, teamSummary: null, clients: [], settings: null };
+const EMPTY = { employees: [], departments: [], projects: [], tasks: [], today: null, leaves: [], holidays: [], todos: [], files: [], activity: { items: [], unread: 0 }, alerts: null, myStats: null, teamSummary: null, clients: [], settings: null, performance: null };
 
 export function DataProvider({ children }) {
   const { isAuthed, me, isAdmin } = useAuth();
@@ -40,7 +41,8 @@ export function DataProvider({ children }) {
   meRef.current = { me, isAdmin };
 
   const reload = useCallback(async (...keys) => {
-    const list = keys.length ? keys : [...Object.keys(LOADERS), ...Object.keys(USER_LOADERS)];
+    // Task changes move the leaderboard, so refresh it alongside tasks
+    const list = keys.length ? (keys.includes('tasks') && !keys.includes('performance') ? [...keys, 'performance'] : keys) : [...Object.keys(LOADERS), ...Object.keys(USER_LOADERS)];
     const results = await Promise.allSettled(list.map(k => {
       if (!inflight.current[k]) {
         const run = LOADERS[k] ? LOADERS[k]() : USER_LOADERS[k] ? USER_LOADERS[k](meRef.current.me || {}, meRef.current.isAdmin) : Promise.resolve(undefined);

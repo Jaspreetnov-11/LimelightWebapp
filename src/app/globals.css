@@ -1044,3 +1044,16 @@ html[data-theme="light"]{
 @media (max-width:640px){ .viz-h{flex-direction:column; align-items:flex-start; gap:2px} .viz-h span{text-align:left} .viz-grid .viz-card{min-height:0} }
 @media (max-width:640px){ .viz-donut{flex-direction:column; align-items:center; gap:12px} .viz-legend.col{width:100%} }
 .push-banner{padding:14px 18px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; border-color:var(--accent); background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent)}
+/* ---------- Performance leaderboard ---------- */
+.lb-hint{font-size:11.5px; font-weight:400; color:var(--muted); margin-left:8px; border-bottom:1px dotted var(--muted); cursor:help}
+.lb{display:flex; flex-direction:column; gap:6px}
+.lb-row{display:grid; grid-template-columns:28px 34px minmax(0,1fr) auto auto; gap:12px; align-items:center; padding:8px 10px; border-radius:12px; background:var(--ov-03)}
+.lb-row.me{outline:1px solid var(--accent)}
+.lb-rank{width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-weight:800; font-size:12px; background:var(--ov-08); color:var(--t2)}
+.lb-rank.r1{background:#f4c430; color:#1a1400} .lb-rank.r2{background:#c9ccd3; color:#1a1a1f} .lb-rank.r3{background:#d39a63; color:#221105}
+.lb-who{min-width:0} .lb-who b{display:block; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .lb-who small{color:var(--muted); font-size:11.5px}
+.lb-stats{display:flex; gap:12px; font-size:11.5px; color:var(--muted); white-space:nowrap} .lb-stats b{color:var(--text); font-weight:600}
+.lb-pts{text-align:right; min-width:52px} .lb-pts b{font-size:18px; letter-spacing:-.02em; font-variant-numeric:tabular-nums} .lb-pts small{display:block; font-size:10px; color:var(--muted)}
+.lb-hero{display:flex; align-items:baseline; gap:10px; margin-bottom:12px} .lb-hero b{font-size:34px; letter-spacing:-.03em; line-height:1} .lb-hero span{font-size:12.5px; color:var(--muted)}
+.lb-tip{display:block; margin-top:12px; font-size:11.5px; color:var(--muted); line-height:1.4}
+@media (max-width:1200px){ .lb-row{grid-template-columns:28px 34px minmax(0,1fr) auto} .lb-stats{grid-column:3 / 5; margin-top:-2px; flex-wrap:wrap; gap:8px 12px} }
