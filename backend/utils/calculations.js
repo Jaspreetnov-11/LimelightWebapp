@@ -11,7 +11,10 @@ const APP_TZ = process.env.APP_TZ || 'Asia/Kolkata';
 // ---- configurable work rules (mutated in place by configure so existing imports stay live)
 const SHIFTS = {
   day: { label: 'Day (11 am – 7 pm)', start: '11:00', end: '19:00', otAfter: '20:00' },
-  evening: { label: 'Evening (2 pm – 10 pm)', start: '14:00', end: '22:00', otAfter: '23:00' }
+  evening: { label: 'Evening (2 pm – 10 pm)', start: '14:00', end: '22:00', otAfter: '23:00' },
+  ten: { label: '10 – 6 (10 am – 6 pm)', start: '10:00', end: '18:00', otAfter: '19:00' },
+  noon: { label: '12 – 5 (12 pm – 5 pm)', start: '12:00', end: '17:00', otAfter: '18:00' },
+  flexible: { label: 'Flexible', start: '00:00', end: '23:59', otAfter: '23:59', flexible: true }
 };
 const cfg = { graceMins: 20, hoursPerDay: 8, otRate: 1, weekOff: [0] }; // weekOff: 0 = Sunday
 
@@ -58,6 +61,7 @@ const shiftOf = key => SHIFTS[key] || SHIFTS[Object.keys(SHIFTS)[0]] || { label:
 /** True when the clock-in is later than shift start + grace. */
 const isLate = (shiftKey, clockIn) => {
   const s = shiftOf(shiftKey);
+  if (s.flexible) return false; // flexible shift: no fixed start, never late
   const t = toMins(clockIn);
   return t !== null && t > toMins(s.start) + cfg.graceMins;
 };
@@ -66,11 +70,15 @@ const isLate = (shiftKey, clockIn) => {
  *  nextDay = true when the clock-out happened after midnight (e.g. 01:30 the next day). */
 const otHoursFor = (shiftKey, clockOut, nextDay = false) => {
   const s = shiftOf(shiftKey);
+  if (s.flexible) return 0; // flexible: OT is worked minutes beyond hours per day (see flexibleOt)
   const t = toMins(clockOut);
   if (t === null) return 0;
   const extra = t + (nextDay ? 1440 : 0) - toMins(s.otAfter);
   return extra > 0 ? Math.round((extra / 60) * 100) / 100 : 0;
 };
+
+/** Flexible shift overtime: minutes worked beyond the daily hours, in hours (2 decimals). */
+const flexibleOt = workedMins => { const extra = (Number(workedMins) || 0) - cfg.hoursPerDay * 60; return extra > 0 ? Math.round((extra / 60) * 100) / 100 : 0; };
 
 /** Minutes worked on a punch across all sessions (handles multiple punches/rechecking and out_next_day). */
 const punchMinutes = row => {
@@ -153,6 +161,7 @@ module.exports = {
   otHoursFor,
   punchMinutes,
   workdaysIn,
+  flexibleOt,
   weekOffOf,
   calculateEarnedSalary,
   formatINR

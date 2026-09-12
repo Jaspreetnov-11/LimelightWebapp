@@ -7,7 +7,7 @@ import { useData } from '@/controllers/DataController';
 import { useClock } from '@/controllers/useClock';
 import { Icon } from '@/views/ui/Icons';
 import { LimelightLoader } from '@/views/ui/Loader';
-import { greeting, hhmm } from '@/lib/format';
+import { greeting, hhmm, shiftDisplay } from '@/lib/format';
 
 export const SPLASH_KEY = 'lh-splash-seen';
 
@@ -54,7 +54,7 @@ function SlideToClockIn({ onDone, busy }) {
 
 export function ClockSplash({ onDone }) {
   const { me } = useAuth();
-  const { loaded, today } = useData();
+  const { loaded, today, settings } = useData();
   const clock = useClock();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 15000); return () => clearInterval(t); }, []);
@@ -71,7 +71,7 @@ export function ClockSplash({ onDone }) {
       <div className="splash-hi">
         <div className="eyebrow">{greeting()}</div>
         <h1>{me.name.split(' ')[0]}, ready to start?</h1>
-        <p>{now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short' })} · {hhmm(now)} · shift {me.shift === 'evening' ? '2 pm – 10 pm' : '11 am – 7 pm'}</p>
+        <p>{now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short' })} · {hhmm(now)} · shift {shiftDisplay(me.shift, settings)}</p>
       </div>
       <SlideToClockIn onDone={go} busy={clock.busy} />
       <button type="button" className="splash-skip" onClick={onDone} disabled={clock.busy}>Not now, take me to Home</button>

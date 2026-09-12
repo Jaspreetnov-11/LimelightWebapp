@@ -69,7 +69,7 @@ async function buildContext(user) {
   return {
     name: user.name, firstName: String(user.name || '').split(' ')[0], role: user.role, dept: emp ? emp.dept : '', designation: emp ? emp.role : '',
     today, now: nowHHMM(), month,
-    shift: shift ? { label: shift.label, start: shift.start, end: shift.end, otAfter: shift.otAfter, graceMins: s.graceMins } : null,
+    shift: shift ? { label: shift.label, start: shift.start, end: shift.end, otAfter: shift.otAfter, graceMins: s.graceMins, flexible: Boolean(shift.flexible) } : null,
     hoursPerDay: s.hoursPerDay || 8,
     weekOff: weekOff.map(d => DAYS[d]).join(', '),
     todayPunch: todayRow ? { clockedIn: true, open: todayRow.open, mins: todayRow.mins, late: Boolean(todayRow.late), mode: todayRow.mode, breakMins: todayRow.breakMins || 0 } : { clockedIn: false },
@@ -134,7 +134,7 @@ function answerWithRules(ctx, q) {
     return `Leave balance: ${ctx.leaves.left} din bachi hain (quota ${ctx.leaves.quota}, use ${ctx.leaves.used}${ctx.leaves.pending ? ', pending ' + ctx.leaves.pending : ''}).${hol ? ' Aane wali holidays: ' + hol + '.' : ''} Apply karne ke liye Leaves / WFH page ya Quick Actions use karo.`;
   }
   if (has('score', 'rank', 'performance', 'marks', 'points')) return ctx.score ? `Is mahine aapka score ${ctx.score.total} / 100 hai (software ${ctx.score.auto} / 50${ctx.score.adminMarks !== null ? ', admin ' + ctx.score.adminMarks + ' / 50' : ', admin marks abhi nahi mile'})${ctx.score.rank ? ', rank ' + ctx.score.rank : ''}. ${ctx.score.tasksDelivered} tasks deliver kiye${ctx.score.onTimePct !== null ? ', ' + ctx.score.onTimePct + '% on time' : ''}.` : 'Score abhi calculate nahi hua. Tasks complete hone pe points aate hain.';
-  if (has('shift', 'timing', 'late', 'grace', 'overtime', ' ot')) return ctx.shift ? `Aapki shift ${ctx.shift.label}: ${ctx.shift.start} se ${ctx.shift.end}, ${ctx.shift.graceMins} min grace. ${ctx.shift.otAfter} ke baad overtime count hota hai. Is mahine ${m ? m.late : 0} late arrivals aur ${m ? m.otHours : 0}h OT.` : 'Shift details abhi available nahi.';
+  if (has('shift', 'timing', 'late', 'grace', 'overtime', ' ot')) return ctx.shift && ctx.shift.flexible ? `Aapki shift Flexible hai: koi fixed start time nahi, late mark nahi hota. Din mein ${ctx.hoursPerDay} ghante expected hain, usse zyada kaam overtime mein ginta hai. Is mahine ${m ? m.otHours : 0}h OT.` : ctx.shift ? `Aapki shift ${ctx.shift.label}:${ctx.shift.start} se ${ctx.shift.end}, ${ctx.shift.graceMins} min grace. ${ctx.shift.otAfter} ke baad overtime count hota hai. Is mahine ${m ? m.late : 0} late arrivals aur ${m ? m.otHours : 0}h OT.` : 'Shift details abhi available nahi.';
   if (has('attendance', 'present', 'absent', 'month', 'mahina', 'mahine')) return m ? `Is mahine: ${m.present} present, ${m.half} half day, ${m.leave} leave, ${m.absent} absent, ${m.late} late. Total ${m.totalWorked} kaam (expected ${m.expected}).` : 'Attendance data abhi load nahi hua.';
   if (has('salary', 'pay', 'paisa', 'payment', 'advance')) return 'Salary aur payment ke sawaal admin handle karte hain. Neeche "Admin ko WhatsApp" button se seedha bhej do.';
   if (has('notification', 'announcement', 'news', 'update')) { const n = ctx.notifications.slice(0, 3).map(x => '• ' + x.text).join('\n'); return n ? `Latest notifications:\n${n}` : 'Abhi koi nayi notification nahi hai.'; }

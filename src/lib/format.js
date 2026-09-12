@@ -8,7 +8,9 @@ export const STATUS_COLOR = { completed: '#4ADE95', progress: '#FFB84D', pipelin
 export const ATT = { present: ['P', 'Present', 'gr'], half: ['HD', 'Half Day', 'or'], absent: ['A', 'Absent', 'pk'], leave: ['L', 'Leave', 'bl'] };
 export const PAY_TYPES = ['Salary', 'Advance', 'Bonus', 'Reimbursement', 'Fine'];
 export const TASK_TYPES = ['Shoot', 'Edit', 'Design', 'Content', 'Social Media', 'Client Call', 'Other'];
-export const SHIFTS = { day: 'Day · 11 am – 7 pm', evening: 'Evening · 2 pm – 10 pm' };
+export const SHIFTS = { day: 'Day · 11 am – 7 pm', evening: 'Evening · 2 pm – 10 pm', ten: '10 am – 6 pm', noon: '12 pm – 5 pm', flexible: 'Flexible' };
+/** Human label for a shift key from workspace settings (falls back to the built-in names). */
+export const shiftDisplay = (key, settings) => { const k = key || 'day'; const s = settings && settings.shifts && settings.shifts[k]; return s ? (s.display || s.label) : (SHIFTS[k] || k); };
 export const ACCESS_LABEL = { admin: 'Admin (full access)', manager: 'Team leader (projects + tasks)', staff: 'Staff (own work)' };
 const AV = ['p', 'g', 'r', 'b', 'br', 'o', 't'];
 

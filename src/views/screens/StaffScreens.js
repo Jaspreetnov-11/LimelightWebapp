@@ -43,7 +43,7 @@ export function StaffListScreen() {
                 <Avatar e={e} cls="" />
                 <div><Link href={'/staff/' + e.id} className="nm" style={{ textDecoration: 'none', color: 'inherit' }}>{e.name}</Link><small style={{ display: 'block', color: 'var(--muted)' }}>{e.role || ''}{e.phone ? ' · ' + e.phone : ''}</small></div>
                 <span className="id">{e.emp_id || ''}</span>
-                <span className="st" style={{ color: 'var(--muted)' }}>{isAdmin ? (pb > 0 ? 'Pending' : pb < 0 ? 'Advance' : 'Settled') : (e.shift === 'evening' ? 'Shift 2–10 pm' : 'Shift 11–7')}</span>
+                <span className="st" style={{ color: 'var(--muted)' }}>{isAdmin ? (pb > 0 ? 'Pending' : pb < 0 ? 'Advance' : 'Settled') : ('Shift · ' + shiftDisplay(e.shift, d.settings))}</span>
                 <span className={'money ' + (pb > 0 ? 'neg' : pb < 0 ? 'pos' : '')}>{isAdmin ? (pb > 0 ? '- ' : '') + inr(Math.abs(pb)) : ''}</span>
                 {isAdmin ? <DateBtn icon={null} onClick={() => modals.open('payment', null, { emp: e.id })}>Add Payment</DateBtn> : <span />}
               </div>

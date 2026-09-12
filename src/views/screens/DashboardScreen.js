@@ -9,7 +9,7 @@ import { useModals } from '@/controllers/useModals';
 import { TaskModel, TodoModel } from '@/models';
 import { Avatar, Chip, Empty, GeoLink, Icon, LinkBtn, Panel, Pills, SectionTitle, StatusBars } from '@/views/ui';
 import { Bars, DonutChart, HBars, PairBars, Ring } from '@/views/ui/charts';
-import { assigneeIds, fmtD, hm, hrs1, inr, leaveBalance, MODE_LABEL, weekOffOf, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
+import { assigneeIds, fmtD, hm, hrs1, inr, leaveBalance, MODE_LABEL, shiftDisplay, weekOffOf, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
 
 function TaskMini({ t, onOpen, onAccept }) {
   const { taskAssigneeNames } = useData();
@@ -24,6 +24,7 @@ function TaskMini({ t, onOpen, onAccept }) {
 
 function ClockCard() {
   const { me } = useAuth();
+  const { settings } = useData();
   const clock = useClock();
   const r = clock.punch;
   const st = clock.state;
@@ -57,7 +58,7 @@ function ClockCard() {
             {st === 're_in' && <>Active since {r.clock_in} <GeoLink lat={r.in_lat} lng={r.in_lng} addr={r.in_addr} acc={r.in_acc} /> · {hm(prevMins)} worked earlier · tap Clock Out when done</>}
             {st === 'in' && <>Since {r.clock_in} <GeoLink lat={r.in_lat} lng={r.in_lng} addr={r.in_addr} acc={r.in_acc} /> · tap Clock Out when you leave</>}
             {st === 'done' && <>Last out {r.clock_out} <GeoLink lat={r.out_lat} lng={r.out_lng} addr={r.out_addr} acc={r.out_acc} />{Number(r.ot_hours) ? ' · OT ' + r.ot_hours + 'h' : ''} · tap Re-Clock In to start another session</>}
-            {st === 'off' && <>{me.name.split(' ')[0]}, your shift is {me.shift === 'evening' ? '2 pm – 10 pm' : '11 am – 7 pm'} · {clock.selfieIn ? 'selfie + location' : 'location'} is saved with each punch</>}
+            {st === 'off' && <>{me.name.split(' ')[0]}, your shift is {shiftDisplay(me.shift, settings)} · {clock.selfieIn ? 'selfie + location' : 'location'} is saved with each punch</>}
           </small>
         </div>
       </div>

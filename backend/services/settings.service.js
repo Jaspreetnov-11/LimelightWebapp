@@ -17,7 +17,10 @@ const DEFAULTS = {
   companyName: 'Limelight',
   shifts: {
     day: { label: 'Day', start: '11:00', end: '19:00', otAfter: '20:00' },
-    evening: { label: 'Evening', start: '14:00', end: '22:00', otAfter: '23:00' }
+    evening: { label: 'Evening', start: '14:00', end: '22:00', otAfter: '23:00' },
+    ten: { label: '10 – 6', start: '10:00', end: '18:00', otAfter: '19:00' },
+    noon: { label: '12 – 5', start: '12:00', end: '17:00', otAfter: '18:00' },
+    flexible: { label: 'Flexible', start: '00:00', end: '23:59', otAfter: '23:59', flexible: true }
   },
   graceMins: 20,
   hoursPerDay: 8,
@@ -42,7 +45,7 @@ let current = { ...DEFAULTS };
 let loaded = false;
 
 const to12 = hhmm => { const [h, m] = hhmm.split(':').map(Number); const ap = h >= 12 ? 'pm' : 'am'; const hh = h % 12 || 12; return m ? `${hh}:${String(m).padStart(2, '0')} ${ap}` : `${hh} ${ap}`; };
-const shiftLabel = s => `${s.label} (${to12(s.start)} – ${to12(s.end)})`;
+const shiftLabel = s => (s.flexible ? `${s.label} (any hours, ${current.hoursPerDay || 8}h a day)` : `${s.label} (${to12(s.start)} – ${to12(s.end)})`);
 
 function validate(patch) {
   const out = {};
@@ -52,7 +55,7 @@ function validate(patch) {
     for (const [k, s] of Object.entries(patch.shifts)) {
       if (!/^[a-z]{2,20}$/.test(k)) throw new AppError('Shift key must be lowercase letters', 400);
       for (const f of ['start', 'end', 'otAfter']) if (!HHMM.test(String(s[f] || ''))) throw new AppError(`Shift "${k}": ${f} must be HH:MM (24h)`, 400);
-      out.shifts[k] = { label: String(s.label || k).trim().slice(0, 30) || k, start: s.start, end: s.end, otAfter: s.otAfter };
+      out.shifts[k] = { label: String(s.label || k).trim().slice(0, 30) || k, start: s.start, end: s.end, otAfter: s.otAfter, ...(s.flexible ? { flexible: true } : {}) };
     }
     if (!Object.keys(out.shifts).length) throw new AppError('Keep at least one shift', 400);
   }
@@ -84,7 +87,8 @@ const service = {
     try {
       const all = await settingsModel.getAll();
       current = { ...DEFAULTS, ...(all.workspace || {}) };
-      if (all.workspace && all.workspace.shifts) current.shifts = all.workspace.shifts;
+      // Saved shifts win, but new default shifts (added in later versions) are merged in
+      if (all.workspace && all.workspace.shifts) current.shifts = { ...DEFAULTS.shifts, ...all.workspace.shifts };
     } catch (e) { current = { ...DEFAULTS }; }
     loaded = true;
     apply();

@@ -98,10 +98,10 @@ function WorkRules() {
         </div>
         <div>
           <b style={{ fontSize: 13.5 }}>Shifts</b>
-          <div style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 10px' }}>Overtime starts after the “OT after” time. Times are 24-hour.</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 10px' }}>Overtime starts after the “OT after” time, or after the daily hours are done. Times are 24-hour. A flexible shift has no fixed start (never marked late); overtime counts after the daily hours.</div>
           <div style={{ overflowX: 'auto' }}><table>
-            <thead><tr><th>Key</th><th>Label</th><th>Start</th><th>End</th><th>OT after</th></tr></thead>
-            <tbody>{Object.entries(f.shifts).map(([k, s]) => <tr key={k}><td><code>{k}</code></td><td><input value={s.label} style={{ ...inp, width: 150 }} onChange={e => setShift(k, 'label', e.target.value)} /></td><td><input type="time" value={s.start} style={{ ...inp, width: 120 }} onChange={e => setShift(k, 'start', e.target.value)} /></td><td><input type="time" value={s.end} style={{ ...inp, width: 120 }} onChange={e => setShift(k, 'end', e.target.value)} /></td><td><input type="time" value={s.otAfter} style={{ ...inp, width: 120 }} onChange={e => setShift(k, 'otAfter', e.target.value)} /></td></tr>)}</tbody>
+            <thead><tr><th>Key</th><th>Label</th><th>Start</th><th>End</th><th>OT after</th><th>Flexible</th></tr></thead>
+            <tbody>{Object.entries(f.shifts).map(([k, s]) => <tr key={k}><td><code>{k}</code></td><td><input value={s.label} style={{ ...inp, width: 150 }} onChange={e => setShift(k, 'label', e.target.value)} /></td><td><input type="time" value={s.start} style={{ ...inp, width: 120 }} onChange={e => setShift(k, 'start', e.target.value)} /></td><td><input type="time" value={s.end} style={{ ...inp, width: 120 }} onChange={e => setShift(k, 'end', e.target.value)} /></td><td><input type="time" value={s.otAfter} style={{ ...inp, width: 120 }} onChange={e => setShift(k, 'otAfter', e.target.value)} /></td><td><label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={Boolean(s.flexible)} onChange={e => setShift(k, 'flexible', e.target.checked)} />no fixed hours</label></td></tr>)}</tbody>
           </table></div>
         </div>
         <div>
