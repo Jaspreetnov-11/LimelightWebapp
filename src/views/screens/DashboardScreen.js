@@ -130,9 +130,25 @@ export function DashboardScreen() {
   const topStaff = useMemo(() => (team && team.staff ? team.staff.slice().sort((a, b) => (b.totalWorkedMinutes || 0) - (a.totalWorkedMinutes || 0)).slice(0, 6).map(s => ({ label: s.name, value: Math.round((s.totalWorkedMinutes || 0) / 6) / 10, tip: s.dept })) : []), [team]);
   const clientBars = useMemo(() => (isAdmin ? (d.clients || []).filter(c => c.revenue > 0 || c.cost > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 6).map(c => ({ label: c.name, a: c.revenue || 0, b: c.cost || 0 })) : []), [d.clients, isAdmin]);
   const projects = d.projects.filter(p => isAdmin || p.manager === me.id).slice().sort((a, b) => Number(b.consumed_mins) - Number(a.consumed_mins)).slice(0, 6);
-  const todos = d.todos;
+  const [localTodos, setLocalTodos] = useState(null); // optimistic copy so a new to-do shows instantly
+  useEffect(() => { setLocalTodos(null); }, [d.todos]);
+  const todos = localTodos || d.todos;
+  const [adding, setAdding] = useState(false);
 
-  const addTodo = async e => { e.preventDefault(); const v = todoText.trim(); if (!v) return; try { await TodoModel.create(v); setTodoText(''); await d.reload('todos'); } catch (err) { toast(err.message); } };
+  const addTodo = async e => {
+    if (e && e.preventDefault) e.preventDefault();
+    const v = todoText.trim();
+    if (!v || adding) return;
+    setAdding(true);
+    try {
+      const created = await TodoModel.create(v);
+      setTodoText('');
+      setLocalTodos([created, ...(todos || [])]);
+      toast('To-do added');
+      await d.reload('todos');
+    } catch (err) { toast('Could not add to-do: ' + (err.message || 'unknown error')); }
+    finally { setAdding(false); }
+  };
   const toggleTodo = async id => { try { await TodoModel.toggle(id); await d.reload('todos'); } catch (err) { toast(err.message); } };
   const delTodo = async id => { try { await TodoModel.remove(id); await d.reload('todos'); } catch (err) { toast(err.message); } };
   const openTask = id => { window.location.assign('/tasks?task=' + id); };
@@ -183,7 +199,7 @@ export function DashboardScreen() {
           <Panel title="My tasks by status" right={<Chip tone="gy">{my.length} total</Chip>}><StatusBars tasks={my} /></Panel>
           <div className="panel">
             <div className="panel-h">My to-do list<span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400 }}>{todos.filter(t => t.done).length}/{todos.length} done</span></div>
-            <form className="todo-input" onSubmit={addTodo}><button type="submit" className="plus" aria-label="Add to-do">+</button><input value={todoText} onChange={e => setTodoText(e.target.value)} placeholder="Add a to-do" maxLength={120} autoComplete="off" /></form>
+            <form className="todo-input" onSubmit={addTodo}><button type="button" className="plus" aria-label="Add to-do" disabled={adding} onClick={addTodo}>+</button><input value={todoText} onChange={e => setTodoText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTodo(); } }} placeholder="Add a to-do" maxLength={120} autoComplete="off" enterKeyHint="done" /></form>
             <div className="todo-list">{todos.map(t => <label className={'todo-item' + (t.done ? ' done' : '')} key={t.id}><input type="checkbox" checked={!!t.done} onChange={() => toggleTodo(t.id)} /><span>{t.text}</span><button type="button" className="x" onClick={() => delTodo(t.id)} aria-label="Remove">✕</button></label>)}</div>
             {!todos.length && <Empty ring icon="tasks" title="Nothing on your list">Add a to-do to get started</Empty>}
           </div>
