@@ -19,6 +19,7 @@ const holidayModel = require('../models/holiday.model');
 const activityModel = require('../models/activity.model');
 const employeeModel = require('../models/employee.model');
 const faq = require('./assistant.faq');
+const smalltalk = require('./assistant.smalltalk');
 const { todayISO, thisMonth, punchMinutes, nowHHMM } = require('../utils/calculations');
 
 const NAME = 'Simran';
@@ -111,6 +112,9 @@ function answerWithRules(ctx, q) {
   const has = (...w) => w.some(x => t.includes(x));
   const p = ctx.todayPunch, m = ctx.monthStats;
   if (/^(hi|hello|hey|namaste|hola|helo)\b/.test(t.trim()) && t.length < 25) return `Hi ${ctx.firstName}! Main ${NAME} hoon. Aap mujhse aaj ke hours, tasks, leaves, score ya shift ke baare mein pooch sakte ho.`;
+  // Casual chat ("kaise ho", "thanks", "ok", "bye"…) gets a friendly reply
+  const st = smalltalk.reply(t, ctx);
+  if (st) return st;
   // How-to questions ("kaise", "how", "kahan", "kya hai") go to the app guide first
   if (/kaise|kese|\bhow\b|kahan|kya hai|kya hota|setting|option|button|enable|install/.test(t)) { const f = faq.match(t); if (f) return f.a; }
   if (has('break')) return p.clockedIn ? `Aaj aapne ${hm(p.breakMins)} break liya hai. Home page pe "Take a break" se break shuru aur "End break" se khatam hota hai; break ka time worked hours se minus hota hai.` : 'Break clock-in ke baad hi le sakte ho. Pehle Home se clock in karo.';
@@ -133,7 +137,7 @@ function answerWithRules(ctx, q) {
   if (has('notification', 'announcement', 'news', 'update')) { const n = ctx.notifications.slice(0, 3).map(x => '• ' + x.text).join('\n'); return n ? `Latest notifications:\n${n}` : 'Abhi koi nayi notification nahi hai.'; }
   const f = faq.match(t);
   if (f) return f.a;
-  return `Yeh main pakka nahi bata paungi. Aap pooch sakte ho: "aaj kitna kaam hua", "mere tasks", "leaves kitni bachi", "mera score", "shift timing". Ya neeche button se admin ko WhatsApp kar do.`;
+  return `Hmm, yeh wala mujhe theek se samajh nahi aaya ${ctx.firstName} 🙈 Main in cheezon mein expert hoon: aaj ke hours, tasks, leaves, score, shift, aur app kaise chalta hai ("clock in kaise kare", "leave kaise apply kare"). Agar ye kuch aur hai to neeche "Admin ko WhatsApp karo" se seedha admin tak pahunch jaayega.`;
 }
 
 async function chat(user, history) {
