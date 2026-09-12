@@ -79,6 +79,8 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
         aria-modal="true"
         style={{
           maxWidth: 480,
+          maxHeight: '90vh',
+          overflowY: 'auto',
           background: 'var(--panel-solid)',
           borderRadius: 22,
           border: '1px solid var(--line)',
@@ -155,6 +157,7 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
               style={{
                 maxHeight: 180,
                 overflowY: 'auto',
+                overflowX: 'hidden',
                 border: '1px solid var(--line)',
                 borderRadius: 12,
                 background: 'rgba(20,20,23,0.5)',
@@ -176,7 +179,9 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
                       cursor: 'pointer',
                       background: isChecked ? 'rgba(255,210,31,0.08)' : 'transparent',
                       border: isChecked ? '1px solid var(--accent-line)' : '1px solid transparent',
-                      marginBottom: 2
+                      marginBottom: 2,
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}
                   >
                     <input
@@ -184,15 +189,30 @@ export function ReassignTaskModal({ isOpen, task, employees = [], currentUserId,
                       name="reassign_colleague"
                       checked={isChecked}
                       onChange={() => selectColleague(emp.id)}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        minWidth: 16,
+                        maxWidth: 16,
+                        margin: 0,
+                        padding: 0,
+                        flexShrink: 0,
+                        accentColor: 'var(--accent)',
+                        cursor: 'pointer',
+                        boxShadow: 'none',
+                        border: 0
+                      }}
                     />
-                    <Avatar e={emp} cls="sm" />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: isChecked ? 600 : 500, color: 'var(--text)' }}>
+                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                      <Avatar e={emp} cls="sm" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
+                      <div style={{ fontSize: 13, fontWeight: isChecked ? 600 : 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {emp.name}
                       </div>
-                      <small style={{ color: 'var(--muted)', fontSize: 11 }}>
+                      <div style={{ color: 'var(--muted)', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
                         {emp.role || ''}{emp.dept ? ' · ' + emp.dept : ''}
-                      </small>
+                      </div>
                     </div>
                   </label>
                 );
