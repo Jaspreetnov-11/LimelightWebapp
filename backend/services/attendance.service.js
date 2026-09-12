@@ -5,8 +5,7 @@ const employeeModel = require('../models/employee.model');
 const leaveModel = require('../models/leave.model');
 const activityModel = require('../models/activity.model');
 const AppError = require('../utils/appError');
-const { todayISO, thisMonth, nowHHMM, workdaysIn, isLate, otHoursFor, punchMinutes, shiftOf, hoursPerDay } = require('../utils/calculations');
-
+const { todayISO, thisMonth, nowHHMM, workdaysIn, isLate, otHoursFor, punchMinutes, shiftOf, hoursPerDay, toMins } = require('../utils/calculations');
 const yesterdayOf = iso => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
 const MODES = ['office', 'wfh', 'field'];
 
@@ -89,14 +88,36 @@ function computeMonthStats(rows, leaves, month) {
 class AttendanceService {
   async processClockIn(empId, { lat = null, lng = null, acc = null, addr = '', mode = 'office', selfie = '' } = {}) {
     const today = todayISO();
-    const [existing, emp, open] = await Promise.all([
+    const [existing, emp] = await Promise.all([
       attendanceModel.findByEmpAndDate(empId, today),
-      employeeModel.findById(empId),
-      attendanceModel.findOpenPunch(empId, yesterdayOf(today))
+      employeeModel.findById(empId)
     ]);
 
-    if (open && open.date !== today) throw new AppError(`You are still clocked in from ${open.date} (${open.clock_in}). Clock out first.`, 400);
-    if (existing && existing.clock_in && !existing.clock_out) throw new AppError('Already clocked in right now. Clock out first.', 400);
+    // Prevent duplicate clock-in only if currently clocked in for today
+    if (existing && existing.clock_in && !existing.clock_out) {
+      throw new AppError('Already clocked in right now. Clock out first.', 400);
+    }
+
+    // Auto-close any dangling open punches from previous days so employee is never blocked
+    const dangling = await db.all(
+      "SELECT * FROM lh_attendance WHERE emp = ? AND date < ? AND clock_in <> '' AND (clock_out = '' OR clock_out IS NULL)",
+      [empId, today]
+    );
+    for (const d of dangling) {
+      const s = shiftOf(emp ? emp.shift : 'day');
+      let autoOut = s.end || '19:00';
+      const inMins = toMins(d.clock_in) || 0;
+      const endMins = toMins(autoOut) || (19 * 60);
+      if (inMins >= endMins) {
+        const standardMins = hoursPerDay() * 60;
+        const target = Math.min(inMins + standardMins, 23 * 60 + 59);
+        const hh = String(Math.floor(target / 60)).padStart(2, '0');
+        const mm = String(target % 60).padStart(2, '0');
+        autoOut = `${hh}:${mm}`;
+      }
+      const note = (d.note ? d.note + ' · ' : '') + 'Auto-closed at shift end';
+      await attendanceModel.update(d.id, { clock_out: autoOut, note });
+    }
 
     const inSelfie = cleanSelfie(selfie, settingsService.get().selfieOnClockIn, 'clock in');
     purgeOldSelfies();
@@ -172,12 +193,25 @@ class AttendanceService {
 
   async processClockOut(empId, { lat = null, lng = null, acc = null, addr = '', selfie = '' } = {}) {
     const today = todayISO();
-    // The open punch may be yesterday's: late-night shifts clock out after midnight
-    const [existing, emp] = await Promise.all([attendanceModel.findOpenPunch(empId, yesterdayOf(today)), employeeModel.findById(empId)]);
+    const [todays, emp] = await Promise.all([
+      attendanceModel.findByEmpAndDate(empId, today),
+      employeeModel.findById(empId)
+    ]);
+
+    let existing = null;
+    if (todays && todays.clock_in && !todays.clock_out) {
+      existing = todays;
+    } else if (todays && todays.clock_out) {
+      throw new AppError('Already clocked out. Tap Re-Clock In if you want to start another session.', 400);
+    } else {
+      // Check if there is an open overnight shift from yesterday
+      const openYesterday = await attendanceModel.findOpenPunch(empId, yesterdayOf(today));
+      if (openYesterday && openYesterday.date !== today) {
+        existing = openYesterday;
+      }
+    }
 
     if (!existing || !existing.clock_in) {
-      const todays = await attendanceModel.findByEmpAndDate(empId, today);
-      if (todays && todays.clock_out) throw new AppError('Already clocked out. Tap Re-Clock In if you want to start another session.', 400);
       throw new AppError('You have not clocked in yet today.', 400);
     }
     const outSelfie = cleanSelfie(selfie, settingsService.get().selfieOnClockOut, 'clock out');

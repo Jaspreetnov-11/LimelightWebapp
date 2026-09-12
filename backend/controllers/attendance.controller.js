@@ -6,7 +6,7 @@ const employeeModel = require('../models/employee.model');
 const apiResponse = require('../utils/apiResponse');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
-const { todayISO, thisMonth } = require('../utils/calculations');
+const { todayISO, thisMonth, toMins, nowHHMM, shiftOf, hoursPerDay } = require('../utils/calculations');
 
 // Selfies are stored on the row; list responses only say whether one exists.
 const pub = a => {
@@ -68,7 +68,33 @@ const getTodayStatus = catchAsync(async (req, res) => {
     if (!myPunch) {
       const y = new Date(today + 'T00:00:00Z'); y.setUTCDate(y.getUTCDate() - 1);
       const open = await attendanceModel.findOpenPunch(empId, y.toISOString().slice(0, 10));
-      if (open) myPunch = open;
+      if (open) {
+        // Is this a legitimate overnight punch (e.g. within 14 hours of clock-in)?
+        const inMins = toMins(open.clock_in) || 0;
+        const nowMins = toMins(nowHHMM()) || 0;
+        const elapsedMins = (nowMins + 1440) - inMins;
+        if (elapsedMins <= 14 * 60) {
+          myPunch = open;
+        } else {
+          // Lingering missed clock-out from yesterday: auto-close it
+          const emp = await employeeModel.findById(empId);
+          const s = shiftOf(emp ? emp.shift : 'day');
+          let autoOut = s.end || '19:00';
+          const endMins = toMins(autoOut) || (19 * 60);
+          if (inMins >= endMins) {
+            const standardMins = hoursPerDay() * 60;
+            const target = Math.min(inMins + standardMins, 23 * 60 + 59);
+            const hh = String(Math.floor(target / 60)).padStart(2, '0');
+            const mm = String(target % 60).padStart(2, '0');
+            autoOut = `${hh}:${mm}`;
+          }
+          await attendanceModel.update(open.id, {
+            clock_out: autoOut,
+            note: (open.note ? open.note + ' · ' : '') + 'Auto-closed at shift end'
+          });
+          myPunch = null;
+        }
+      }
     }
   }
 
@@ -198,13 +224,13 @@ const getTeamSummary = catchAsync(async (req, res) => {
 });
 module.exports.getTeamSummary = getTeamSummary;
 
-/** The stored selfie image for a punch (admins / managers, or the person themselves). */
+/** The stored selfie image for a punch (strictly admins only). */
 const getSelfie = catchAsync(async (req, res) => {
   const { id, which } = req.params;
   const row = await attendanceModel.findById(id);
   if (!row) throw new AppError('Attendance entry not found', 404);
-  const allowed = req.user.role === 'admin' || req.user.role === 'manager' || req.user.id === row.emp;
-  if (!allowed) throw new AppError('Not allowed', 403);
+  const isAdmin = req.user && (req.user.role === 'admin' || req.user.access === 'admin');
+  if (!isAdmin) throw new AppError('Only admins can view attendance verification photos.', 403);
   const data = which === 'out' ? row.out_selfie : row.in_selfie;
   if (!data) throw new AppError('No selfie stored for this punch', 404);
   const m = String(data).match(/^data:(image\/[a-z]+);base64,(.+)$/);
