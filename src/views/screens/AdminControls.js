@@ -7,9 +7,9 @@ import { useAuth } from '@/controllers/AuthController';
 import { useData } from '@/controllers/DataController';
 import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
-import { ActivityModel, AttendanceModel, EmployeeModel, SettingsModel } from '@/models';
+import { ActivityModel, AttendanceModel, EmployeeModel, PerformanceModel, SettingsModel } from '@/models';
 import { Avatar, Chip, Empty, Pills, Sq } from '@/views/ui';
-import { ACCESS_LABEL, ATT, fmtD, inr, todayISO } from '@/lib/format';
+import { ACCESS_LABEL, ATT, fmtD, inr, thisMonth, todayISO } from '@/lib/format';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const inp = { height: 36, fontSize: 12.5, borderRadius: 10, padding: '0 10px', width: '100%' };
@@ -212,6 +212,41 @@ function DangerZone() {
   );
 }
 
+/** Admin half of the performance score: marks out of 50 per person for the current month. */
+function Ratings() {
+  const d = useData();
+  const { toast } = useUi();
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState('');
+  const month = thisMonth();
+  const list = ((d.performance && d.performance.list) || []).filter(e => e.name.toLowerCase().includes(q.toLowerCase()));
+  const save = async (e, marks, note) => {
+    setBusy(e.id);
+    try { await PerformanceModel.rate(e.id, month, marks, note); await d.reload('performance'); toast('Marks saved for ' + e.name); } catch (err) { toast(err.message); } finally { setBusy(''); }
+  };
+  return (
+    <div className="panel">
+      <div className="panel-h">Performance marks · {month}<input value={q} onChange={ev => setQ(ev.target.value)} placeholder="Search staff" style={{ height: 32, maxWidth: 220 }} /></div>
+      <div className="panel-b" style={{ paddingTop: 0 }}>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', margin: '10px 0 12px' }}>Total = software score (out of 50, from delivered tasks) + your marks (out of 50). Top 5 by total show on everyone's dashboard. Marks save when you leave the field.</div>
+        <div style={{ overflowX: 'auto' }}><table>
+          <thead><tr><th>Staff</th><th>Tasks</th><th>Software / 50</th><th>Admin marks / 50</th><th>Note</th><th>Total</th></tr></thead>
+          <tbody>{list.map(e => (
+            <tr key={e.id} style={{ opacity: busy === e.id ? 0.6 : 1 }}>
+              <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Avatar e={e} /><div><b>{e.name}</b><br /><small style={{ color: 'var(--muted)' }}>{e.dept || '—'}</small></div></div></td>
+              <td>{e.tasks}{e.onTimePct !== null ? <small style={{ color: 'var(--muted)' }}> · {e.onTimePct}% on time</small> : null}</td>
+              <td><b>{e.auto}</b></td>
+              <td><input type="number" min={0} max={50} step={1} defaultValue={e.adminMarks === null ? '' : e.adminMarks} placeholder="0-50" style={{ ...inp, width: 90 }} onBlur={ev => { const v = ev.target.value; if (v === '') return; const m = Math.min(50, Math.max(0, Number(v) || 0)); if (m !== e.adminMarks) save(e, m, e.adminNote); }} onKeyDown={ev => { if (ev.key === 'Enter') ev.currentTarget.blur(); }} /></td>
+              <td><input defaultValue={e.adminNote || ''} placeholder="Optional note" style={{ ...inp, width: 200 }} onBlur={ev => { const n = ev.target.value.trim(); if (n !== (e.adminNote || '') && e.adminMarks !== null) save(e, e.adminMarks, n); }} /></td>
+              <td><Chip tone={e.rank && e.rank <= 5 ? 'gr' : 'gy'}>{e.total} / 100{e.rank ? ' · #' + e.rank : ''}</Chip></td>
+            </tr>))}</tbody>
+        </table></div>
+        {!list.length && <Empty>No staff found</Empty>}
+      </div>
+    </div>
+  );
+}
+
 export function AdminControls() {
   const [tab, setTab] = useState('staff');
   const d = useData();
@@ -222,10 +257,11 @@ export function AdminControls() {
         <h2 className="sec-title">Admin controls <Chip tone="pu">admin only</Chip></h2>
         <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{d.employees.length} staff · payroll {inr(totalSalary)} / month</span>
       </div>
-      <Pills items={[['staff', 'Access & staff'], ['rules', 'Work rules'], ['attendance', 'Attendance fix'], ['danger', 'Danger zone']]} value={tab} onChange={setTab} />
+      <Pills items={[['staff', 'Access & staff'], ['rules', 'Work rules'], ['attendance', 'Attendance fix'], ['ratings', 'Ratings'], ['danger', 'Danger zone']]} value={tab} onChange={setTab} />
       {tab === 'staff' && <StaffAccess />}
       {tab === 'rules' && <WorkRules />}
       {tab === 'attendance' && <AttendanceFix />}
+      {tab === 'ratings' && <Ratings />}
       {tab === 'danger' && <DangerZone />}
     </div>
   );

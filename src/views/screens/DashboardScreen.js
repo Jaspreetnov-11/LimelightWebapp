@@ -9,7 +9,7 @@ import { useModals } from '@/controllers/useModals';
 import { TaskModel, TodoModel } from '@/models';
 import { Avatar, Chip, Empty, GeoLink, Icon, LinkBtn, Panel, Pills, SectionTitle, StatusBars } from '@/views/ui';
 import { Bars, DonutChart, HBars, PairBars, Ring } from '@/views/ui/charts';
-import { assigneeIds, fmtD, greeting, hhmm, hm, hrs1, inr, leaveBalance, MODE_LABEL, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
+import { assigneeIds, fmtD, hm, hrs1, inr, leaveBalance, MODE_LABEL, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
 
 function TaskMini({ t, onOpen, onAccept }) {
   const { taskAssigneeNames } = useData();
@@ -142,9 +142,9 @@ export function DashboardScreen() {
   const todos = localTodos || d.todos;
   const perf = d.performance;
   const perfList = perf ? perf.list : [];
-  const top5 = perfList.filter(e => e.points > 0).slice(0, 5);
+  const top5 = perfList.filter(e => e.total > 0).slice(0, 5);
   const mePerf = perfList.find(e => e.id === me.id);
-  const rankedCount = perfList.filter(e => e.points > 0).length;
+  const rankedCount = perfList.filter(e => e.total > 0).length;
   const [adding, setAdding] = useState(false);
 
   const addTodo = async e => {
@@ -170,14 +170,6 @@ export function DashboardScreen() {
 
   return (
     <div className="content">
-      <div className="welcome">
-        <div><div className="eyebrow">{greeting()}</div><h1>Welcome back, {me.name.split(' ')[0]}.</h1></div>
-        <div className="meta">
-          <div><span className="ic"><Icon name="cal" /></span><div><small>{now.toLocaleDateString('en-GB', { weekday: 'long' })}</small><span>{now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span></div></div>
-          <div><span className="ic"><Icon name="clock" /></span><div><small>Local time</small><span>{hhmm(now)}</span></div></div>
-        </div>
-      </div>
-
       <ClockCard />
 
       <SectionTitle>Your month</SectionTitle>
@@ -207,7 +199,7 @@ export function DashboardScreen() {
         <Kpi label="Your pending pay" value={inr(meRow ? meRow.pendingBal : 0)} sub={meRow && meRow.earned !== undefined ? 'earned ' + inr(meRow.earned) + ' · paid ' + inr(meRow.paid) : 'this month'} />
       </div>
 
-      <SectionTitle>Performance <span className="lb-hint" title="Points per delivered task = 10 × task type × timeliness × efficiency. Creative work (Shoot, Edit, Design) weighs 1.5, Content 1.3, Social Media 1.0, Client Call 0.8, Other 0.7. On or before deadline ×1.5, up to 2 days late ×0.9, later ×0.6. Finishing within the allocated hours adds up to ×1.25, going far over drops to ×0.75.">how points work</span></SectionTitle>
+      <SectionTitle>Performance <span className="lb-hint" title="Score out of 100 = software 50 + admin 50. Software half: points per delivered task (10 × task type × timeliness × efficiency) scaled so the month's best scorer gets 50. Creative work (Shoot, Edit, Design) weighs 1.5, Content 1.3, Social Media 1.0, Client Call 0.8, Other 0.7; on or before deadline ×1.5, up to 2 days late ×0.9, later ×0.6; finishing within allocated hours up to ×1.25. Admin half: marks out of 50 given in Settings → Admin controls → Ratings.">how scoring works</span></SectionTitle>
       <div className="dash-2 lb-grid">
         <div className="panel">
           <div className="panel-h">Top performers this month<Chip tone="gy">{rankedCount} ranked</Chip></div>
@@ -218,21 +210,23 @@ export function DashboardScreen() {
                 <Avatar e={e} cls="" />
                 <div className="lb-who"><b>{e.name}{e.id === me.id ? ' (you)' : ''}</b><small>{e.dept || '—'}{e.role ? ' · ' + e.role : ''}</small></div>
                 <div className="lb-stats"><span><b>{e.tasks}</b> tasks</span><span><b>{e.onTimePct === null ? '—' : e.onTimePct + '%'}</b> on time</span><span><b>{e.creative}</b> creative</span></div>
-                <div className="lb-pts"><b>{e.points}</b><small>pts</small></div>
+                <div className="lb-pts"><b>{e.total}</b><small>/ 100 · auto {e.auto}{e.adminMarks !== null ? ' · admin ' + e.adminMarks : ''}</small></div>
               </div>))}</div> : <Empty ring icon="chart" title="No tasks delivered yet">Points appear as tasks get approved this month</Empty>}
           </div>
         </div>
         <div className="panel lb-me">
           <div className="panel-h">Your score</div>
           <div className="panel-b">
-            <div className="lb-hero"><b>{mePerf ? mePerf.points : 0}</b><span>points · {mePerf && mePerf.rank ? 'rank ' + mePerf.rank + ' of ' + rankedCount : 'not ranked yet'}</span></div>
+            <div className="lb-hero"><b>{mePerf ? mePerf.total : 0}</b><span>/ 100 · {mePerf && mePerf.rank ? 'rank ' + mePerf.rank + ' of ' + rankedCount : 'not ranked yet'}</span></div>
             <div className="kv">
+              <div><span>Software score</span><b>{mePerf ? mePerf.auto : 0} / 50</b></div>
+              <div><span>Admin marks</span><b>{mePerf && mePerf.adminMarks !== null ? mePerf.adminMarks + ' / 50' : 'not given yet'}</b></div>
               <div><span>Tasks delivered</span><b>{mePerf ? mePerf.tasks : 0}</b></div>
               <div><span>Delivered on time</span><b>{mePerf && mePerf.onTimePct !== null ? mePerf.onTimePct + '%' : '—'}</b></div>
               <div><span>Creative tasks</span><b>{mePerf ? mePerf.creative : 0}</b></div>
               <div><span>Avg time per task</span><b>{mePerf && mePerf.avgTakenMins ? hrs1(mePerf.avgTakenMins) : '—'}</b></div>
             </div>
-            <small className="lb-tip">Creative work and on-time delivery earn the most. Finishing within the allocated hours adds a bonus.</small>
+            <small className="lb-tip">Half the score comes from your delivered tasks (creative work and on-time delivery earn the most), half from admin marks.</small>
           </div>
         </div>
       </div>

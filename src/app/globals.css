@@ -1053,10 +1053,36 @@ html[data-theme="light"]{
 .lb-rank.r1{background:#f4c430; color:#1a1400} .lb-rank.r2{background:#c9ccd3; color:#1a1a1f} .lb-rank.r3{background:#d39a63; color:#221105}
 .lb-who{min-width:0} .lb-who b{display:block; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .lb-who small{color:var(--muted); font-size:11.5px}
 .lb-stats{display:flex; gap:12px; font-size:11.5px; color:var(--muted); white-space:nowrap} .lb-stats b{color:var(--text); font-weight:600}
-.lb-pts{text-align:right; min-width:52px} .lb-pts b{font-size:18px; letter-spacing:-.02em; font-variant-numeric:tabular-nums} .lb-pts small{display:block; font-size:10px; color:var(--muted)}
+.lb-pts{text-align:right; min-width:118px} .lb-pts b{font-size:18px; letter-spacing:-.02em; font-variant-numeric:tabular-nums} .lb-pts small{display:block; font-size:10px; color:var(--muted)}
 .lb-hero{display:flex; align-items:baseline; gap:10px; margin-bottom:12px} .lb-hero b{font-size:34px; letter-spacing:-.03em; line-height:1} .lb-hero span{font-size:12.5px; color:var(--muted)}
 .lb-tip{display:block; margin-top:12px; font-size:11.5px; color:var(--muted); line-height:1.4}
 @media (max-width:1200px){ .lb-row{grid-template-columns:28px 34px minmax(0,1fr) auto} .lb-stats{grid-column:3 / 5; margin-top:-2px; flex-wrap:wrap; gap:8px 12px} }
 .lv-bal{padding:14px 18px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap} .lv-bal small{display:block; color:var(--muted); font-size:12px; margin-top:2px}
 .lv-nums{display:flex; gap:18px} .lv-nums span{display:flex; flex-direction:column; align-items:center; font-size:11px; color:var(--muted)} .lv-nums b{font-size:20px; color:var(--text); letter-spacing:-.02em}
 .clock-card .brk{height:36px; padding:0 14px; border-radius:100px; border:1px solid var(--line-strong); background:var(--ov-05); color:var(--text); font-weight:600; font-size:12.5px; cursor:pointer; white-space:nowrap} .clock-card .brk.on{border-color:var(--warn); color:var(--warn); background:color-mix(in srgb, var(--warn) 12%, transparent)} .clock-card .brk:disabled{opacity:.6}
+/* ---------- Limelight loader (radar sweep + orbiting nodes + scan bar) ---------- */
+.lh-loader{display:flex; flex-direction:column; align-items:center; gap:18px; --sz:168px}
+.lh-radar{position:relative; width:var(--sz); height:var(--sz); filter:drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 35%, transparent))}
+.lh-radar svg{display:block; overflow:visible}
+.lh-radar .ring{fill:none; stroke:var(--accent); stroke-width:1}
+.lh-radar .r1{opacity:.28; stroke-dasharray:4 6; animation:lhSpin 14s linear infinite; transform-origin:100px 100px}
+.lh-radar .r2{opacity:.4; stroke-dasharray:24 10; animation:lhSpin 9s linear infinite reverse; transform-origin:100px 100px}
+.lh-radar .r3{opacity:.55; animation:lhPulse 2.4s ease-in-out infinite; transform-origin:100px 100px}
+.lh-radar .ticks line{stroke:var(--accent); stroke-width:1.2; opacity:.35}
+.lh-radar .sweep{animation:lhSpin 2.2s linear infinite; transform-origin:100px 100px}
+.lh-radar .orbit{transform-origin:100px 100px} .lh-radar .orbit circle{fill:var(--accent)}
+.lh-radar .o1{animation:lhSpin 3.4s linear infinite} .lh-radar .o2{animation:lhSpin 5s linear infinite reverse; opacity:.7} .lh-radar .o3{animation:lhSpin 7s linear infinite; opacity:.5}
+.lh-radar .core{fill:var(--accent); opacity:.08; animation:lhPulse 2.4s ease-in-out infinite .4s; transform-origin:100px 100px}
+.lh-radar .mark{fill:var(--accent); animation:lhBeat 2.4s ease-in-out infinite; transform-origin:100px 100px}
+.lh-wordmark{width:200px; max-width:56vw; height:auto; margin-top:-6px}
+html[data-theme="light"] .lh-wordmark{filter:invert(1) hue-rotate(180deg)}
+.lh-scan{width:200px; max-width:56vw; height:2px; border-radius:2px; background:var(--ov-08); overflow:hidden; position:relative}
+.lh-scan i{position:absolute; top:0; bottom:0; width:38%; border-radius:2px; background:linear-gradient(90deg, transparent, var(--accent), transparent); animation:lhScan 1.6s ease-in-out infinite}
+.lh-text{font-size:12.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); font-weight:600}
+.lh-text .dots i{font-style:normal; animation:lhDot 1.2s infinite} .lh-text .dots i:nth-child(2){animation-delay:.2s} .lh-text .dots i:nth-child(3){animation-delay:.4s}
+@keyframes lhSpin{to{transform:rotate(360deg)}}
+@keyframes lhPulse{0%,100%{transform:scale(1); opacity:.5}50%{transform:scale(1.06); opacity:.9}}
+@keyframes lhBeat{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes lhScan{0%{left:-40%}100%{left:100%}}
+@keyframes lhDot{0%,60%,100%{opacity:.2}30%{opacity:1}}
+@media (prefers-reduced-motion:reduce){ .lh-radar *, .lh-scan i, .lh-text .dots i{animation:none !important} }

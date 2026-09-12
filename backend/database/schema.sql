@@ -231,6 +231,17 @@ CREATE TABLE IF NOT EXISTS lh_push_subs (
 );
 CREATE INDEX IF NOT EXISTS idx_lh_push_subs_emp ON lh_push_subs (emp);
 
+CREATE TABLE IF NOT EXISTS lh_ratings (
+  id TEXT PRIMARY KEY,
+  emp TEXT NOT NULL,
+  month TEXT NOT NULL,
+  marks NUMERIC DEFAULT 0,
+  note TEXT DEFAULT '',
+  rated_by TEXT DEFAULT '',
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE (emp, month)
+);
+
 CREATE TABLE IF NOT EXISTS lh_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL DEFAULT '{}',

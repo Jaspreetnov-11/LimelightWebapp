@@ -136,7 +136,8 @@ export const PushModel = {
 };
 
 export const PerformanceModel = {
-  get: month => data(api.get('/performance', { month }))
+  get: month => data(api.get('/performance', { month })),
+  rate: (emp, month, marks, note) => data(api.put('/performance/rating', { emp, month, marks, note }))
 };
 
 export const ProductivityModel = {

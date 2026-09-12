@@ -13,6 +13,7 @@
 const taskModel = require('../models/task.model');
 const employeeModel = require('../models/employee.model');
 const settingsService = require('./settings.service');
+const db = require('../config/db');
 const { thisMonth } = require('../utils/calculations');
 
 const DEFAULT_WEIGHTS = { Shoot: 1.5, Edit: 1.5, Design: 1.5, Content: 1.3, 'Social Media': 1.0, 'Client Call': 0.8, Other: 0.7 };
@@ -71,11 +72,32 @@ async function computeMonth(month = thisMonth()) {
       if (Number(t.taken_mins) > 0) { e.takenMins += Number(t.taken_mins); e.tracked += 1; }
     }
   }
+  // Software half (50): task points scaled against the best scorer this month. Admin half (50): manual marks.
+  const ratings = await db.all('SELECT emp, marks, note FROM lh_ratings WHERE month = ?', [month]).catch(() => []);
+  const rated = Object.fromEntries(ratings.map(r => [r.emp, { marks: Math.min(50, Math.max(0, Number(r.marks) || 0)), note: r.note || '' }]));
+  const maxPoints = Math.max(0, ...Object.values(byEmp).map(e => e.points));
   const list = Object.values(byEmp)
-    .map(e => ({ ...e, points: Math.round(e.points * 10) / 10, onTimePct: e.withDeadline ? Math.round((e.onTime / e.withDeadline) * 100) : null, avgTakenMins: e.tracked ? Math.round(e.takenMins / e.tracked) : 0 }))
-    .sort((a, b) => b.points - a.points || b.tasks - a.tasks || a.name.localeCompare(b.name))
-    .map((e, i) => ({ ...e, rank: e.points > 0 ? i + 1 : null }));
-  return { month, base: BASE, weights, list };
+    .map(e => {
+      const points = Math.round(e.points * 10) / 10;
+      const auto = maxPoints > 0 ? Math.round((e.points / maxPoints) * 50 * 10) / 10 : 0;
+      const r = rated[e.id];
+      const adminMarks = r ? r.marks : null;
+      const total = Math.round((auto + (adminMarks || 0)) * 10) / 10;
+      return { ...e, points, auto, adminMarks, adminNote: r ? r.note : '', total, onTimePct: e.withDeadline ? Math.round((e.onTime / e.withDeadline) * 100) : null, avgTakenMins: e.tracked ? Math.round(e.takenMins / e.tracked) : 0 };
+    })
+    .sort((a, b) => b.total - a.total || b.auto - a.auto || b.tasks - a.tasks || a.name.localeCompare(b.name))
+    .map((e, i) => ({ ...e, rank: e.total > 0 ? i + 1 : null }));
+  return { month, base: BASE, weights, maxPoints: Math.round(maxPoints * 10) / 10, list };
 }
 
-module.exports = { computeMonth, scoreTask, DEFAULT_WEIGHTS };
+/** Admin marks (0-50) for one person for a month. */
+async function rate({ emp, month, marks, note = '', by = '' }) {
+  const m = Math.min(50, Math.max(0, Number(marks) || 0));
+  const existing = await db.get('SELECT id FROM lh_ratings WHERE emp = ? AND month = ?', [emp, month]);
+  const now = new Date().toISOString();
+  if (existing) await db.run('UPDATE lh_ratings SET marks = ?, note = ?, rated_by = ?, updated_at = ? WHERE id = ?', [m, String(note).slice(0, 300), by, now, existing.id]);
+  else await db.run('INSERT INTO lh_ratings (id, emp, month, marks, note, rated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', ['r_' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4), emp, month, m, String(note).slice(0, 300), by, now]);
+  return { emp, month, marks: m, note };
+}
+
+module.exports = { computeMonth, rate, scoreTask, DEFAULT_WEIGHTS };

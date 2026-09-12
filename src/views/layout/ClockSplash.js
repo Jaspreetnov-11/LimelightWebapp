@@ -6,15 +6,15 @@ import { useAuth } from '@/controllers/AuthController';
 import { useData } from '@/controllers/DataController';
 import { useClock } from '@/controllers/useClock';
 import { Icon } from '@/views/ui/Icons';
+import { LimelightLoader } from '@/views/ui/Loader';
 import { greeting, hhmm } from '@/lib/format';
 
 export const SPLASH_KEY = 'lh-splash-seen';
 
-export function SplashLoader({ text = 'Loading…' }) {
+export function SplashLoader({ text = 'Loading' }) {
   return (
-    <div className="splash" role="status" aria-live="polite">
-      <img src="/logo.png" alt="limelight" className="splash-logo" width="3096" height="774" />
-      <div className="splash-spin"><span className="spinner"></span>{text}</div>
+    <div className="splash">
+      <LimelightLoader text={text.replace(/…$/, '')} />
     </div>
   );
 }
@@ -62,7 +62,7 @@ export function ClockSplash({ onDone }) {
   // Already clocked in (or done for today): go straight to Home.
   useEffect(() => { if (loaded && today && clock.state !== 'off') onDone(); }, [loaded, today, clock.state, onDone]);
 
-  if (!loaded || !today) return <SplashLoader text="Getting things ready…" />;
+  if (!loaded || !today) return <SplashLoader text="Getting things ready" />;
 
   const go = async () => { await clock.act(); onDone(); };
   return (

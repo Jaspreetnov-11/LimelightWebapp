@@ -211,6 +211,18 @@ CREATE TABLE IF NOT EXISTS lh_push_subs (
 ALTER TABLE lh_push_subs ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_lh_push_subs_emp ON lh_push_subs (emp);
 
+CREATE TABLE IF NOT EXISTS lh_ratings (
+  id TEXT PRIMARY KEY,
+  emp TEXT NOT NULL,
+  month TEXT NOT NULL,
+  marks NUMERIC DEFAULT 0,
+  note TEXT DEFAULT '',
+  rated_by TEXT DEFAULT '',
+  updated_at TEXT DEFAULT (now())::text,
+  UNIQUE (emp, month)
+);
+ALTER TABLE lh_ratings ENABLE ROW LEVEL SECURITY;
+
 CREATE TABLE IF NOT EXISTS lh_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL DEFAULT '{}',
