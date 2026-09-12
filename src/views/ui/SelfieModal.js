@@ -7,12 +7,16 @@ import { useUi } from '@/controllers/UiController';
 const W = 320, H = 400, QUALITY = 0.55;
 const MODES = [['office', '🏢', 'Office'], ['wfh', '🏠', 'Work from home'], ['field', '📍', 'On field']];
 
-function toJpeg(source, sw, sh) {
+function toJpeg(source, sw, sh, mirror = false) {
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   const scale = Math.max(W / sw, H / sh);
   const dw = sw * scale, dh = sh * scale;
+  if (mirror) {
+    ctx.translate(W, 0);
+    ctx.scale(-1, 1);
+  }
   ctx.drawImage(source, (W - dw) / 2, (H - dh) / 2, dw, dh);
   return canvas.toDataURL('image/jpeg', QUALITY);
 }
@@ -55,13 +59,13 @@ export function SelfieModal() {
   const capture = () => {
     const v = videoRef.current;
     if (!v || !v.videoWidth) { setErr('Camera is still starting, try again.'); return; }
-    setShot(toJpeg(v, v.videoWidth, v.videoHeight));
+    setShot(toJpeg(v, v.videoWidth, v.videoHeight, true));
   };
   const fromFile = e => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const img = new Image();
-    img.onload = () => setShot(toJpeg(img, img.naturalWidth, img.naturalHeight));
+    img.onload = () => setShot(toJpeg(img, img.naturalWidth, img.naturalHeight, false));
     img.onerror = () => setErr('Could not read that photo.');
     img.src = URL.createObjectURL(f);
   };
