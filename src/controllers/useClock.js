@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { AttendanceModel } from '@/models';
 import { useData } from './DataController';
 import { useUi } from './UiController';
-import { hhmm, hm, MODE_LABEL, punchMinutes } from '@/lib/format';
+import { breakMinutes, hhmm, hm, MODE_LABEL, openBreak, punchMinutes } from '@/lib/format';
 
 function getGeo() {
   return new Promise(resolve => {
@@ -101,5 +101,12 @@ export function useClock() {
     }
   }, [busy, state, sessions, selfieIn, selfieOut, askSelfie, toast, reload]);
 
-  return { punch, state, label, busy, act, selfieIn, selfieOut, isRecheck, sessions, sessionCount };
+  // Breaks: only while clocked in; minutes come off worked + productive hours
+  const curBreak = isOpen ? openBreak(punch) : null;
+  const onBreak = Boolean(curBreak);
+  const breakNow = punch ? breakMinutes(punch) : 0;
+  const startBreak = useCallback(async () => { if (busy) return; setBusy(true); try { const r = await AttendanceModel.breakStart(); toast((r && r.message) || 'Break started.'); await reload('today'); } catch (err) { toast(err.message); } finally { setBusy(false); } }, [busy, toast, reload]);
+  const endBreak = useCallback(async () => { if (busy) return; setBusy(true); try { const r = await AttendanceModel.breakEnd(); toast((r && r.message) || 'Break ended.'); await reload('today', 'myStats'); } catch (err) { toast(err.message); } finally { setBusy(false); } }, [busy, toast, reload]);
+
+  return { punch, state, label, busy, act, selfieIn, selfieOut, isRecheck, sessions, sessionCount, onBreak, curBreak, breakNow, startBreak, endBreak };
 }

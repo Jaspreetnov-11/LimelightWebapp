@@ -75,7 +75,7 @@ function WorkRules() {
   const save = async () => {
     setBusy(true);
     try {
-      await SettingsModel.update({ companyName: f.companyName, shifts: f.shifts, graceMins: Number(f.graceMins), hoursPerDay: Number(f.hoursPerDay), otRate: Number(f.otRate), weekOff: f.weekOff, defaultPassword: f.defaultPassword, extraAdminEmails: f.extraAdminEmails, staffCanApplyLeave: f.staffCanApplyLeave, autoOvertime: f.autoOvertime, selfieOnClockIn: f.selfieOnClockIn, selfieOnClockOut: f.selfieOnClockOut, selfieRetentionDays: Number(f.selfieRetentionDays) || 30 });
+      await SettingsModel.update({ companyName: f.companyName, shifts: f.shifts, graceMins: Number(f.graceMins), hoursPerDay: Number(f.hoursPerDay), otRate: Number(f.otRate), leavesPerYear: Number(f.leavesPerYear), managerShare: Number(f.managerShare), assignMins: Number(f.assignMins), weekOff: f.weekOff, defaultPassword: f.defaultPassword, extraAdminEmails: f.extraAdminEmails, staffCanApplyLeave: f.staffCanApplyLeave, autoOvertime: f.autoOvertime, selfieOnClockIn: f.selfieOnClockIn, selfieOnClockOut: f.selfieOnClockOut, selfieRetentionDays: Number(f.selfieRetentionDays) || 30 });
       toast('Work rules saved. New clock-ins use them from now on.'); await d.reload('settings'); setF(null);
     } catch (err) { toast(err.message); } finally { setBusy(false); }
   };
@@ -89,6 +89,9 @@ function WorkRules() {
           <Field label="Hours per working day" help="Used for expected hours, hourly cost and payroll"><input type="number" min={1} max={16} value={f.hoursPerDay} onChange={e => set('hoursPerDay', e.target.value)} /></Field>
           <Field label="Grace time (minutes)" help="Clock-in after shift start + grace is marked Late"><input type="number" min={0} max={180} value={f.graceMins} onChange={e => set('graceMins', e.target.value)} /></Field>
           <Field label="Overtime rate (× hourly)" help="1 = same as normal hourly pay, 1.5 = time and a half"><input type="number" min={0} max={5} step={0.25} value={f.otRate} onChange={e => set('otRate', e.target.value)} /></Field>
+          <Field label="Paid leaves per year" help="Each person's quota; Leaves page shows used / pending / left"><input type="number" min={0} max={365} value={f.leavesPerYear ?? 12} onChange={e => set('leavesPerYear', e.target.value)} /></Field>
+          <Field label="Assigner credit (share of task time)" help="0.25 = whoever assigned a task gets 25% of its time as productive hours"><input type="number" min={0} max={1} step={0.05} value={f.managerShare ?? 0.25} onChange={e => set('managerShare', e.target.value)} /></Field>
+          <Field label="Minutes per task assigned" help="Fixed briefing / planning credit for the assigner"><input type="number" min={0} max={240} value={f.assignMins ?? 15} onChange={e => set('assignMins', e.target.value)} /></Field>
         </div>
         <div>
           <b style={{ fontSize: 13.5 }}>Shifts</b>

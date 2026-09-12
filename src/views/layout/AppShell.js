@@ -17,7 +17,7 @@ import { usePush } from '@/controllers/usePush';
 export const NAV = [
   ['dashboard', 'Home', 'grid', 'all'], ['tasks', 'Tasks', 'check', 'all'], ['projects', 'Projects', 'brief', 'all'], ['attendance', 'Attendance', 'cal', 'all'],
   ['leaves', 'Leaves / WFH', 'leaf', 'all'], ['staff', 'Staff', 'users', 'all'], ['departments', 'Departments', 'build', 'all'], ['payroll', 'Payroll', 'tasks', 'admin'], ['payments', 'Payments', 'file', 'admin'],
-  ['clients', 'Clients', 'brief', 'admin'], ['reports', 'Reports', 'chart', 'admin'], ['notifications', 'Notifications', 'bell', 'all'], ['events', 'Events', 'flag', 'all'], ['files', 'Files', 'folder', 'all'], ['settings', 'Settings', 'dots', 'all']
+  ['clients', 'Clients', 'brief', 'admin'], ['reports', 'Reports', 'chart', 'admin'], ['notifications', 'Notifications', 'bell', 'all'], ['events', 'Events', 'flag', 'all'], ['settings', 'Settings', 'dots', 'all']
 ];
 const ADMIN_ONLY = new Set(NAV.filter(n => n[3] === 'admin').map(n => n[0]));
 
@@ -53,8 +53,7 @@ export function AppShell({ children }) {
     isAdmin && ['modal', 'employee', 'users', 'Add staff'],
     isAdmin && ['modal', 'dept', 'build', 'Add department'],
     ['modal', 'leave', 'leaf', 'Apply leave / WFH'],
-    isAdmin && ['modal', 'payment', 'file', 'Add payment'],
-    ['modal', 'file', 'file', 'Upload file']
+    isAdmin && ['modal', 'payment', 'file', 'Add payment']
   ].filter(Boolean);
 
   if (splash) return <ClockSplash onDone={closeSplash} />;

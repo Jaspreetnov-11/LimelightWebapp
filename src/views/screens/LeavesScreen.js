@@ -7,7 +7,7 @@ import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
 import { LeaveModel } from '@/models';
 import { Avatar, Chip, Empty, Pills, SectionTitle } from '@/views/ui';
-import { fmtD, fmtDY } from '@/lib/format';
+import { fmtD, fmtDY, leaveBalance } from '@/lib/format';
 
 const daysBetween = (a, b) => { const s = new Date(a + 'T00:00:00'), e = new Date(b + 'T00:00:00'); let n = 0; for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) if (d.getDay() !== 0) n++; return n; };
 const TONE = { pending: 'or', approved: 'gr', rejected: 'pk' };
@@ -25,6 +25,10 @@ export function LeavesScreen() {
   const all = useMemo(() => mine.map(withStatus).sort((a, b) => (a.status === 'pending' ? -1 : 1) - (b.status === 'pending' ? -1 : 1) || String(b.from_date).localeCompare(String(a.from_date))), [mine]);
   const counts = { pending: all.filter(l => l.status === 'pending').length, approved: all.filter(l => l.status === 'approved').length, rejected: all.filter(l => l.status === 'rejected').length, all: all.length };
   const list = tab === 'all' ? all : all.filter(l => l.status === tab);
+  const quota = d.settings && d.settings.leavesPerYear !== undefined ? Number(d.settings.leavesPerYear) : 12;
+  const weekOff = (d.settings && d.settings.weekOff) || [0];
+  const myBal = leaveBalance(d.leaves, me.id, quota, weekOff);
+  const balances = useMemo(() => (isAdmin ? d.employees.map(e => ({ e, b: leaveBalance(d.leaves, e.id, quota, weekOff) })).sort((x, y) => y.b.used - x.b.used || x.e.name.localeCompare(y.e.name)) : []), [isAdmin, d.employees, d.leaves, quota, weekOff]);
 
   const act = async (l, fn, msg) => { setBusy(l.id); try { await fn(); toast(msg); await d.reload('leaves', 'activity', 'employees', 'myStats', 'teamSummary'); } catch (err) { toast(err.message); } finally { setBusy(''); } };
   const approve = l => act(l, () => LeaveModel.decide(l.id, 'approved'), 'Approved.');
@@ -37,8 +41,16 @@ export function LeavesScreen() {
         <SectionTitle>Leaves &amp; work from home {counts.pending > 0 && <Chip tone="or">{counts.pending} pending</Chip>}</SectionTitle>
         <button className="tb-btn solid" style={{ height: 34 }} onClick={() => modals.open('leave')}>+ Apply</button>
       </div>
-      <Pills items={[['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['all', 'All']]} value={tab} onChange={setTab} counts={counts} />
-      <div className="panel">
+      <div className="panel lv-bal"><div><b>Your leave balance {myBal.year}</b><small>Paid leave quota {quota} days a year · WFH does not count</small></div><div className="lv-nums"><span><b>{myBal.left}</b>left</span><span><b>{myBal.used}</b>used</span><span><b>{myBal.pending}</b>pending</span></div></div>
+      <Pills items={[['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['all', 'All']].concat(isAdmin ? [['balances', 'Balances']] : [])} value={tab} onChange={setTab} counts={counts} />
+      {tab === 'balances' && isAdmin && (
+        <div className="panel" style={{ overflowX: 'auto' }}>
+          <table><thead><tr><th>Staff</th><th>Department</th><th>Used</th><th>Pending</th><th>Left</th><th>Quota</th></tr></thead>
+            <tbody>{balances.map(({ e, b }) => <tr key={e.id}><td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Avatar e={e} /><b>{e.name}</b></div></td><td>{e.dept || '—'}</td><td>{b.used}</td><td>{b.pending || '—'}</td><td><Chip tone={b.left === 0 ? 'pk' : b.left <= 2 ? 'or' : 'gr'}>{b.left}</Chip></td><td>{b.quota}</td></tr>)}</tbody>
+          </table>
+        </div>
+      )}
+      {tab !== 'balances' && <div className="panel">
         {list.map(l => { const e = d.empById[l.emp]; const canDecide = isAdmin && l.status === 'pending'; const canRemove = isAdmin || (l.emp === me.id && l.status === 'pending'); return (
           <div className="row" key={l.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--line-soft)', alignItems: 'center', gap: 12, opacity: busy === l.id ? 0.6 : 1, flexWrap: 'wrap' }}>
             <Avatar e={e} name={e ? e.name : '—'} />
@@ -54,7 +66,7 @@ export function LeavesScreen() {
             </span>
           </div>); })}
         {!list.length && <Empty ring icon="leaf" title={tab === 'pending' ? 'Nothing pending' : 'No requests'}>{isAdmin ? 'Requests from staff appear here for approval.' : 'Apply for leave or work from home with the button above.'}</Empty>}
-      </div>
+      </div>}
       <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Approved leave counts as paid days in payroll. Work-from-home days are normal working days; the clock-in is marked WFH automatically.</p>
     </div>
   );

@@ -30,7 +30,10 @@ const DEFAULTS = {
   autoOvertime: true,
   selfieOnClockIn: true,
   selfieOnClockOut: false,
-  selfieRetentionDays: 30
+  selfieRetentionDays: 30,
+  leavesPerYear: 12,      // paid leave quota per person per calendar year
+  managerShare: 0.25,     // share of a task's time credited to whoever assigned it (coordination)
+  assignMins: 15          // fixed minutes credited to the assigner per task (briefing / planning)
 };
 
 let current = { ...DEFAULTS };
@@ -59,6 +62,9 @@ function validate(patch) {
   if (patch.extraAdminEmails !== undefined) out.extraAdminEmails = (Array.isArray(patch.extraAdminEmails) ? patch.extraAdminEmails : String(patch.extraAdminEmails).split(',')).map(s => String(s).trim().toLowerCase()).filter(s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
   for (const b of ['staffCanSeeTeamTasks', 'staffCanApplyLeave', 'autoOvertime', 'selfieOnClockIn', 'selfieOnClockOut']) if (patch[b] !== undefined) out[b] = Boolean(patch[b]);
   if (patch.selfieRetentionDays !== undefined) out.selfieRetentionDays = Math.min(365, Math.max(1, Number(patch.selfieRetentionDays) || 30));
+  if (patch.leavesPerYear !== undefined) out.leavesPerYear = Math.min(365, Math.max(0, Number(patch.leavesPerYear) || 0));
+  if (patch.managerShare !== undefined) out.managerShare = Math.min(1, Math.max(0, Number(patch.managerShare) || 0));
+  if (patch.assignMins !== undefined) out.assignMins = Math.min(240, Math.max(0, Number(patch.assignMins) || 0));
   return out;
 }
 
@@ -86,7 +92,7 @@ const service = {
   publicView() {
     const shifts = {};
     for (const [k, s] of Object.entries(current.shifts)) shifts[k] = { ...s, display: shiftLabel(s) };
-    return { companyName: current.companyName, shifts, graceMins: current.graceMins, hoursPerDay: current.hoursPerDay, otRate: current.otRate, weekOff: current.weekOff, staffCanSeeTeamTasks: current.staffCanSeeTeamTasks, staffCanApplyLeave: current.staffCanApplyLeave, autoOvertime: current.autoOvertime, selfieOnClockIn: current.selfieOnClockIn, selfieOnClockOut: current.selfieOnClockOut, selfieRetentionDays: current.selfieRetentionDays };
+    return { companyName: current.companyName, shifts, graceMins: current.graceMins, hoursPerDay: current.hoursPerDay, otRate: current.otRate, weekOff: current.weekOff, staffCanSeeTeamTasks: current.staffCanSeeTeamTasks, staffCanApplyLeave: current.staffCanApplyLeave, autoOvertime: current.autoOvertime, selfieOnClockIn: current.selfieOnClockIn, selfieOnClockOut: current.selfieOnClockOut, selfieRetentionDays: current.selfieRetentionDays, leavesPerYear: current.leavesPerYear, managerShare: current.managerShare, assignMins: current.assignMins };
   },
   adminView() { return { ...this.publicView(), defaultPassword: current.defaultPassword, extraAdminEmails: current.extraAdminEmails, adminEmails: env.ADMIN_EMAILS }; },
   isAdminEmail(email) { const e = String(email || '').toLowerCase(); return env.ADMIN_EMAILS.includes(e) || (current.extraAdminEmails || []).includes(e); },

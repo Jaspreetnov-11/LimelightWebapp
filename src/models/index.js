@@ -71,6 +71,8 @@ export const AttendanceModel = {
   teamSummary: month => data(api.get('/attendance/team-summary', { month })),
   clockIn: body => data(api.post('/attendance/clock-in', body)),
   clockOut: body => data(api.post('/attendance/clock-out', body)),
+  breakStart: () => api.post('/attendance/break/start'),
+  breakEnd: () => api.post('/attendance/break/end'),
   mark: body => data(api.post('/attendance/mark', body)),
   selfie: async (id, which) => { const res = await api.download('/attendance/' + id + '/selfie/' + which); return res.blob(); },
   update: (id, body) => data(api.put('/attendance/' + id, body))
@@ -135,6 +137,10 @@ export const PushModel = {
 
 export const PerformanceModel = {
   get: month => data(api.get('/performance', { month }))
+};
+
+export const ProductivityModel = {
+  get: month => data(api.get('/productivity', { month }))
 };
 
 export const ReportModel = {

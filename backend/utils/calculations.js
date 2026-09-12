@@ -76,6 +76,7 @@ const otHoursFor = (shiftKey, clockOut, nextDay = false) => {
 const punchMinutes = row => {
   if (!row || !row.clock_in) return 0;
   let total = 0;
+  const breakMins = Number(row.break_mins) || 0;
   if (row.sessions) {
     try {
       const list = typeof row.sessions === 'string' ? JSON.parse(row.sessions) : row.sessions;
@@ -95,7 +96,7 @@ const punchMinutes = row => {
     const a = toMins(row.clock_in), b = toMins(row.clock_out);
     if (a !== null && b !== null) total += Math.max(0, b + (Number(row.out_next_day) ? 1440 : 0) - a);
   }
-  return total;
+  return Math.max(0, total - breakMins);
 };
 
 const workdaysIn = (month, upToToday = true) => {

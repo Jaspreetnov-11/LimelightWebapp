@@ -88,6 +88,8 @@ CREATE TABLE IF NOT EXISTS lh_attendance (
   out_addr TEXT DEFAULT '',
   sessions TEXT DEFAULT '[]',
   leave_type TEXT DEFAULT '',
+  breaks TEXT DEFAULT '[]',
+  break_mins NUMERIC DEFAULT 0,
   created_at TEXT DEFAULT (now())::text,
   updated_at TEXT DEFAULT (now())::text,
   UNIQUE (emp, date)

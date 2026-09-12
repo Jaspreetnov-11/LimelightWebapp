@@ -8,6 +8,7 @@ const AppError = require('../utils/appError');
 const { todayISO, thisMonth, nowHHMM, workdaysIn, isLate, otHoursFor, punchMinutes, shiftOf, hoursPerDay, toMins } = require('../utils/calculations');
 const yesterdayOf = iso => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
 const MODES = ['office', 'wfh', 'field'];
+const parseBreaks = v => { if (!v) return []; try { const l = typeof v === 'string' ? JSON.parse(v) : v; return Array.isArray(l) ? l : []; } catch (e) { return []; } };
 
 const settingsService = require('./settings.service');
 const db = require('../config/db');
@@ -41,7 +42,7 @@ async function purgeOldSelfies() {
 
 /** Pure computation: month stats from preloaded rows. */
 function computeMonthStats(rows, leaves, month) {
-  let present = 0, half = 0, absent = 0, late = 0, otHours = 0, fineHours = 0, totalWorkedMinutes = 0, daysWithOut = 0;
+  let present = 0, half = 0, absent = 0, late = 0, otHours = 0, fineHours = 0, totalWorkedMinutes = 0, daysWithOut = 0, breakMinutes = 0;
 
   for (const r of rows) {
     const st = r.status || (r.clock_in ? 'present' : '');
@@ -51,6 +52,7 @@ function computeMonthStats(rows, leaves, month) {
     if (Number(r.late)) late++;
     otHours += Number(r.ot_hours) || 0;
     fineHours += Number(r.fine_hours) || 0;
+    breakMinutes += Number(r.break_mins) || 0;
     if (r.clock_in && r.clock_out) {
       totalWorkedMinutes += punchMinutes(r);
       daysWithOut++;
@@ -75,10 +77,10 @@ function computeMonthStats(rows, leaves, month) {
   const avgWorkingMinutes = daysWithOut > 0 ? Math.round(totalWorkedMinutes / daysWithOut) : 0;
 
   // Per-day series for charts (date, minutes worked, status, late, mode)
-  const days = rows.map(r => ({ date: r.date, mins: r.clock_in && r.clock_out ? punchMinutes(r) : 0, open: Boolean(r.clock_in && !r.clock_out), status: r.status || (r.clock_in ? 'present' : ''), late: Number(r.late) ? 1 : 0, mode: r.mode || 'office', ot: Number(r.ot_hours) || 0 })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const days = rows.map(r => ({ date: r.date, mins: r.clock_in && r.clock_out ? punchMinutes(r) : 0, open: Boolean(r.clock_in && !r.clock_out), status: r.status || (r.clock_in ? 'present' : ''), late: Number(r.late) ? 1 : 0, mode: r.mode || 'office', ot: Number(r.ot_hours) || 0, breakMins: Number(r.break_mins) || 0 })).sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
   return {
-    month, present, half, absent, late, leave: leaveDays, otHours, fineHours, days,
+    month, present, half, absent, late, leave: leaveDays, otHours, fineHours, days, breakMinutes,
     workdaysSoFar, workdaysTotal, unaccounted, avgWorkingMinutes, totalWorkedMinutes,
     expectedMinutesSoFar: workdaysSoFar * hoursPerDay() * 60,
     expectedMinutesTotal: workdaysTotal * hoursPerDay() * 60
@@ -260,6 +262,33 @@ class AttendanceService {
     const sessionText = sessionCount > 1 ? ` across ${sessionCount} sessions` : '';
     await activityModel.log(`${emp ? emp.name : 'Employee'} clocked out at ${timeStr} (${Math.floor(workedMins / 60)}h ${workedMins % 60}m worked${sessionText}${ot ? ', OT ' + ot + 'h' : ''})`);
     return record;
+  }
+
+  /** Start a break on the open punch (today's or last night's). */
+  async startBreak(empId) {
+    const today = todayISO();
+    const open = await attendanceModel.findOpenPunch(empId, yesterdayOf(today));
+    if (!open) throw new AppError('Clock in first to take a break.', 400);
+    const breaks = parseBreaks(open.breaks);
+    if (breaks.some(b => b && b.start && !b.end)) throw new AppError('You are already on a break.', 400);
+    breaks.push({ start: nowHHMM(), startDate: today });
+    return attendanceModel.update(open.id, { breaks: JSON.stringify(breaks) });
+  }
+
+  /** End the current break; its minutes come off worked and productive hours. */
+  async endBreak(empId) {
+    const today = todayISO();
+    const open = await attendanceModel.findOpenPunch(empId, yesterdayOf(today));
+    if (!open) throw new AppError('You are not clocked in.', 400);
+    const breaks = parseBreaks(open.breaks);
+    const cur = breaks.find(b => b && b.start && !b.end);
+    if (!cur) throw new AppError('You are not on a break.', 400);
+    const end = nowHHMM();
+    const mins = Math.max(1, Math.round((new Date(today + 'T' + end + ':00') - new Date((cur.startDate || open.date) + 'T' + cur.start + ':00')) / 60000));
+    cur.end = end; cur.endDate = today; cur.mins = mins;
+    const total = breaks.reduce((a, b) => a + (Number(b.mins) || 0), 0);
+    const rec = await attendanceModel.update(open.id, { breaks: JSON.stringify(breaks), break_mins: total });
+    return { ...rec, lastBreakMins: mins };
   }
 
   computeMonthStats(rows, leaves, month) {

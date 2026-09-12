@@ -35,6 +35,16 @@ const pub = a => {
 };
 const pubAll = rows => (rows || []).map(pub);
 
+const breakStart = catchAsync(async (req, res) => {
+  const punch = await attendanceService.startBreak(req.user.id);
+  return apiResponse.success(res, pub(punch), 'Break started. Tap End break when you are back.');
+});
+
+const breakEnd = catchAsync(async (req, res) => {
+  const punch = await attendanceService.endBreak(req.user.id);
+  return apiResponse.success(res, pub(punch), 'Break ended · ' + punch.lastBreakMins + ' min');
+});
+
 const clockIn = catchAsync(async (req, res) => {
   const empId = req.user.id;
   if (!empId) {
@@ -209,6 +219,8 @@ const getEmployeeMonthStats = catchAsync(async (req, res) => {
 });
 
 module.exports = {
+  breakStart,
+  breakEnd,
   clockIn,
   clockOut,
   getTodayStatus,

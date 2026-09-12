@@ -1,3 +1,2 @@
-import { FilesScreen } from '@/views/screens/MiscScreens';
-export const metadata = { title: 'Files · Limelight' };
-export default function Page() { return <FilesScreen />; }
+import { redirect } from 'next/navigation';
+export default function Page() { redirect('/dashboard'); }

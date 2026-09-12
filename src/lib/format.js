@@ -27,6 +27,11 @@ export const hm = mins => { mins = Math.round(mins || 0); return String(Math.flo
 export const hrs1 = mins => { const m = Math.max(0, Math.round(Number(mins) || 0)); return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'; };
 const toMins = s => { if (!s || !s.includes(':')) return null; const [h, m] = s.split(':').map(Number); return h * 60 + m; };
 /** Minutes of a punch: finished (handles clock-out after midnight, sessions/rechecking) or live until now. */
+/** Breaks recorded on a punch: [{ start, end?, mins? }] */
+export const breaksOf = p => { if (!p || !p.breaks) return []; try { const l = typeof p.breaks === 'string' ? JSON.parse(p.breaks) : p.breaks; return Array.isArray(l) ? l : []; } catch (e) { return []; } };
+export const openBreak = p => breaksOf(p).find(b => b && b.start && !b.end) || null;
+/** Break minutes so far (closed breaks + the running one). */
+export const breakMinutes = (p, now = new Date()) => { let m = Number(p && p.break_mins) || 0; const ob = openBreak(p); if (ob) m += Math.max(0, Math.round((now - new Date((ob.startDate || p.date) + 'T' + ob.start + ':00')) / 60000)); return m; };
 export const punchMinutes = (punch, now = new Date()) => {
   if (!punch || !punch.clock_in) return 0;
   let total = 0;
@@ -56,7 +61,7 @@ export const punchMinutes = (punch, now = new Date()) => {
     const startedYesterday = punch.date && punch.date < isoLocal(now);
     total += Math.max(0, nowM + (startedYesterday ? 1440 : 0) - a);
   }
-  return total;
+  return Math.max(0, total - breakMinutes(punch, now));
 };
 /** Minutes worked so far today from a punch (live while clocked in). */
 export const workedToday = (punch, now = new Date()) => punchMinutes(punch, now);
@@ -98,3 +103,23 @@ export const takenMins = (t, now = Date.now()) => {
   return 0;
 };
 export const isRunning = t => Boolean(t && t.started_at && t.status !== 'completed');
+
+/** Leave days (kind 'leave') a request uses inside a calendar year, skipping week-off days. */
+export const leaveDaysIn = (l, year, weekOff = [0]) => {
+  if (!l || l.kind === 'wfh') return 0;
+  const s = new Date(String(l.from_date).slice(0, 10) + 'T00:00:00'), e = new Date(String(l.to_date).slice(0, 10) + 'T00:00:00');
+  let n = 0;
+  for (const d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) if (d.getFullYear() === year && !weekOff.includes(d.getDay())) n++;
+  return n;
+};
+/** Used / pending / left for one person this year. */
+export const leaveBalance = (leaves, empId, quota = 12, weekOff = [0], year = new Date().getFullYear()) => {
+  let used = 0, pending = 0;
+  for (const l of leaves || []) {
+    if (l.emp !== empId || l.kind === 'wfh') continue;
+    const st = l.status || 'approved';
+    if (st === 'approved') used += leaveDaysIn(l, year, weekOff);
+    else if (st === 'pending') pending += leaveDaysIn(l, year, weekOff);
+  }
+  return { quota, used, pending, left: Math.max(0, quota - used), year };
+};

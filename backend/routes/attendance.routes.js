@@ -10,6 +10,8 @@ const { clockInSchema, clockOutSchema, manualAttendanceSchema } = require('../va
 router.post('/clock-in', protect, validate(clockInSchema), attendanceController.clockIn);
 router.post('/clock-out', protect, validate(clockOutSchema), attendanceController.clockOut);
 router.get('/today', optionalAuth, attendanceController.getTodayStatus);
+router.post('/break/start', protect, attendanceController.breakStart);
+router.post('/break/end', protect, attendanceController.breakEnd);
 router.post('/mark', protect, restrictTo('admin', 'manager'), validate(manualAttendanceSchema), attendanceController.markAttendance);
 router.get('/team-summary', protect, restrictTo('admin', 'manager'), attendanceController.getTeamSummary);
 router.get('/stats/:empId', protect, attendanceController.getEmployeeMonthStats);

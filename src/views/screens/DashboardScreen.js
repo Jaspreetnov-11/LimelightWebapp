@@ -9,7 +9,7 @@ import { useModals } from '@/controllers/useModals';
 import { TaskModel, TodoModel } from '@/models';
 import { Avatar, Chip, Empty, GeoLink, Icon, LinkBtn, Panel, Pills, SectionTitle, StatusBars } from '@/views/ui';
 import { Bars, DonutChart, HBars, PairBars, Ring } from '@/views/ui/charts';
-import { assigneeIds, fmtD, greeting, hhmm, hm, hrs1, inr, MODE_LABEL, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
+import { assigneeIds, fmtD, greeting, hhmm, hm, hrs1, inr, leaveBalance, MODE_LABEL, overdue, pct, punchMinutes, thisMonth, todayISO, workedToday } from '@/lib/format';
 
 function TaskMini({ t, onOpen, onAccept }) {
   const { taskAssigneeNames } = useData();
@@ -50,6 +50,7 @@ function ClockCard() {
           <b>
             {head}
             {st === 're_in' && <Chip tone="or" style={{ marginLeft: 8 }}>Re-checked in</Chip>}
+            {clock.onBreak && <Chip tone="or" style={{ marginLeft: 8 }}>On break since {clock.curBreak.start}</Chip>}
             {r && Number(r.late) && !clock.isRecheck ? <Chip tone="or" style={{ marginLeft: 8 }}>Late</Chip> : null}
           </b>
           <small>
@@ -68,6 +69,7 @@ function ClockCard() {
         <Icon name={isOpen ? 'logout' : 'login'} />
         {clock.busy ? 'Getting location…' : isOpen ? 'Clock Out' : isClockedOut ? 'Re-Clock In' : 'Clock In'}
       </button>
+      {isOpen && <button type="button" className={'brk' + (clock.onBreak ? ' on' : '')} onClick={clock.onBreak ? clock.endBreak : clock.startBreak} disabled={clock.busy} title="Break time comes off your worked and productive hours">{clock.onBreak ? '▶ End break · ' + hm(clock.breakNow) : '☕ Take a break'}</button>}
     </div>
   );
 }
@@ -105,6 +107,10 @@ export function DashboardScreen() {
   const deliveredMine = my.filter(t => t.status === 'completed' && String(t.completed || '').slice(0, 7) === month);
   const onTimeMine = deliveredMine.filter(t => !t.deadline || t.completed <= t.deadline).length;
   const team = d.teamSummary;
+  const prod = d.productivity;
+  const myProd = prod && prod.list ? prod.list.find(e => e.id === me.id) : null;
+  const leaveQuota = d.settings && d.settings.leavesPerYear !== undefined ? Number(d.settings.leavesPerYear) : 12;
+  const myLeave = leaveBalance(d.leaves, me.id, leaveQuota, (d.settings && d.settings.weekOff) || [0]);
   const deliveredAll = d.tasks.filter(t => t.status === 'completed' && String(t.completed || '').slice(0, 7) === month);
   const totalPending = d.employees.reduce((a, e) => a + (Number(e.pendingBal) || 0), 0);
   const overdueAll = d.tasks.filter(overdue);
@@ -119,15 +125,16 @@ export function DashboardScreen() {
   ];
 
   // Team charts (admins / team leaders)
+  // Productive hours (task time, minus breaks) per department and per person
   const deptHours = useMemo(() => {
-    if (!team || !team.staff) return [];
+    if (!prod || !prod.list) return [];
     const m = {};
-    for (const s of team.staff) { const k = s.dept || 'Other'; (m[k] = m[k] || []).push(s.avgWorkingMinutes || 0); }
-    const list = Object.entries(m).map(([k, arr]) => { const withHrs = arr.filter(x => x > 0); return { label: k, value: withHrs.length ? Math.round(withHrs.reduce((a, b) => a + b, 0) / withHrs.length / 6) / 10 : 0, tip: arr.length + ' staff' }; }).sort((a, b) => b.value - a.value);
+    for (const s of prod.list) { const k = s.dept || 'Other'; m[k] = m[k] || { mins: 0, n: 0 }; m[k].mins += s.productiveMins || 0; m[k].n += 1; }
+    const list = Object.entries(m).map(([k, v]) => ({ label: k, value: Math.round(v.mins / 6) / 10, tip: v.n + ' staff' })).sort((a, b) => b.value - a.value);
     const withVal = list.filter(x => x.value > 0);
     return (withVal.length ? withVal : list).slice(0, 8);
-  }, [team]);
-  const topStaff = useMemo(() => (team && team.staff ? team.staff.slice().sort((a, b) => (b.totalWorkedMinutes || 0) - (a.totalWorkedMinutes || 0)).slice(0, 6).map(s => ({ label: s.name, value: Math.round((s.totalWorkedMinutes || 0) / 6) / 10, tip: s.dept })) : []), [team]);
+  }, [prod]);
+  const topStaff = useMemo(() => (prod && prod.list ? prod.list.filter(s => s.productiveMins > 0).slice(0, 6).map(s => ({ label: s.name, value: Math.round(s.productiveMins / 6) / 10, tip: (s.dept || '') + ' · tasks ' + hrs1(s.ownMins) + (s.managedMins ? ' · managing ' + hrs1(s.managedMins) : '') })) : []), [prod]);
   const clientBars = useMemo(() => (isAdmin ? (d.clients || []).filter(c => c.revenue > 0 || c.cost > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 6).map(c => ({ label: c.name, a: c.revenue || 0, b: c.cost || 0 })) : []), [d.clients, isAdmin]);
   const projects = d.projects.filter(p => isAdmin || p.manager === me.id).slice().sort((a, b) => Number(b.consumed_mins) - Number(a.consumed_mins)).slice(0, 6);
   const [localTodos, setLocalTodos] = useState(null); // optimistic copy so a new to-do shows instantly
@@ -193,6 +200,8 @@ export function DashboardScreen() {
       <div className="kpis">
         <Kpi label="Avg working hours / day" value={hrs1(st.avgWorkingMinutes)} sub={'target ' + hoursPerDay + 'h 00m'} tone={st.avgWorkingMinutes >= hoursPerDay * 60 ? 'ok' : st.avgWorkingMinutes > 0 ? 'warn' : ''} />
         <Kpi label="Late arrivals" value={st.late} sub={st.late ? 'after grace time' : 'none this month'} tone={st.late ? 'warn' : 'ok'} />
+        <Kpi label="Productive hours" value={hrs1(myProd ? myProd.productiveMins : 0)} sub={myProd ? 'tasks ' + hrs1(myProd.ownMins) + (myProd.managedMins ? ' · managing ' + hrs1(myProd.managedMins) : '') + (myProd.breakMins ? ' · breaks −' + hrs1(myProd.breakMins) : '') : 'from task time'} tone={myProd && st.totalWorkedMinutes > 0 && myProd.productiveMins >= st.totalWorkedMinutes * 0.6 ? 'ok' : ''} />
+        <Kpi label="Leaves left" value={myLeave.left} sub={'used ' + myLeave.used + ' of ' + myLeave.quota + (myLeave.pending ? ' · ' + myLeave.pending + ' pending' : '')} tone={myLeave.left === 0 ? 'bad' : myLeave.left <= 2 ? 'warn' : ''} />
         <Kpi label="Overtime" value={(Number(st.otHours) || 0) + 'h'} sub={'paid at ' + ((d.settings && d.settings.otRate) || 1) + '× hourly'} />
         <Kpi label="Tasks delivered" value={deliveredMine.length} sub={deliveredMine.length ? onTimeMine + ' on time' : 'this month'} tone={deliveredMine.length && onTimeMine === deliveredMine.length ? 'ok' : ''} />
         <Kpi label="Your pending pay" value={inr(meRow ? meRow.pendingBal : 0)} sub={meRow && meRow.earned !== undefined ? 'earned ' + inr(meRow.earned) + ' · paid ' + inr(meRow.paid) : 'this month'} />
@@ -246,14 +255,15 @@ export function DashboardScreen() {
         <div className="kpis">
           <Kpi label="Staff" value={team.staffCount} sub={team.lateCount + ' late arrivals'} tone={team.lateCount ? 'warn' : ''} />
           <Kpi label="Team avg hours / day" value={hrs1(team.avgWorkingMinutes)} sub={'target ' + hoursPerDay + 'h 00m'} tone={team.avgWorkingMinutes >= hoursPerDay * 60 ? 'ok' : team.avgWorkingMinutes > 0 ? 'warn' : ''} />
+          <Kpi label="Productive hours" value={hrs1(prod && prod.totals ? prod.totals.productiveMins : 0)} sub={prod && prod.totals ? 'of ' + hrs1(team.totalWorkedMinutes) + ' clocked' + (prod.totals.breakMins ? ' · breaks −' + hrs1(prod.totals.breakMins) : '') : 'from task time'} bar={prod && prod.totals ? pct(prod.totals.productiveMins, team.totalWorkedMinutes) : 0} tone={prod && prod.totals && team.totalWorkedMinutes > 0 && prod.totals.productiveMins >= team.totalWorkedMinutes * 0.6 ? 'ok' : ''} />
           <Kpi label="Team hours" value={hrs1(team.totalWorkedMinutes)} sub={'of ' + hrs1(team.expectedMinutesSoFar) + ' expected'} bar={pct(team.totalWorkedMinutes, team.expectedMinutesSoFar)} />
           <Kpi label="Overtime hours" value={Math.round(team.otHours * 10) / 10 + 'h'} sub="across the team" />
           <Kpi label="Tasks delivered" value={deliveredAll.length} sub={overdueAll.length + ' overdue'} tone={overdueAll.length ? 'bad' : ''} />
           {isAdmin && <Kpi label="Payroll pending" value={inr(totalPending)} sub={<Link href="/payroll" className="link">Run payroll</Link>} tone={totalPending > 0 ? 'warn' : 'ok'} />}
         </div>
         <div className="viz-grid three">
-          <div className="panel viz-card"><div className="viz-h">Avg hours / day by department</div><div className="viz-b"><HBars data={deptHours} max={Math.max(hoursPerDay, ...deptHours.map(x => x.value))} format={v => v + 'h'} empty="No punches yet" /></div></div>
-          <div className="panel viz-card"><div className="viz-h">Most hours this month</div><div className="viz-b"><HBars data={topStaff} format={v => v + 'h'} empty="No punches yet" /></div></div>
+          <div className="panel viz-card"><div className="viz-h">Productive hours by department<span>task time − breaks</span></div><div className="viz-b"><HBars data={deptHours} format={v => v + 'h'} empty="No task time logged yet" /></div></div>
+          <div className="panel viz-card"><div className="viz-h">Most productive this month<span>incl. assigner credit</span></div><div className="viz-b"><HBars data={topStaff} format={v => v + 'h'} empty="No task time logged yet" /></div></div>
           {isAdmin && <div className="panel viz-card"><div className="viz-h">Clients · revenue vs cost<Link href="/clients" className="link" style={{ fontSize: 12 }}>All clients</Link></div><div className="viz-b"><PairBars data={clientBars} names={['Revenue', 'Staff cost']} format={inrK} empty="Add clients and projects to see profit here" /></div></div>}
         </div>
       </>)}
