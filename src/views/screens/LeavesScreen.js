@@ -1,6 +1,6 @@
 'use client';
 // Leaves & WFH: admins approve / reject every request here; everyone else sees their own.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/controllers/AuthController';
 import { useData } from '@/controllers/DataController';
 import { useUi } from '@/controllers/UiController';
@@ -19,6 +19,16 @@ export function LeavesScreen() {
   const modals = useModals();
   const [tab, setTab] = useState('pending');
   const [busy, setBusy] = useState('');
+  const [hl, setHl] = useState('');
+  // Opened from a notification (/leaves?leave=ID): jump to that request
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('leave');
+    if (!id) return;
+    setHl(id);
+    const l = d.leaves.find(x => x.id === id);
+    if (l) setTab(l.status && l.status !== 'approved' ? (l.status === 'rejected' ? 'rejected' : 'pending') : 'approved');
+    setTimeout(() => { const el = document.querySelector('[data-leave="' + id + '"]'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 400);
+  }, [d.leaves]);
 
   const mine = useMemo(() => (isAdmin ? d.leaves : d.leaves.filter(l => l.emp === me.id)), [d.leaves, isAdmin, me.id]);
   const withStatus = l => ({ ...l, status: l.status || 'approved' });
@@ -52,7 +62,7 @@ export function LeavesScreen() {
       )}
       {tab !== 'balances' && <div className="panel">
         {list.map(l => { const e = d.empById[l.emp]; const canDecide = isAdmin && l.status === 'pending'; const canRemove = isAdmin || (l.emp === me.id && l.status === 'pending'); return (
-          <div className="row" key={l.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--line-soft)', alignItems: 'center', gap: 12, opacity: busy === l.id ? 0.6 : 1, flexWrap: 'wrap' }}>
+          <div className="row" key={l.id} data-leave={l.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--line-soft)', alignItems: 'center', gap: 12, opacity: busy === l.id ? 0.6 : 1, flexWrap: 'wrap', outline: hl === l.id ? '2px solid var(--accent)' : 'none', borderRadius: hl === l.id ? 12 : 0 }}>
             <Avatar e={e} name={e ? e.name : '—'} />
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontWeight: 600 }}>{e ? e.name : '—'} <Chip tone={l.kind === 'wfh' ? 'gr' : 'bl'} style={{ marginLeft: 6 }}>{l.kind === 'wfh' ? 'Work from home' : 'Leave'}</Chip></div>

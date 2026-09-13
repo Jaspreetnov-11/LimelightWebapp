@@ -10,7 +10,7 @@ import { saveCsv } from '@/lib/download';
 import { Avatar, Empty, Icon, LinkBtn, ReassignTaskModal, Seg, Sq, TaskChip } from '@/views/ui';
 import { Assignees } from '@/views/ui/Assignees';
 import { Pager, usePager } from '@/views/ui/Pager';
-import { assigneeIds, fmtD, hm, isRunning, overdue, STATUSES, STATUS_LABEL, takenMins } from '@/lib/format';
+import { assigneeIds, fmtD, hm, isRunning, overdue, STATUSES, STATUS_LABEL, takenMins, thisMonth, todayISO } from '@/lib/format';
 
 const COL_CLS = { pipeline: '', progress: 'ip', approval: 'pa', completed: 'cp', changes: 'oh' };
 
@@ -59,11 +59,15 @@ export function TasksScreen() {
   const [mStatus, setMStatus] = useState('open');
   const [now, setNow] = useState(Date.now());
   const [hl, setHl] = useState('');
+  const [sheet, setSheet] = useState(''); // task id shown in the detail sheet
+  const [range, setRange] = useState('all'); // all | today | day | month
+  const [day, setDay] = useState(() => todayISO());
+  const [month, setMonth] = useState(() => thisMonth());
   const [reassignTaskTarget, setReassignTaskTarget] = useState(null);
   // Opened from a notification (/tasks?task=ID): show everyone's tasks and highlight that card
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('task');
-    if (id) { setHl(id); setTab('org'); setTimeout(() => { const el = document.querySelector('[data-task="' + id + '"]'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 600); }
+    if (id) { setHl(id); setSheet(id); setTab('org'); setRange('all'); setTimeout(() => { const el = document.querySelector('[data-task="' + id + '"]'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 600); }
   }, []);
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px)');
@@ -81,8 +85,21 @@ export function TasksScreen() {
     else if (tab === 'team') list = list.filter(t => (t.dept || '') === me.dept);
     if (member) list = list.filter(t => assigneeIds(t).includes(member));
     if (dept) list = list.filter(t => (t.dept || '') === dept || assigneeIds(t).some(id => (d.empById[id] || {}).dept === dept));
+    // Date range: a task belongs to the day it was assigned (completed tasks also to their completion day)
+    const onDay = (t, iso) => String(t.assigned || '').slice(0, 10) === iso || String(t.completed || '').slice(0, 10) === iso || (t.status !== 'completed' && String(t.deadline || '').slice(0, 10) === iso);
+    if (range === 'today') list = list.filter(t => onDay(t, todayISO()));
+    else if (range === 'day') list = list.filter(t => onDay(t, day));
+    else if (range === 'month') list = list.filter(t => String(t.assigned || '').slice(0, 7) === month || String(t.completed || '').slice(0, 7) === month || (t.status !== 'completed' && String(t.deadline || '').slice(0, 7) === month));
     return list;
-  }, [d, tab, member, dept, me]);
+  }, [d, tab, member, dept, me, range, day, month]);
+
+  const rangeBar = (
+    <div className="task-range">
+      {[['all', 'Overall'], ['today', 'Today'], ['day', 'Day'], ['month', 'Month']].map(([k, l]) => <button key={k} type="button" className={'pill' + (range === k ? ' on' : '')} onClick={() => setRange(k)}>{l}</button>)}
+      {range === 'day' && <input type="date" value={day} max={todayISO()} onChange={e => setDay(e.target.value)} />}
+      {range === 'month' && <input type="month" value={month} onChange={e => setMonth(e.target.value)} />}
+    </div>
+  );
   const emps = d.employees.filter(e => !dept || e.dept === dept);
   const listPager = usePager(tasks, 20);
 
@@ -111,7 +128,7 @@ export function TasksScreen() {
       <div className={'tcard' + (dragId === t.id ? ' dragging' : '') + (hl === t.id ? ' hl' : '')} data-task={t.id} key={t.id} draggable={lead} onDragStart={ev => { if (!lead) { ev.preventDefault(); return; } setDragId(t.id); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', t.id); } catch (x) { /* ignore */ } }} onDragEnd={() => { setDragId(null); setOverCol(''); }}>
         <div className="p"><span>{t.project_name || d.projName(t.project)}</span><span style={{ display: 'flex', gap: 4, alignItems: 'center' }}><i className={od ? 'r' : ''} title={od ? 'Overdue' : ''}><Icon name="flag" size={14} /></i>{canReassign && <button type="button" onClick={() => setReassignTaskTarget(t)} title="Reassign task" style={{ background: 'none', border: 0, color: 'var(--muted)', cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}>⇄</button>}{lead && <><button onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="file" /></button><button onClick={() => del(t)} aria-label="Delete">✕</button></>}</span></div>
         <small>{t.type || 'Other'}{t.dept ? ' · ' + t.dept : ''}</small>
-        <div>{t.title}</div>
+        <div role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => setSheet(t.id)} title="Open task">{t.title}</div>
         {t.reassigned_by && (
           <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
             <span>⇄ Reassigned by <b>{d.empName(t.reassigned_by)}</b></span>
@@ -132,7 +149,17 @@ export function TasksScreen() {
     );
   };
 
-  // ---- Mobile: a simple list with workflow buttons (the kanban board is desktop-only) ----
+  const sheetTask = sheet ? d.tasks.find(t => t.id === sheet) : null;
+  const taskSheet = sheetTask ? (
+    <div className="tsheet-bg" onClick={e => { if (e.target === e.currentTarget) setSheet(''); }}>
+      <div className="tsheet" role="dialog" aria-label="Task">
+        <div className="tsheet-h"><b>Task</b><span style={{ display: 'inline-flex', gap: 6 }}>{actionsFor(sheetTask).lead && <button className="mini-btn" onClick={() => { setSheet(''); modals.open('task', sheetTask.id); }} title="Edit"><Icon name="file" /></button>}<button className="mini-btn" onClick={() => setSheet('')} aria-label="Close">✕</button></span></div>
+        {card(sheetTask)}
+      </div>
+    </div>
+  ) : null;
+
+    // ---- Mobile: a simple list with workflow buttons (the kanban board is desktop-only) ----
   if (isMobile) {
     const mList = tasks.filter(t => mStatus === 'all' ? true : mStatus === 'open' ? t.status !== 'completed' : t.status === mStatus);
     const mCounts = { open: tasks.filter(t => t.status !== 'completed').length, all: tasks.length };
@@ -149,11 +176,12 @@ export function TasksScreen() {
         <div className="pill-tabs" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
           {[['open', 'Open'], ...STATUSES.map(k => [k, STATUS_LABEL[k]]), ['all', 'All']].map(([k, l]) => <button key={k} className={'pill' + (mStatus === k ? ' on' : '')} style={{ flex: '0 0 auto' }} onClick={() => setMStatus(k)}>{l} <span className="n">{mCounts[k]}</span></button>)}
         </div>
+        {rangeBar}
         <div className="mtask-list">
           {mList.map(t => { const od = overdue(t); const { acts, lead } = actionsFor(t); return (
             <div className={'mtask' + (t.status === 'completed' ? ' done' : od ? ' late' : '') + (hl === t.id ? ' hl' : '')} data-task={t.id} key={t.id}>
               <div className="mtask-top"><span className="mtask-proj">{t.project_name || d.projName(t.project)}</span><span className={'chip ' + (od ? 'pk' : t.status === 'completed' ? 'gr' : 'gy')}>{t.status === 'completed' ? 'Done ' + fmtD(t.completed || t.deadline) : 'Due ' + fmtD(t.deadline)}</span></div>
-              <div className="mtask-title">{t.title}</div>
+              <div className="mtask-title" role="button" onClick={() => setSheet(t.id)}>{t.title}</div>
               <div className="mtask-row"><Assignees task={t} /><TaskChip status={t.status} /></div>
               <div className="tcard" style={{ padding: 0, border: 0, background: 'none' }}><Timer t={t} now={now} /></div>
               <div className="mtask-actions" style={{ flexWrap: 'wrap', gap: 6 }}>
@@ -166,6 +194,7 @@ export function TasksScreen() {
             </div>); })}
           {!mList.length && <Empty>No tasks here</Empty>}
         </div>
+        {taskSheet}
       </div>
     );
   }
@@ -181,6 +210,7 @@ export function TasksScreen() {
           {d.canAssign && <button className="tb-btn solid" style={{ height: 34 }} onClick={() => modals.open('task')}>+ Assign task</button>}
         </div>
       </div>
+      {rangeBar}
       <div className="board-wrap">
         <div className="members">
           <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>People</div>
@@ -238,6 +268,7 @@ export function TasksScreen() {
           }
         }}
       />
+      {taskSheet}
     </>
   );
 }

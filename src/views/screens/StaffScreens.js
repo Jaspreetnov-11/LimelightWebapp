@@ -11,7 +11,7 @@ import { saveCsv } from '@/lib/download';
 import { Avatar, Chip, DateBtn, Donut, Empty, Icon, Legend, LinkBtn, Panel, Search, Sq, Stat, TaskChip, Tabs } from '@/views/ui';
 import { Pager, usePager } from '@/views/ui/Pager';
 import { ImportStaff } from '@/views/screens/ImportStaff';
-import { assigneeIds, avFor, fmtD, fmtDY, hm, ini, inr, overdue, STATUSES, STATUS_COLOR, STATUS_LABEL, thisMonth } from '@/lib/format';
+import { assigneeIds, avFor, fmtD, fmtDY, hm, ini, inr, overdue, shiftDisplay, STATUSES, STATUS_COLOR, STATUS_LABEL, thisMonth } from '@/lib/format';
 
 export function StaffListScreen() {
   const d = useData();

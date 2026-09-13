@@ -64,7 +64,7 @@ function ClockCard() {
       </div>
       <button
         className={'big' + (isClockedOut ? ' recheck-btn' : '')}
-        onClick={clock.act}
+        onClick={isClockedOut ? () => window.dispatchEvent(new Event('lh:splash')) : clock.act}
         disabled={clock.busy}
       >
         <Icon name={isOpen ? 'logout' : 'login'} />

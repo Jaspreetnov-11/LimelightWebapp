@@ -19,7 +19,7 @@ export function SplashLoader({ text = 'Loading' }) {
   );
 }
 
-function SlideToClockIn({ onDone, busy }) {
+function SlideToClockIn({ onDone, busy, again }) {
   const track = useRef(null);
   const [x, setX] = useState(0);
   const [drag, setDrag] = useState(false);
@@ -43,7 +43,7 @@ function SlideToClockIn({ onDone, busy }) {
   return (
     <div className={'slide' + (busy ? ' busy' : '')} ref={track} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onPointerLeave={end}>
       <div className="fill" style={{ width: x + 64 }}></div>
-      <div className="lbl" style={{ opacity: 1 - pct * 1.4 }}>{busy ? 'Getting your location…' : 'Slide to clock in ›››'}</div>
+      <div className="lbl" style={{ opacity: 1 - pct * 1.4 }}>{busy ? 'Getting your location…' : (again ? 'Slide to clock in again ›››' : 'Slide to clock in ›››')}</div>
       <div className={'knob' + (drag ? ' on' : '')} style={{ transform: 'translateX(' + x + 'px)', transition: drag ? 'none' : 'transform .25s' }}
         onPointerDown={ev => { if (busy) return; startRef.current = ev.clientX - x; setDrag(true); ev.currentTarget.setPointerCapture(ev.pointerId); }}>
         <Icon name={busy ? 'clock' : 'login'} />
@@ -60,7 +60,7 @@ export function ClockSplash({ onDone }) {
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 15000); return () => clearInterval(t); }, []);
 
   // Already clocked in (or done for today): go straight to Home.
-  useEffect(() => { if (loaded && today && clock.state !== 'off') onDone(); }, [loaded, today, clock.state, onDone]);
+  useEffect(() => { if (loaded && today && (clock.state === 'in' || clock.state === 're_in')) onDone(); }, [loaded, today, clock.state, onDone]);
 
   if (!loaded || !today) return <SplashLoader text="Getting things ready" />;
 
@@ -70,10 +70,10 @@ export function ClockSplash({ onDone }) {
       <img src="/logo.png" alt="limelight" className="splash-logo" width="3096" height="774" />
       <div className="splash-hi">
         <div className="eyebrow">{greeting()}</div>
-        <h1>{me.name.split(' ')[0]}, ready to start?</h1>
+        <h1>{me.name.split(' ')[0]}, {clock.state === 'done' ? 'back for another session?' : 'ready to start?'}</h1>
         <p>{now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short' })} · {hhmm(now)} · shift {shiftDisplay(me.shift, settings)}</p>
       </div>
-      <SlideToClockIn onDone={go} busy={clock.busy} />
+      <SlideToClockIn onDone={go} busy={clock.busy} again={clock.state === 'done'} />
       <button type="button" className="splash-skip" onClick={onDone} disabled={clock.busy}>Not now, take me to Home</button>
     </div>
   );

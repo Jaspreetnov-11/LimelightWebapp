@@ -1107,3 +1107,19 @@ html[data-theme="light"] .lh-wordmark{filter:invert(1) hue-rotate(180deg)}
 .simran-in input{flex:1; height:38px} .simran-in button{width:38px; height:38px; border-radius:50%; border:0; background:var(--accent); color:var(--ink); font-weight:700; cursor:pointer} .simran-in button:disabled{opacity:.5}
 .simran-wa{margin:0 12px 12px; height:36px; border-radius:100px; border:1px solid #25D366; color:#25D366; background:transparent; font-weight:600; font-size:12.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px} .simran-wa:disabled{opacity:.6}
 @media (max-width:760px){ .simran-fab{bottom:78px; right:12px} .simran-fab .simran-hi{display:none} .simran-fab{padding:6px} .simran{right:8px; left:8px; width:auto; bottom:78px; height:min(70vh, calc(100vh - 150px))} }
+/* ---------- Light theme fixes: softer white, native selects/dates in light scheme ---------- */
+html[data-theme="light"]{ --bg:#EDEDEB; --bg-2:#E4E4E1; --app-bg:#EDEDEB; --panel:#F7F7F5; --panel-2:#F1F1EF; --panel-solid:#F9F9F7; --card:#F7F7F5; --card-head:#F1F1EF; --card-2:#F7F7F5; --field:#FFFFFF; --field-alt:#F7F7F5; --side:#F7F7F5; --chrome:rgba(247,247,245,.94) }
+html[data-theme="light"] input,html[data-theme="light"] textarea,html[data-theme="light"] select,html[data-theme="light"] input[type=date],html[data-theme="light"] input[type=time]{color-scheme:light !important; background-color:#FFFFFF !important; color:var(--text) !important; border-color:var(--line-strong)}
+html[data-theme="light"] select{background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'><path d='M6 9l6 6 6-6' fill='none' stroke='%2326262B' stroke-width='2.5' stroke-linecap='round'/></svg>") !important}
+html[data-theme="light"] select option,html[data-theme="light"] select optgroup,html[data-theme="light"] option{background-color:#FFFFFF !important; color:#17171B !important; color-scheme:light !important}
+html[data-theme="light"] .simran .msg.me,html[data-theme="light"] .simran-in button{color:#FFFFFF}
+/* ---------- Tasks: date range bar + task sheet ---------- */
+.task-range{display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:10px 0 4px}
+.task-range .pill{height:30px; font-size:12px}
+.task-range input{width:auto; height:32px; font-size:12.5px; padding:0 10px; border-radius:100px}
+.tsheet-bg{position:fixed; inset:0; z-index:70; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(4px)}
+.tsheet{width:min(460px, 100%); max-height:calc(100vh - 32px); overflow:auto; background:var(--panel-solid); border:1px solid var(--line-strong); border-radius:20px; padding:12px; box-shadow:0 30px 60px -24px rgba(0,0,0,.7); animation:simranIn .18s ease-out}
+.tsheet-h{display:flex; justify-content:space-between; align-items:center; padding:2px 6px 10px; font-size:13.5px}
+.tsheet .tcard{cursor:default; margin:0}
+.tsheet .tcard.hl{outline:none}
+@media (max-width:760px){ .tsheet-bg{align-items:flex-end; padding:0} .tsheet{width:100%; border-radius:20px 20px 0 0; max-height:85vh} .task-range{margin:6px 0} }

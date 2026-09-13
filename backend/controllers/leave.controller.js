@@ -57,7 +57,7 @@ const applyLeave = catchAsync(async (req, res) => {
   if (status === 'pending') {
     const admins = await employeeModel.findAll({ access: 'admin' });
     // Approvers open the Leaves page where every pending request lives
-    await activityModel.notify(admins.map(a => a.id).filter(x => x !== req.user.id), `${name} requested ${what}: ${detail}`, { kind: 'leave', link: '/leaves', ref_type: 'leave', ref_id: leave.id });
+    await activityModel.notify(admins.map(a => a.id).filter(x => x !== req.user.id), `${name} requested ${what}: ${detail}`, { kind: 'leave', link: '/leaves?leave=' + leave.id, ref_type: 'leave', ref_id: leave.id });
     await activityModel.log(`${name} requested ${what} (${span}) · awaiting approval`);
   } else {
     await activityModel.log(`${name} ${kind === 'wfh' ? 'will work from home' : 'is on leave'} (${detail})`);
@@ -77,7 +77,7 @@ const decideLeave = catchAsync(async (req, res) => {
   const updated = await leaveModel.update(id, { status, remarks: note ? `${existing.remarks || ''}${existing.remarks ? ' · ' : ''}Admin: ${note}` : existing.remarks });
   const span = existing.from_date === existing.to_date ? existing.from_date : `${existing.from_date} to ${existing.to_date}`;
   const what = existing.kind === 'wfh' ? 'work from home' : 'leave';
-  await activityModel.notify(existing.emp, `Your ${what} request (${span}) was ${status}${note ? ' · ' + note : ''}`, { kind: 'leave', link: '/attendance', ref_type: 'leave', ref_id: id });
+  await activityModel.notify(existing.emp, `Your ${what} request (${span}) was ${status}${note ? ' · ' + note : ''}`, { kind: 'leave', link: '/leaves?leave=' + id, ref_type: 'leave', ref_id: id });
   const empRecord = await employeeModel.findById(existing.emp);
   await activityModel.log(`${req.user.name} ${status} ${empRecord ? empRecord.name + "'s" : 'a'} ${what} request (${span})`);
   return apiResponse.success(res, updated, `Request ${status}`);

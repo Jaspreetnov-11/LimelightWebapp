@@ -18,8 +18,8 @@ export function applyTheme(theme) {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState('dark');
-  useEffect(() => { setThemeState(readTheme()); }, []);
+  const [theme, setThemeState] = useState(() => (typeof window === 'undefined' ? 'dark' : readTheme()));
+  useEffect(() => { const t = readTheme(); setThemeState(t); applyTheme(t); }, []);
   const setTheme = useCallback(t => {
     const next = t === 'light' ? 'light' : 'dark';
     setThemeState(next);

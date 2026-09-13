@@ -12,6 +12,7 @@ import { Icon } from '@/views/ui/Icons';
 import { Avatar } from '@/views/ui';
 import { ClockSplash, SPLASH_KEY } from '@/views/layout/ClockSplash';
 import { usePush } from '@/controllers/usePush';
+import { applyTheme, readTheme } from '@/controllers/useTheme';
 import { SimranChat } from '@/views/ui/SimranChat';
 
 // [key, label, icon, who] — who: 'all' | 'admin'
@@ -38,7 +39,8 @@ export function AppShell({ children }) {
   const [splash, setSplash] = useState(() => { try { return !sessionStorage.getItem(SPLASH_KEY); } catch (e) { return false; } });
   const closeSplash = useCallback(() => { try { sessionStorage.setItem(SPLASH_KEY, '1'); } catch (e) { /* ignore */ } setSplash(false); if (current !== 'dashboard') router.replace('/dashboard'); }, [current, router]);
 
-  useEffect(() => { setMenu(''); setSheet(false); }, [pathname]);
+  useEffect(() => { setMenu(''); setSheet(false); applyTheme(readTheme()); }, [pathname]); // keep the chosen theme on every route
+  useEffect(() => { const reopen = () => { try { sessionStorage.removeItem(SPLASH_KEY); } catch (e) { /* ignore */ } setSplash(true); }; window.addEventListener('lh:splash', reopen); return () => window.removeEventListener('lh:splash', reopen); }, []);
   useEffect(() => { if (!isAdmin && ADMIN_ONLY.has(current)) router.replace('/dashboard'); }, [current, isAdmin, router]);
   useEffect(() => {
     const close = e => { if (!e.target.closest('.menu') && !e.target.closest('[data-menu-btn]')) setMenu(''); };
