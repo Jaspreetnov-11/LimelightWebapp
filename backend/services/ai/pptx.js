@@ -94,7 +94,7 @@ async function build(deck) {
           x: 0.6, y: 1.95, w: 5.9, h: 2.9, chartColors: [YELLOW, 'FFFFFF', '8A8A94', 'B48CFF', '6FA8FF'],
           catAxisLabelColor: MUTED, valAxisLabelColor: MUTED, catAxisLabelFontFace: F, valAxisLabelFontFace: F, catAxisLabelFontSize: 10, valAxisLabelFontSize: 10,
           valGridLine: { color: '2A2A30', style: 'solid', size: 0.5 }, catGridLine: { style: 'none' }, showLegend: data.length > 1, legendColor: MUTED, legendFontFace: F, legendPos: 'b',
-          dataLabelColor: WHITE, dataLabelFontFace: F, showValue: c.type !== 'line', dataLabelFontSize: 9, showPercent: c.type === 'pie', plotArea: { fill: { color: INK } }
+          dataLabelColor: WHITE, dataLabelFontFace: F, showValue: c.type !== 'line', dataLabelFontSize: 9, dataLabelFormatCode: '#,##0.##', valAxisLabelFormatCode: '#,##0.##', showPercent: c.type === 'pie', plotArea: { fill: { color: INK } }
         });
         if (c.takeaway) text(s, c.takeaway, { x: 6.8, y: 2.0, w: 2.6, h: 2.8, fontSize: 15, bold: true, valign: 'middle' });
         break;
