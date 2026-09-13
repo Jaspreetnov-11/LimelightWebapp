@@ -40,6 +40,9 @@ module.exports = {
   // AI Agent page (prompts, content, scripts, schedule, ads): Gemini free tier first, Claude if only that key exists
   GEMINI_API_KEY: (process.env.GEMINI_API_KEY || '').trim(),
   GEMINI_MODEL: (process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim(),
+  // PPT tab: Google Slides via a service account (JSON key, raw or base64). Optional Drive folder shared with that account.
+  GOOGLE_SERVICE_ACCOUNT_JSON: (process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').trim(),
+  GOOGLE_DRIVE_FOLDER_ID: (process.env.GOOGLE_DRIVE_FOLDER_ID || '').trim(),
   WHATSAPP_TOKEN: (process.env.WHATSAPP_TOKEN || '').trim(),
   WHATSAPP_PHONE_ID: (process.env.WHATSAPP_PHONE_ID || '').trim()
 };

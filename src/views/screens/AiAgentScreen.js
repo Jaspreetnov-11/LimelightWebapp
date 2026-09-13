@@ -6,7 +6,7 @@ import { AiModel } from '@/models';
 import { useUi } from '@/controllers/UiController';
 import { Chip, Icon, SectionTitle, Seg, Tabs } from '@/views/ui';
 
-const TABS = [['prompts', 'Prompt studio'], ['content', 'Content writing'], ['schedule', 'Scheduling'], ['ads', 'Ads']];
+const TABS = [['prompts', 'Prompt studio'], ['content', 'Content writing'], ['schedule', 'Scheduling'], ['ads', 'Ads'], ['deck', 'PPT']];
 const LS_TAB = 'lh-ai-tab', LS_SCHED = 'lh-ai-schedule';
 
 /* ---------- small pieces ---------- */
@@ -361,6 +361,63 @@ function AdsTab({ meta }) {
   );
 }
 
+/* ---------- 5. PPT ---------- */
+function downloadBase64(base64, filename) {
+  const bytes = atob(base64); const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([arr], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }));
+  const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+function DeckTab({ meta }) {
+  const [brief, setBrief] = useState('');
+  const [count, setCount] = useState('10');
+  const [style, setStyle] = useState('Pitch');
+  const [lang, setLang] = useState('English');
+  const [audience, setAudience] = useState('');
+  const { busy, out, run } = useRun(() => AiModel.deck({ brief, count: Number(count), style, lang, audience }));
+  const d = out && out.deck;
+  const outline = d ? d.slides.map((s, i) => `${i + 1}. ${s.title}${s.subtitle ? ' — ' + s.subtitle : ''}${s.bullets.length ? '\n   - ' + s.bullets.join('\n   - ') : ''}${s.left.length ? '\n   Left: ' + s.left.join('; ') + '\n   Right: ' + s.right.join('; ') : ''}${s.number ? '\n   ' + s.number + ' — ' + s.caption : ''}${s.quote ? '\n   “' + s.quote + '”' : ''}${s.notes ? '\n   Notes: ' + s.notes : ''}`).join('\n\n') : '';
+  return (
+    <div className="ai-grid">
+      <div className="ai-stack">
+        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What is the deck for? Client, offer, problem, proof, numbers you have, what you want them to decide…" /></div>
+        <div className="panel ai-p">
+          <Sec n="02" title="Deck" right={meta.deck.google ? <><span className="dot" />Google Slides connected</> : 'Google Slides not connected · .pptx download'} />
+          <div className="ai-fields">
+            <Field label="Slides"><Select value={count} onChange={setCount} options={meta.deck.counts.map(String)} disabled={busy} /></Field>
+            <Field label="Type"><Select value={style} onChange={setStyle} options={meta.deck.styles} disabled={busy} /></Field>
+            <Field label="Language"><Select value={lang} onChange={setLang} options={meta.deck.langs} disabled={busy} /></Field>
+          </div>
+          <Field label="Audience (optional)"><input type="text" value={audience} onChange={e => setAudience(e.target.value)} placeholder="e.g. CMO of a Punjab tourism board" disabled={busy} /></Field>
+          <Run busy={busy} disabled={!brief.trim()} onClick={run}>Build deck</Run>
+        </div>
+      </div>
+      <div className="panel ai-p">
+        <div className="ai-out-h"><b style={{ fontSize: 15 }}>{d ? d.title : 'Your deck'}</b>{d && <Chip tone="gr">{d.slides.length} slides</Chip>}<span className="grow" />{d && <CopyBtn text={outline}>Copy outline</CopyBtn>}</div>
+        {busy ? <Writing label="Building" /> : !d ? <Empty>Brief, slide count, type, build.<br /><small>{meta.deck.google ? 'You get a Google Slides link you can edit.' : 'You get a .pptx to open in PowerPoint or upload to Google Slides.'}</small></Empty> : (
+          <>
+            {out.slides && out.slides.url && <a className="btn btn-primary ai-cta" href={out.slides.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginBottom: 12 }}>Open in Google Slides ↗</a>}
+            {out.pptx && <button type="button" className="btn btn-primary ai-cta" style={{ marginBottom: 12 }} onClick={() => downloadBase64(out.pptx.base64, out.pptx.filename)}>Download .pptx</button>}
+            {d.subtitle && <div className="ai-dir"><Icon name="spark" style={{ color: 'var(--accent)', width: 18, height: 18, flex: 'none' }} /><div><div className="lab">Subtitle</div><div>{d.subtitle}</div></div></div>}
+            {d.slides.map((s, i) => (
+              <div className="ai-card" key={i}>
+                <div className="ai-card-h"><Chip tone="gy">{i + 1}</Chip><b>{s.title || s.quote || s.number}</b><Chip tone="pu">{s.layout.replace('_', ' ')}</Chip></div>
+                {s.subtitle && <div className="ai-meta" style={{ marginTop: 6 }}><span>{s.subtitle}</span></div>}
+                {s.bullets.length > 0 && <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 13.5, color: 'var(--t2)' }}>{s.bullets.map((b, k) => <li key={k}>{b}</li>)}</ul>}
+                {(s.left.length > 0 || s.right.length > 0) && <div className="ai-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}><ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--t2)' }}>{s.left.map((b, k) => <li key={k}>{b}</li>)}</ul><ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--t2)' }}>{s.right.map((b, k) => <li key={k}>{b}</li>)}</ul></div>}
+                {s.number && <div style={{ marginTop: 8 }}><b style={{ fontSize: 26, color: 'var(--accent)' }}>{s.number}</b> <span className="ai-meta" style={{ display: 'inline' }}>{s.caption}</span></div>}
+                {s.quote && <div className="ai-tip">“{s.quote}”{s.caption ? ' — ' + s.caption : ''}</div>}
+                {s.notes && <div className="ai-meta" style={{ marginTop: 8 }}><span>Notes: {s.notes}</span></div>}
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- screen ---------- */
 export function AiAgentScreen() {
   const [tab, setTab] = useState('prompts');
@@ -383,6 +440,7 @@ export function AiAgentScreen() {
       {meta && tab === 'content' && <ContentTab meta={meta} />}
       {meta && tab === 'schedule' && <ScheduleTab meta={meta} />}
       {meta && tab === 'ads' && <AdsTab meta={meta} />}
+      {meta && tab === 'deck' && <DeckTab meta={meta} />}
     </div>
   );
 }
