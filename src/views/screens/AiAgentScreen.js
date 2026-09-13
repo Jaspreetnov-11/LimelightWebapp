@@ -75,36 +75,56 @@ function PdfBtn({ id, small }) {
   const go = async () => { setBusy(true); try { const r = await AiModel.runPdf(id); downloadB64(r.base64, r.filename, MIME.pdf); } catch (e) { toast(e.message || 'PDF failed'); } finally { setBusy(false); } };
   return <button type="button" className="date-btn" style={small ? { height: 28, fontSize: 11.5 } : undefined} onClick={go} disabled={busy}><Icon name="down" />{busy ? 'Preparing…' : 'PDF'}</button>;
 }
-/** Reference files (PDF, Word, text) the agent reads alongside the brief. Shared list per staff member. */
+/**
+ * Reference files (PDF, Word, text) the agent reads alongside the brief.
+ * Default: read for this session only (text held in this browser tab, sent with the request, nothing stored).
+ * "Keep in library": stored compressed on the server so it can be attached later from any device.
+ * `value` holds library ids (strings) and session refs ({ id, name, text }) together.
+ */
+const SESSION_KEY = 'lh-ai-session-refs';
+const readSession = () => { try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || '[]'); } catch (e) { return []; } };
+const writeSession = list => { try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ } };
 function RefPicker({ value, onChange, disabled }) {
   const { toast } = useUi();
-  const [list, setList] = useState([]);
+  const [library, setLibrary] = useState([]);
+  const [session, setSession] = useState([]);
+  const [keep, setKeep] = useState(false);
   const [busy, setBusy] = useState(false);
-  const load = () => AiModel.references().then(setList).catch(() => setList([]));
-  useEffect(() => { load(); }, []);
-  const toggle = id => onChange(value.includes(id) ? value.filter(x => x !== id) : [...value, id]);
+  const load = () => AiModel.references().then(setLibrary).catch(() => setLibrary([]));
+  useEffect(() => { load(); setSession(readSession()); }, []);
+  const isOn = r => value.some(v => (typeof v === 'string' ? v === r.id : v && v.id === r.id));
+  const toggle = (r, obj) => onChange(isOn(r) ? value.filter(v => (typeof v === 'string' ? v !== r.id : !v || v.id !== r.id)) : [...value, obj ? { id: r.id, name: r.name, text: r.text } : r.id]);
   const onFile = async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = '';
     if (!f) return;
     setBusy(true);
-    try { const r = await AiModel.referenceUpload(f); await load(); onChange([...value, r.id]); toast('Added: ' + r.name + ' (' + Math.round(r.chars / 1000) + 'k characters)'); }
-    catch (err) { toast(err.message || 'Upload failed'); }
+    try {
+      const r = await AiModel.referenceUpload(f, keep);
+      if (r.saved) { await load(); if (!isOn(r)) onChange([...value, r.id]); toast('Saved to library: ' + r.name); }
+      else { const next = [...session.filter(x => x.name !== r.name), r]; setSession(next); writeSession(next); onChange([...value, { id: r.id, name: r.name, text: r.text }]); toast('Read for this session: ' + r.name + ' (' + Math.round(r.chars / 1000) + 'k characters, not stored)'); }
+    } catch (err) { toast(err.message || 'Upload failed'); }
     finally { setBusy(false); }
   };
-  const remove = async id => { try { await AiModel.referenceDelete(id); onChange(value.filter(x => x !== id)); load(); } catch (err) { toast(err.message || 'Failed'); } };
+  const removeLib = async r => { try { await AiModel.referenceDelete(r.id); onChange(value.filter(v => v !== r.id)); load(); } catch (err) { toast(err.message || 'Failed'); } };
+  const removeSess = r => { const next = session.filter(x => x.id !== r.id); setSession(next); writeSession(next); onChange(value.filter(v => !v || v.id !== r.id)); };
+  const pill = (r, obj, onRemove) => (
+    <span key={r.id} className={'pill' + (isOn(r) ? ' on' : '')} style={{ height: 28, fontSize: 11.5, paddingRight: 6 }} title={(obj ? 'This session only · ' : 'Library · ') + r.kind + ' · ' + r.chars + ' characters'}>
+      <button type="button" onClick={() => !disabled && toggle(r, obj)} style={{ background: 'none', border: 0, color: 'inherit', font: 'inherit', cursor: 'pointer', padding: 0 }}>{obj ? '' : '★ '}{r.name.length > 28 ? r.name.slice(0, 26) + '…' : r.name}</button>
+      <button type="button" onClick={() => onRemove(r)} aria-label="Remove" style={{ background: 'none', border: 0, color: 'inherit', opacity: .6, cursor: 'pointer', padding: '0 2px', fontSize: 12 }}>✕</button>
+    </span>
+  );
   return (
     <div>
       <div className="ai-lab" style={{ marginTop: 4 }}><span>References {value.length > 0 && <span style={{ color: 'var(--accent)' }}>· {value.length} attached</span>}</span>
-        <label className="date-btn" style={{ height: 28, fontSize: 11.5, cursor: disabled || busy ? 'default' : 'pointer', opacity: disabled ? .5 : 1 }}><Icon name="file" />{busy ? 'Reading…' : 'Upload file'}<input type="file" accept=".pdf,.docx,.txt,.md,.csv,.json,.html" hidden disabled={disabled || busy} onChange={onFile} /></label>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, textTransform: 'none', letterSpacing: 0, color: 'var(--muted)', cursor: 'pointer' }}><input type="checkbox" checked={keep} onChange={e => setKeep(e.target.checked)} disabled={disabled || busy} style={{ width: 14, height: 14, accentColor: 'var(--accent)' }} />Keep in library</label>
+          <label className="date-btn" style={{ height: 28, fontSize: 11.5, cursor: disabled || busy ? 'default' : 'pointer', opacity: disabled ? .5 : 1 }}><Icon name="file" />{busy ? 'Reading…' : 'Upload file'}<input type="file" accept=".pdf,.docx,.txt,.md,.csv,.json,.html" hidden disabled={disabled || busy} onChange={onFile} /></label>
+        </span>
       </div>
-      {list.length === 0 ? <div className="ai-meta" style={{ marginTop: 6 }}><span>Brand guidelines, past decks, client notes: upload once, attach to any brief.</span></div> : (
+      {library.length === 0 && session.length === 0 ? <div className="ai-meta" style={{ marginTop: 6 }}><span>PDF, Word or text. Read once for this session, nothing stored. Tick "Keep in library" for files you reuse, like brand guidelines.</span></div> : (
         <div className="ai-chips" style={{ marginTop: 6 }}>
-          {list.map(r => (
-            <span key={r.id} className={'pill' + (value.includes(r.id) ? ' on' : '')} style={{ height: 28, fontSize: 11.5, paddingRight: 6 }} title={r.kind + ' · ' + r.chars + ' characters'}>
-              <button type="button" onClick={() => !disabled && toggle(r.id)} style={{ background: 'none', border: 0, color: 'inherit', font: 'inherit', cursor: 'pointer', padding: 0 }}>{r.name.length > 28 ? r.name.slice(0, 26) + '…' : r.name}</button>
-              <button type="button" onClick={() => remove(r.id)} aria-label="Remove" style={{ background: 'none', border: 0, color: 'inherit', opacity: .6, cursor: 'pointer', padding: '0 2px', fontSize: 12 }}>✕</button>
-            </span>
-          ))}
+          {library.map(r => pill(r, false, removeLib))}
+          {session.map(r => pill(r, true, removeSess))}
         </div>
       )}
     </div>

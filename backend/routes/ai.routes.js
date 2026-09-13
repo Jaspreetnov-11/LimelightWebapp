@@ -32,17 +32,24 @@ const brief = req => {
   return b;
 };
 
-/** Text block from the reference ids the client attached. */
+/**
+ * Text block from the references the client attached. Two shapes:
+ *   "id"                       a library reference stored in lh_ai_refs
+ *   { name, text: "gz:..." }   a session reference: extracted on upload, held only in the browser, sent with the request
+ */
 async function context(req) {
-  const ids = Array.isArray(req.body.refs) ? req.body.refs.filter(x => typeof x === 'string').slice(0, 6) : [];
-  if (!ids.length) return '';
-  const rows = await store.refs.texts(ids, req.user.id, isAdmin(req.user));
-  return refsSvc.contextBlock(rows);
+  const list = Array.isArray(req.body.refs) ? req.body.refs.slice(0, 6) : [];
+  if (!list.length) return '';
+  const ids = list.filter(x => typeof x === 'string');
+  const session = list.filter(x => x && typeof x === 'object' && typeof x.text === 'string').map(x => ({ name: String(x.name || 'reference').slice(0, 120), text: store.unpack(x.text, false).slice(0, 30000) })).filter(x => x.text);
+  const rows = ids.length ? await store.refs.texts(ids, req.user.id, isAdmin(req.user)) : [];
+  return refsSvc.contextBlock([...rows, ...session]);
 }
 
-/** Save a run and return the payload with its id attached. */
+/** Save a run and return the payload with its id attached. Reference text is never stored with the run, only names. */
 async function save(req, tool, title, input, result) {
-  const runId = await store.runs.create({ emp: req.user.id, tool, title, input, output: result, provider: result.provider || '' });
+  const refs = Array.isArray(input.refs) ? input.refs.map(x => (typeof x === 'string' ? x : x && x.name ? x.name : '')).filter(Boolean) : [];
+  const runId = await store.runs.create({ emp: req.user.id, tool, title, input: { ...input, refs }, output: result, provider: result.provider || '' });
   return { ...result, runId };
 }
 
@@ -104,14 +111,19 @@ router.post('/deck/design', protect, catchAsync(async (req, res) => {
 // ---------------------------------------------------------------- reference files
 router.get('/references', protect, catchAsync(async (req, res) => apiResponse.success(res, await store.refs.list(req.user.id))));
 
+// Upload -> text. By default nothing is stored: the text goes back to the browser (compressed) for this session.
+// ?save=1 keeps it in the person's library (compressed, de-duplicated). The file itself is deleted either way.
 router.post('/references', protect, upload.single('file'), catchAsync(async (req, res) => {
   if (!req.file) throw new AppError('No file uploaded.', 400);
   try {
     const { text, kind } = await refsSvc.extract(req.file);
-    const row = await store.refs.create({ emp: req.user.id, name: req.file.originalname, kind, text });
-    return apiResponse.created(res, row, row.duplicate ? 'Already uploaded, reusing it' : 'Reference added');
+    if (String(req.query.save) === '1') {
+      const row = await store.refs.create({ emp: req.user.id, name: req.file.originalname, kind, text });
+      return apiResponse.created(res, { ...row, saved: true }, row.duplicate ? 'Already in your library, reusing it' : 'Saved to your library');
+    }
+    return apiResponse.created(res, { id: 'tmp-' + Date.now().toString(36), name: req.file.originalname, kind, chars: text.length, text: store.pack(text), saved: false }, 'Read for this session (not stored)');
   } finally {
-    fs.unlink(req.file.path, () => {}); // the text is what we keep; the upload itself is not needed
+    fs.unlink(req.file.path, () => {}); // the upload is not kept
   }
 }));
 

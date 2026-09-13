@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const AppError = require('../../utils/appError');
 
-const MAX_CHARS = 60000;          // stored per file
+const MAX_CHARS = 30000;          // kept per file (about 12 pages); the file itself is never kept
 const PER_REF_IN_PROMPT = 8000;   // sent to the model per reference
 
 async function extract(file) {

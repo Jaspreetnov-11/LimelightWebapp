@@ -174,7 +174,7 @@ AiModel.runPdf = id => data(api.get('/ai/history/' + id + '/pdf'));
 AiModel.runPptx = id => data(api.get('/ai/history/' + id + '/pptx'));
 AiModel.runDelete = id => api.del('/ai/history/' + id);
 AiModel.references = () => data(api.get('/ai/references'));
-AiModel.referenceUpload = file => { const fd = new FormData(); fd.append('file', file); return data(api.post('/ai/references', fd)); };
+AiModel.referenceUpload = (file, save) => { const fd = new FormData(); fd.append('file', file); return data(api.post('/ai/references' + (save ? '?save=1' : ''), fd)); };
 AiModel.referenceDelete = id => api.del('/ai/references/' + id);
 AiModel.scheduleLatest = () => data(api.get('/ai/schedule/latest'));
 AiModel.runState = (id, done) => data(api.patch('/ai/history/' + id + '/state', { done }));
