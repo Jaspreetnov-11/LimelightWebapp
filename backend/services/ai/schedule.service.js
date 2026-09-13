@@ -28,7 +28,7 @@ function normalize(valid, days) {
   };
 }
 
-async function build({ brief, platforms, days, perWeek, lang, start }) {
+async function build({ brief, platforms, days, perWeek, lang, start, context = '' }) {
   const ids = AS(platforms).filter(id => content.PLATFORM_GUIDE.some(p => p.id === id));
   const chosen = (ids.length ? ids : ['instagram', 'facebook', 'linkedin']).map(id => content.PLATFORM_GUIDE.find(p => p.id === id));
   const d = [7, 14, 30].includes(Number(days)) ? Number(days) : 14;
@@ -37,7 +37,7 @@ async function build({ brief, platforms, days, perWeek, lang, start }) {
   const st = /^\d{4}-\d{2}-\d{2}$/.test(String(start || '')) ? String(start) : new Date().toISOString().slice(0, 10);
   const total = Math.max(1, Math.round((d / 7) * pw * chosen.length));
   const blocks = chosen.map(p => `### ${p.id} (${p.name})\n${p.guidance}`);
-  const user = `Campaign brief:\n${brief}\n\nStart date: ${st} (day 0)\nLength: ${d} days\nCadence: ${pw} posts per platform per week, so about ${total} posts in total\nLanguage: ${l}\n\nPlatforms, using each id exactly:\n\n${blocks.join('\n\n')}`;
+  const user = `Campaign brief:\n${brief}${context}\n\nStart date: ${st} (day 0)\nLength: ${d} days\nCadence: ${pw} posts per platform per week, so about ${total} posts in total\nLanguage: ${l}\n\nPlatforms, using each id exactly:\n\n${blocks.join('\n\n')}`;
   const { data, provider, model } = await generateJSON(SYSTEM, user, normalize(new Set(chosen.map(p => p.id)), d));
   return { plan: data, start: st, provider, model };
 }

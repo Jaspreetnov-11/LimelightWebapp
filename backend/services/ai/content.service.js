@@ -36,14 +36,14 @@ function normalize(valid) {
   };
 }
 
-async function write({ brief, platforms, tone, lang, variants }) {
+async function write({ brief, platforms, tone, lang, variants, context = '' }) {
   const ids = AS(platforms).filter(byId);
   const chosen = (ids.length ? ids : ['instagram', 'linkedin', 'facebook']).map(byId);
   const t = TONES.includes(tone) ? tone : 'Editorial';
   const l = LANGS.includes(lang) ? lang : 'English';
   const n = Math.min(3, Math.max(1, Number(variants) || 1));
   const blocks = chosen.map(p => `### ${p.id} (${p.name})\n${p.guidance}`);
-  const user = `Brief:\n${brief}\n\nTone: ${t}\nLanguage: ${l}\nPosts per platform: ${n}${n > 1 ? ' (each a different format or hook)' : ''}\n\nPlatforms, in this order, using each id exactly:\n\n${blocks.join('\n\n')}`;
+  const user = `Brief:\n${brief}${context}\n\nTone: ${t}\nLanguage: ${l}\nPosts per platform: ${n}${n > 1 ? ' (each a different format or hook)' : ''}\n\nPlatforms, in this order, using each id exactly:\n\n${blocks.join('\n\n')}`;
   const { data, provider, model } = await generateJSON(SYSTEM, user, normalize(new Set(chosen.map(p => p.id))));
   return { pack: data, provider, model };
 }

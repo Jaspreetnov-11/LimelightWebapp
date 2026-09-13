@@ -248,3 +248,26 @@ CREATE TABLE IF NOT EXISTS lh_settings (
   value TEXT NOT NULL DEFAULT '{}',
   updated_at TEXT DEFAULT (datetime('now'))
 );
+
+-- AI Agent: every run and uploaded reference material
+CREATE TABLE IF NOT EXISTS lh_ai_runs (
+  id TEXT PRIMARY KEY,
+  emp TEXT NOT NULL,
+  tool TEXT NOT NULL,
+  title TEXT DEFAULT '',
+  input TEXT DEFAULT '{}',
+  output TEXT DEFAULT '{}',
+  provider TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_lh_ai_runs_emp ON lh_ai_runs (emp, created_at DESC);
+CREATE TABLE IF NOT EXISTS lh_ai_refs (
+  id TEXT PRIMARY KEY,
+  emp TEXT NOT NULL,
+  name TEXT NOT NULL,
+  kind TEXT DEFAULT '',
+  chars INTEGER DEFAULT 0,
+  text TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_lh_ai_refs_emp ON lh_ai_refs (emp, created_at DESC);

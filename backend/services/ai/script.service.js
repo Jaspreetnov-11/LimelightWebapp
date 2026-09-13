@@ -45,13 +45,13 @@ function normalize(total) {
   };
 }
 
-async function write({ brief, type, duration, lang, tone, platform }) {
+async function write({ brief, type, duration, lang, tone, platform, context = '' }) {
   const t = byId(type) || TYPES[0];
   const d = DURATIONS.includes(duration) ? duration : '30s';
   const total = toSeconds(d);
   const l = LANGS.includes(lang) ? lang : 'English';
   const tn = TONES.includes(tone) ? tone : 'Editorial';
-  const user = `Brief:\n${brief}\n\nFormat: ${t.name}. ${t.note}\nDuration: ${d} (${total} seconds total; the last scene ends at ${total})\nLanguage of spoken words and captions: ${l}\nTone: ${tn}${platform ? '\nPlatform: ' + S(platform) : ''}\n\nWrite the script.`;
+  const user = `Brief:\n${brief}${context}\n\nFormat: ${t.name}. ${t.note}\nDuration: ${d} (${total} seconds total; the last scene ends at ${total})\nLanguage of spoken words and captions: ${l}\nTone: ${tn}${platform ? '\nPlatform: ' + S(platform) : ''}\n\nWrite the script.`;
   const { data, provider, model } = await generateJSON(SYSTEM, user, normalize(total));
   return { script: data, provider, model };
 }

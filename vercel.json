@@ -4,7 +4,7 @@
   "buildCommand": "next build",
   "installCommand": "npm install",
   "functions": {
-    "api/index.js": { "includeFiles": "backend/database/schema.sql" }
+    "api/index.js": { "includeFiles": "backend/{database/schema.sql,database/schema.pg.sql,assets/fonts/*.ttf}" }
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },

@@ -168,3 +168,11 @@ export const AiModel = {
 };
 AiModel.deck = body => data(api.post('/ai/deck', body));
 AiModel.deckDesign = outline => data(api.post('/ai/deck/design', { outline }));
+AiModel.history = params => data(api.get('/ai/history', params));
+AiModel.run = id => data(api.get('/ai/history/' + id));
+AiModel.runPdf = id => data(api.get('/ai/history/' + id + '/pdf'));
+AiModel.runPptx = id => data(api.get('/ai/history/' + id + '/pptx'));
+AiModel.runDelete = id => api.del('/ai/history/' + id);
+AiModel.references = () => data(api.get('/ai/references'));
+AiModel.referenceUpload = file => { const fd = new FormData(); fd.append('file', file); return data(api.post('/ai/references', fd)); };
+AiModel.referenceDelete = id => api.del('/ai/references/' + id);

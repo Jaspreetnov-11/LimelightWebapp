@@ -2,11 +2,13 @@
 // AI Agent: four tools on one screen. Prompt studio, Content writing (social + scripts), Scheduling, Ads.
 // All calls go through AiModel -> /api/ai/* (Gemini free tier on the server). Nothing here posts to any platform.
 import { useEffect, useMemo, useState } from 'react';
-import { AiModel } from '@/models';
+import { AiModel, EmployeeModel } from '@/models';
 import { useUi } from '@/controllers/UiController';
 import { Chip, Icon, SectionTitle, Seg, Tabs } from '@/views/ui';
 
-const TABS = [['prompts', 'Prompt studio'], ['content', 'Content writing'], ['schedule', 'Scheduling'], ['ads', 'Ads'], ['deck', 'PPT']];
+const TABS = [['prompts', 'Prompt studio'], ['content', 'Content writing'], ['schedule', 'Scheduling'], ['ads', 'Ads'], ['deck', 'PPT'], ['history', 'History']];
+const TOOL_LABEL = { prompts: 'Prompts', content: 'Social', script: 'Script', schedule: 'Schedule', ads: 'Ads', deck: 'PPT' };
+const MIME = { pdf: 'application/pdf', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
 const LS_TAB = 'lh-ai-tab', LS_SCHED = 'lh-ai-schedule';
 
 /* ---------- small pieces ---------- */
@@ -58,13 +60,64 @@ function useRun(fn) {
   const run = async (...a) => { setBusy(true); try { setOut(await fn(...a)); } catch (e) { toast(e.message || 'Failed'); } finally { setBusy(false); } };
   return { busy, out, setOut, run };
 }
+function downloadB64(base64, filename, mime) {
+  const bytes = atob(base64); const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([arr], { type: mime }));
+  const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+/** "Download PDF" for any saved run. */
+function PdfBtn({ id, small }) {
+  const { toast } = useUi();
+  const [busy, setBusy] = useState(false);
+  if (!id) return null;
+  const go = async () => { setBusy(true); try { const r = await AiModel.runPdf(id); downloadB64(r.base64, r.filename, MIME.pdf); } catch (e) { toast(e.message || 'PDF failed'); } finally { setBusy(false); } };
+  return <button type="button" className="date-btn" style={small ? { height: 28, fontSize: 11.5 } : undefined} onClick={go} disabled={busy}><Icon name="down" />{busy ? 'Preparing…' : 'PDF'}</button>;
+}
+/** Reference files (PDF, Word, text) the agent reads alongside the brief. Shared list per staff member. */
+function RefPicker({ value, onChange, disabled }) {
+  const { toast } = useUi();
+  const [list, setList] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const load = () => AiModel.references().then(setList).catch(() => setList([]));
+  useEffect(() => { load(); }, []);
+  const toggle = id => onChange(value.includes(id) ? value.filter(x => x !== id) : [...value, id]);
+  const onFile = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    setBusy(true);
+    try { const r = await AiModel.referenceUpload(f); await load(); onChange([...value, r.id]); toast('Added: ' + r.name + ' (' + Math.round(r.chars / 1000) + 'k characters)'); }
+    catch (err) { toast(err.message || 'Upload failed'); }
+    finally { setBusy(false); }
+  };
+  const remove = async id => { try { await AiModel.referenceDelete(id); onChange(value.filter(x => x !== id)); load(); } catch (err) { toast(err.message || 'Failed'); } };
+  return (
+    <div>
+      <div className="ai-lab" style={{ marginTop: 4 }}><span>References {value.length > 0 && <span style={{ color: 'var(--accent)' }}>· {value.length} attached</span>}</span>
+        <label className="date-btn" style={{ height: 28, fontSize: 11.5, cursor: disabled || busy ? 'default' : 'pointer', opacity: disabled ? .5 : 1 }}><Icon name="file" />{busy ? 'Reading…' : 'Upload file'}<input type="file" accept=".pdf,.docx,.txt,.md,.csv,.json,.html" hidden disabled={disabled || busy} onChange={onFile} /></label>
+      </div>
+      {list.length === 0 ? <div className="ai-meta" style={{ marginTop: 6 }}><span>Brand guidelines, past decks, client notes: upload once, attach to any brief.</span></div> : (
+        <div className="ai-chips" style={{ marginTop: 6 }}>
+          {list.map(r => (
+            <span key={r.id} className={'pill' + (value.includes(r.id) ? ' on' : '')} style={{ height: 28, fontSize: 11.5, paddingRight: 6 }} title={r.kind + ' · ' + r.chars + ' characters'}>
+              <button type="button" onClick={() => !disabled && toggle(r.id)} style={{ background: 'none', border: 0, color: 'inherit', font: 'inherit', cursor: 'pointer', padding: 0 }}>{r.name.length > 28 ? r.name.slice(0, 26) + '…' : r.name}</button>
+              <button type="button" onClick={() => remove(r.id)} aria-label="Remove" style={{ background: 'none', border: 0, color: 'inherit', opacity: .6, cursor: 'pointer', padding: '0 2px', fontSize: 12 }}>✕</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ---------- 1. Prompt studio ---------- */
 function PromptsTab({ meta }) {
   const [brief, setBrief] = useState('');
   const [picked, setPicked] = useState(meta.prompts.defaults);
+  const [refs, setRefs] = useState([]);
   const [open, setOpen] = useState({});
-  const { busy, out, run } = useRun(() => AiModel.prompts({ brief, targets: picked }));
+  const { busy, out, run } = useRun(() => AiModel.prompts({ brief, targets: picked, refs }));
   const name = id => (meta.prompts.targets.find(t => t.id === id) || {}).name || id;
   const url = id => (meta.prompts.targets.find(t => t.id === id) || {}).url;
   const pack = out && out.pack;
@@ -73,7 +126,7 @@ function PromptsTab({ meta }) {
   return (
     <div className="ai-grid">
       <div className="ai-stack">
-        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What do you want to create? Subject, mood, text that must appear, where it will be used…" /></div>
+        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What do you want to create? Subject, mood, text that must appear, where it will be used…" /><RefPicker value={refs} onChange={setRefs} disabled={busy} /></div>
         <div className="panel ai-p">
           <Sec n="02" title="Select tools" right={<><span className="dot" />{picked.length} selected</>} />
           <Tiles items={meta.prompts.targets} value={picked} onChange={setPicked} disabled={busy} />
@@ -81,7 +134,7 @@ function PromptsTab({ meta }) {
         </div>
       </div>
       <div className="panel ai-p">
-        <div className="ai-out-h"><b style={{ fontSize: 15 }}>Your prompts</b>{pack && <Chip tone="gr">{pack.targets.length} generated</Chip>}<span className="grow" />{pack && <CopyBtn text={all}>Copy all</CopyBtn>}</div>
+        <div className="ai-out-h"><b style={{ fontSize: 15 }}>Your prompts</b>{pack && <Chip tone="gr">{pack.targets.length} generated</Chip>}<span className="grow" />{pack && <PdfBtn id={out.runId} />}{pack && <CopyBtn text={all}>Copy all</CopyBtn>}</div>
         {busy ? <Writing /> : !pack ? <Empty>Write a brief, pick tools, generate.<br /><small>Copy each prompt into the tool's free app.</small></Empty> : (
           <>
             <div className="ai-dir"><Icon name="spark" style={{ color: 'var(--accent)', width: 18, height: 18, flex: 'none' }} /><div><div className="lab">Creative direction</div><div>{pack.concept}</div></div></div>
@@ -116,7 +169,8 @@ function SocialTab({ meta }) {
   const [tone, setTone] = useState('Editorial');
   const [lang, setLang] = useState('English');
   const [variants, setVariants] = useState('1');
-  const { busy, out, run } = useRun(() => AiModel.content({ brief, platforms: picked, tone, lang, variants: Number(variants) }));
+  const [refs, setRefs] = useState([]);
+  const { busy, out, run } = useRun(() => AiModel.content({ brief, platforms: picked, tone, lang, variants: Number(variants), refs }));
   const name = id => (meta.content.platforms.find(p => p.id === id) || {}).name || id;
   const pack = out && out.pack;
   const text = p => p.caption + (p.hashtags.length ? '\n\n' + p.hashtags.join(' ') : '');
@@ -124,7 +178,7 @@ function SocialTab({ meta }) {
   return (
     <div className="ai-grid">
       <div className="ai-stack">
-        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What are we posting about? Product, offer, event, story, audience, what they should do…" /></div>
+        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What are we posting about? Product, offer, event, story, audience, what they should do…" /><RefPicker value={refs} onChange={setRefs} disabled={busy} /></div>
         <div className="panel ai-p"><Sec n="02" title="Platforms" right={<><span className="dot" />{picked.length} selected</>} /><Tiles items={meta.content.platforms} value={picked} onChange={setPicked} disabled={busy} /></div>
         <div className="panel ai-p">
           <Sec n="03" title="Style" />
@@ -137,7 +191,7 @@ function SocialTab({ meta }) {
         </div>
       </div>
       <div className="panel ai-p">
-        <div className="ai-out-h"><b style={{ fontSize: 15 }}>Your posts</b>{pack && <Chip tone="gr">{pack.posts.length} posts</Chip>}<span className="grow" />{pack && <CopyBtn text={all}>Copy all</CopyBtn>}</div>
+        <div className="ai-out-h"><b style={{ fontSize: 15 }}>Your posts</b>{pack && <Chip tone="gr">{pack.posts.length} posts</Chip>}<span className="grow" />{pack && <PdfBtn id={out.runId} />}{pack && <CopyBtn text={all}>Copy all</CopyBtn>}</div>
         {busy ? <Writing /> : !pack ? <Empty>Brief, platforms, style, generate.</Empty> : (
           <>
             <div className="ai-dir"><Icon name="spark" style={{ color: 'var(--accent)', width: 18, height: 18, flex: 'none' }} /><div><div className="lab">Angle</div><div>{pack.angle}</div></div></div>
@@ -165,13 +219,14 @@ function ScriptTab({ meta }) {
   const [duration, setDuration] = useState('30s');
   const [lang, setLang] = useState('English');
   const [tone, setTone] = useState('Editorial');
-  const { busy, out, run } = useRun(() => AiModel.script({ brief, type, duration, lang, tone }));
+  const [refs, setRefs] = useState([]);
+  const { busy, out, run } = useRun(() => AiModel.script({ brief, type, duration, lang, tone, refs }));
   const s = out && out.script;
   const all = s ? [s.title, s.logline, '', 'HOOK: ' + s.hook, '', ...s.scenes.map(sc => `[${sc.time}]\nVISUAL: ${sc.visual}\nAUDIO: ${sc.audio}${sc.on_screen_text ? '\nON SCREEN: ' + sc.on_screen_text : ''}${sc.sfx_music ? '\nSFX/MUSIC: ' + sc.sfx_music : ''}`), '', 'CTA: ' + s.cta].join('\n') : '';
   return (
     <div className="ai-grid">
       <div className="ai-stack">
-        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What is the film about? Product, story, who speaks, key message, must-show moments…" /></div>
+        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What is the film about? Product, story, who speaks, key message, must-show moments…" /><RefPicker value={refs} onChange={setRefs} disabled={busy} /></div>
         <div className="panel ai-p">
           <Sec n="02" title="Format" />
           <div className="ai-fields">
@@ -184,7 +239,7 @@ function ScriptTab({ meta }) {
         </div>
       </div>
       <div className="panel ai-p">
-        <div className="ai-out-h"><b style={{ fontSize: 15 }}>{s ? s.title : 'Your script'}</b>{s && <Chip tone="gr">{s.duration} · {s.scenes.length} scenes</Chip>}{s && s.spoken_words > 0 && <Chip tone="gy">~{s.spoken_words} spoken words</Chip>}<span className="grow" />{s && <CopyBtn text={all}>Copy script</CopyBtn>}</div>
+        <div className="ai-out-h"><b style={{ fontSize: 15 }}>{s ? s.title : 'Your script'}</b>{s && <Chip tone="gr">{s.duration} · {s.scenes.length} scenes</Chip>}{s && s.spoken_words > 0 && <Chip tone="gy">~{s.spoken_words} spoken words</Chip>}<span className="grow" />{s && <PdfBtn id={out.runId} />}{s && <CopyBtn text={all}>Copy script</CopyBtn>}</div>
         {busy ? <Writing /> : !s ? <Empty>Brief, type, duration, write.</Empty> : (
           <>
             <div className="ai-dir"><Icon name="spark" style={{ color: 'var(--accent)', width: 18, height: 18, flex: 'none' }} /><div><div className="lab">Logline</div><div>{s.logline}</div></div></div>
@@ -238,17 +293,18 @@ function ScheduleTab({ meta }) {
   const [lang, setLang] = useState('English');
   const [saved, setSaved] = useState(null);
   const [openIdx, setOpenIdx] = useState(null);
+  const [refs, setRefs] = useState([]);
   const name = id => (meta.content.platforms.find(p => p.id === id) || {}).name || id;
   useEffect(() => { try { const raw = localStorage.getItem(LS_SCHED); if (raw) setSaved(JSON.parse(raw)); } catch (e) { /* ignore */ } }, []);
   const persist = next => { setSaved(next); try { next ? localStorage.setItem(LS_SCHED, JSON.stringify(next)) : localStorage.removeItem(LS_SCHED); } catch (e) { /* ignore */ } };
-  const { busy, run } = useRun(async () => { const r = await AiModel.schedule({ brief, platforms: picked, days: Number(days), perWeek: Number(perWeek), lang, start }); persist({ plan: r.plan, start: r.start, done: {} }); setOpenIdx(null); return r; });
+  const { busy, run } = useRun(async () => { const r = await AiModel.schedule({ brief, platforms: picked, days: Number(days), perWeek: Number(perWeek), lang, start, refs }); persist({ plan: r.plan, start: r.start, done: {}, runId: r.runId }); setOpenIdx(null); return r; });
   const groups = useMemo(() => { if (!saved) return []; const m = new Map(); saved.plan.posts.forEach((p, i) => { if (!m.has(p.day)) m.set(p.day, []); m.get(p.day).push({ i, p }); }); return [...m.entries()].sort((a, b) => a[0] - b[0]); }, [saved]);
   const doneCount = saved ? Object.values(saved.done).filter(Boolean).length : 0;
   const text = p => p.caption + (p.hashtags.length ? '\n\n' + p.hashtags.join(' ') : '');
   return (
     <div className="ai-grid">
       <div className="ai-stack">
-        <div className="panel ai-p"><Sec n="01" title="Campaign brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What is the campaign? Launch, festival, offer, event. Who is it for, key dates…" /></div>
+        <div className="panel ai-p"><Sec n="01" title="Campaign brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What is the campaign? Launch, festival, offer, event. Who is it for, key dates…" /><RefPicker value={refs} onChange={setRefs} disabled={busy} /></div>
         <div className="panel ai-p"><Sec n="02" title="Platforms" right={<><span className="dot" />{picked.length} selected</>} /><Tiles items={meta.content.platforms} value={picked} onChange={setPicked} disabled={busy} /></div>
         <div className="panel ai-p">
           <Sec n="03" title="Plan" />
@@ -264,7 +320,7 @@ function ScheduleTab({ meta }) {
       </div>
       <div className="panel ai-p">
         <div className="ai-out-h"><b style={{ fontSize: 15 }}>{saved ? saved.plan.campaign : 'Your calendar'}</b>{saved && <Chip tone="gr">{doneCount}/{saved.plan.posts.length} posted</Chip>}<span className="grow" />
-          {saved && <><a className="date-btn" href={'data:text/csv;charset=utf-8,' + encodeURIComponent(csv(saved.plan, saved.start))} download={saved.plan.campaign.replace(/\s+/g, '-').toLowerCase() + '-calendar.csv'}><Icon name="down" />Export CSV</a><button type="button" className="date-btn" onClick={() => persist(null)}>Clear</button></>}
+          {saved && <><PdfBtn id={saved.runId} /><a className="date-btn" href={'data:text/csv;charset=utf-8,' + encodeURIComponent(csv(saved.plan, saved.start))} download={saved.plan.campaign.replace(/\s+/g, '-').toLowerCase() + '-calendar.csv'}><Icon name="down" />CSV</a><button type="button" className="date-btn" onClick={() => persist(null)}>Clear</button></>}
         </div>
         {busy ? <Writing label="Planning" /> : !saved ? <Empty>Your calendar appears here.<br /><small>It stays saved in this browser, with a posted checkbox per item.</small></Empty> : (
           <>
@@ -305,7 +361,8 @@ function AdsTab({ meta }) {
   const [budget, setBudget] = useState('');
   const [audience, setAudience] = useState('');
   const [lang, setLang] = useState('English');
-  const { busy, out, run } = useRun(() => AiModel.ads({ brief, platforms: picked, objective, budget, audience, lang }));
+  const [refs, setRefs] = useState([]);
+  const { busy, out, run } = useRun(() => AiModel.ads({ brief, platforms: picked, objective, budget, audience, lang, refs }));
   const name = id => (meta.ads.platforms.find(p => p.id === id) || {}).name || id;
   const a = out && out.ads;
   const vText = v => ['Angle: ' + v.angle, 'Headlines:', ...v.headlines.map(h => '  - ' + h), 'Primary text:', v.primary_text, 'Descriptions:', ...v.descriptions.map(d => '  - ' + d), 'CTA: ' + v.cta].join('\n');
@@ -313,7 +370,7 @@ function AdsTab({ meta }) {
   return (
     <div className="ai-grid">
       <div className="ai-stack">
-        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What are we advertising? Offer, product, who it is for, what makes it different, landing page…" /></div>
+        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What are we advertising? Offer, product, who it is for, what makes it different, landing page…" /><RefPicker value={refs} onChange={setRefs} disabled={busy} /></div>
         <div className="panel ai-p"><Sec n="02" title="Platforms" right={<><span className="dot" />{picked.length} selected</>} /><Tiles items={meta.ads.platforms} value={picked} onChange={setPicked} disabled={busy} /></div>
         <div className="panel ai-p">
           <Sec n="03" title="Campaign" />
@@ -327,7 +384,7 @@ function AdsTab({ meta }) {
         </div>
       </div>
       <div className="panel ai-p">
-        <div className="ai-out-h"><b style={{ fontSize: 15 }}>Your ads</b>{a && <Chip tone="gr">{a.sets.reduce((n, s) => n + s.variants.length, 0)} variants</Chip>}<span className="grow" />{a && <CopyBtn text={all}>Copy all</CopyBtn>}</div>
+        <div className="ai-out-h"><b style={{ fontSize: 15 }}>Your ads</b>{a && <Chip tone="gr">{a.sets.reduce((n, s) => n + s.variants.length, 0)} variants</Chip>}<span className="grow" />{a && <PdfBtn id={out.runId} />}{a && <CopyBtn text={all}>Copy all</CopyBtn>}</div>
         {busy ? <Writing /> : !a ? <Empty>Brief, platforms, objective, write.<br /><small>Paste into Ads Manager or Google Ads.</small></Empty> : (
           <>
             <div className="ai-dir"><Icon name="spark" style={{ color: 'var(--accent)', width: 18, height: 18, flex: 'none' }} /><div><div className="lab">Strategy</div><div>{a.strategy}</div></div></div>
@@ -362,13 +419,7 @@ function AdsTab({ meta }) {
 }
 
 /* ---------- 5. PPT ---------- */
-function downloadBase64(base64, filename) {
-  const bytes = atob(base64); const arr = new Uint8Array(bytes.length);
-  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-  const url = URL.createObjectURL(new Blob([arr], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }));
-  const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
+const downloadBase64 = (base64, filename) => downloadB64(base64, filename, MIME.pptx);
 const KIND_LABEL = { cover: 'Cover', agenda: 'Agenda', statement: 'Statement', bullets: 'Points', split: 'Split + callout', stats: 'Stat cards', steps: 'Steps', compare: 'Compare', chart: 'Chart', quote: 'Quote', image: 'Image slot', closing: 'Closing' };
 
 function DeckTab({ meta }) {
@@ -378,13 +429,14 @@ function DeckTab({ meta }) {
   const [style, setStyle] = useState('Pitch');
   const [lang, setLang] = useState('English');
   const [audience, setAudience] = useState('');
+  const [refs, setRefs] = useState([]);
   const [outline, setOutline] = useState(null);   // step 1 result, editable
   const [design, setDesign] = useState(null);     // step 2 result
   const [stage, setStage] = useState('idle');     // idle | outlining | review | designing | done
 
   async function draft() {
     setStage('outlining'); setDesign(null);
-    try { const r = await AiModel.deck({ brief, count: Number(count), style, lang, audience }); setOutline(r.outline); setStage('review'); }
+    try { const r = await AiModel.deck({ brief, count: Number(count), style, lang, audience, refs }); setOutline(r.outline); setStage('review'); }
     catch (e) { toast(e.message || 'Failed'); setStage(outline ? 'review' : 'idle'); }
   }
   async function approve() {
@@ -404,7 +456,7 @@ function DeckTab({ meta }) {
   return (
     <div className="ai-grid">
       <div className="ai-stack">
-        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What is the deck for? Client, offer, problem, proof, numbers you have, what you want them to decide…" /></div>
+        <div className="panel ai-p"><Sec n="01" title="Your brief" /><Brief value={brief} onChange={setBrief} disabled={busy} placeholder="What is the deck for? Client, offer, problem, proof, numbers you have, what you want them to decide…" /><RefPicker value={refs} onChange={setRefs} disabled={busy} /></div>
         <div className="panel ai-p">
           <Sec n="02" title="Deck" right={meta.deck.google ? <><span className="dot" />Google Slides connected</> : 'Google Slides not connected · .pptx download'} />
           <div className="ai-fields">
@@ -445,7 +497,7 @@ function DeckTab({ meta }) {
 
         {stage === 'done' && deck && (
           <>
-            <div className="ai-out-h"><b style={{ fontSize: 15 }}>{deck.title}</b><Chip tone="gr">{deck.slides.length} slides designed</Chip><span className="grow" /><button type="button" className="date-btn" onClick={() => setStage('review')}>Back to outline</button></div>
+            <div className="ai-out-h"><b style={{ fontSize: 15 }}>{deck.title}</b><Chip tone="gr">{deck.slides.length} slides designed</Chip><span className="grow" /><PdfBtn id={design.runId} /><button type="button" className="date-btn" onClick={() => setStage('review')}>Back to outline</button></div>
             {design.slides && design.slides.url && <a className="btn btn-primary ai-cta" href={design.slides.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginBottom: 12 }}>Open in Google Slides ↗</a>}
             {design.pptx && <button type="button" className="btn btn-primary ai-cta" style={{ marginBottom: 12 }} onClick={() => downloadBase64(design.pptx.base64, design.pptx.filename)}>Download designed .pptx</button>}
             {deck.slides.map((s, i) => (
@@ -466,6 +518,71 @@ function DeckTab({ meta }) {
             ))}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 6. History (per staff; admins see everyone) ---------- */
+function HistoryTab({ meta }) {
+  const { toast } = useUi();
+  const [tool, setTool] = useState('');
+  const [staff, setStaff] = useState('me');
+  const [people, setPeople] = useState([]);
+  const [rows, setRows] = useState(null);
+  const [open, setOpen] = useState(null);   // { id, run, doc }
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (meta.admin) EmployeeModel.list().then(r => setPeople(Array.isArray(r) ? r : (r && r.items) || [])).catch(() => setPeople([])); }, [meta.admin]);
+  const load = () => { setBusy(true); AiModel.history({ tool: tool || undefined, staff: meta.admin ? (staff === 'me' ? undefined : staff) : undefined, limit: 100 }).then(setRows).catch(e => toast(e.message || 'Failed')).finally(() => setBusy(false)); };
+  useEffect(() => { load(); }, [tool, staff]); // eslint-disable-line react-hooks/exhaustive-deps
+  const view = async r => {
+    if (open && open.id === r.id) return setOpen(null);
+    try { const full = await AiModel.run(r.id); setOpen({ id: r.id, run: full, doc: full.doc }); } catch (e) { toast(e.message || 'Failed'); }
+  };
+  const del = async r => { if (!window.confirm('Delete this run?')) return; try { await AiModel.runDelete(r.id); setRows(x => x.filter(y => y.id !== r.id)); if (open && open.id === r.id) setOpen(null); toast('Deleted'); } catch (e) { toast(e.message || 'Failed'); } };
+  const pptx = async r => { try { const f = await AiModel.runPptx(r.id); downloadB64(f.base64, f.filename, MIME.pptx); } catch (e) { toast(e.message || 'Failed'); } };
+  const when = iso => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return (
+    <div className="ai-stack">
+      <div className="ai-head">
+        <div className="ai-fields" style={{ gridTemplateColumns: meta.admin ? '180px 220px' : '180px', flex: 1 }}>
+          <Field label="Tool"><Select value={tool} onChange={setTool} options={[['', 'All tools'], ...Object.entries(TOOL_LABEL)]} /></Field>
+          {meta.admin && <Field label="Staff"><Select value={staff} onChange={setStaff} options={[['me', 'Me'], ['all', 'Everyone'], ...people.map(p => [p.id, p.name])]} /></Field>}
+        </div>
+        <span className="ai-meta"><span>Every generation is saved to the workspace database with who ran it and when.</span></span>
+      </div>
+      <div className="panel ai-p">
+        {busy && !rows ? <Writing label="Loading" /> : !rows || rows.length === 0 ? <Empty>Nothing here yet. Runs appear as soon as anyone generates something.</Empty> : rows.map(r => (
+          <div className="ai-card" key={r.id} style={{ padding: '10px 14px' }}>
+            <div className="ai-card-h">
+              <Chip tone="pu">{TOOL_LABEL[r.tool] || r.tool}</Chip>
+              <b style={{ flex: 1, minWidth: 160, fontSize: 13.5 }}>{r.title || '(untitled)'}</b>
+              {meta.admin && <Chip tone="gy">{r.emp_name || 'staff'}</Chip>}
+              <span className="ai-meta"><span>{when(r.created_at)}</span></span>
+              <span className="acts">
+                <button type="button" className="date-btn" style={{ height: 28, fontSize: 11.5 }} onClick={() => view(r)}>{open && open.id === r.id ? 'Hide' : 'Open'}</button>
+                <PdfBtn id={r.id} small />
+                {r.tool === 'deck' && <button type="button" className="date-btn" style={{ height: 28, fontSize: 11.5 }} onClick={() => pptx(r)}><Icon name="down" />PPTX</button>}
+                <button type="button" className="mini-btn" onClick={() => del(r)} aria-label="Delete">✕</button>
+              </span>
+            </div>
+            {open && open.id === r.id && open.doc && (
+              <div style={{ marginTop: 10 }}>
+                {open.doc.subtitle && <div className="ai-dir"><div><div className="lab">{open.doc.title}</div><div>{open.doc.subtitle}</div></div></div>}
+                {open.doc.sections.map((s, i) => (
+                  <div key={i} style={{ marginBottom: 12 }}>
+                    {s.kicker && <div className="ai-tip" style={{ marginTop: 0, fontSize: 10.5, letterSpacing: '.18em' }}>{s.kicker}</div>}
+                    <b style={{ fontSize: 13.5 }}>{s.heading}</b>
+                    {s.paragraphs.map((p, k) => <pre className="ai-text" key={k} style={{ marginTop: 6 }}>{p}</pre>)}
+                    {s.bullets.length > 0 && <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 13, color: 'var(--t2)' }}>{s.bullets.map((b, k) => <li key={k}>{b}</li>)}</ul>}
+                    {s.kv.length > 0 && <div className="ai-chips">{s.kv.map(([k, v], j) => <Chip key={j} tone="gy">{k}: <b style={{ color: 'var(--accent)' }}>{v}</b></Chip>)}</div>}
+                    {s.table && <div style={{ overflowX: 'auto' }}><table className="ai-scenes"><thead><tr>{s.table.head.map((h, k) => <th key={k}>{h}</th>)}</tr></thead><tbody>{s.table.rows.map((row, k) => <tr key={k}>{row.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody></table></div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -494,6 +611,7 @@ export function AiAgentScreen() {
       {meta && tab === 'schedule' && <ScheduleTab meta={meta} />}
       {meta && tab === 'ads' && <AdsTab meta={meta} />}
       {meta && tab === 'deck' && <DeckTab meta={meta} />}
+      {meta && tab === 'history' && <HistoryTab meta={meta} />}
     </div>
   );
 }

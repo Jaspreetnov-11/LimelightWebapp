@@ -44,11 +44,11 @@ function normalize(ids) {
   };
 }
 
-async function write({ brief, targets }) {
+async function write({ brief, targets, context = '' }) {
   const ids = AS(targets).filter(byId);
   const chosen = (ids.length ? ids : DEFAULT_TARGETS).map(byId);
   const blocks = chosen.map(t => `### ${t.id} (${t.name}, ${t.kind})\n${t.guidance}` + (t.extras.length ? `\nRequired extras (use these exact labels): ${t.extras.join(', ')}` : ''));
-  const user = `Brief:\n${brief}\n\nWrite one entry per tool, in this order, using each id exactly:\n\n${blocks.join('\n\n')}`;
+  const user = `Brief:\n${brief}${context}\n\nWrite one entry per tool, in this order, using each id exactly:\n\n${blocks.join('\n\n')}`;
   const { data, provider, model } = await generateJSON(SYSTEM, user, normalize(chosen.map(t => t.id)));
   return { pack: data, provider, model };
 }

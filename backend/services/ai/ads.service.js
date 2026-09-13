@@ -41,13 +41,13 @@ function normalize(valid) {
   };
 }
 
-async function write({ brief, platforms, objective, budget, audience, lang }) {
+async function write({ brief, platforms, objective, budget, audience, lang, context = '' }) {
   const ids = AS(platforms).filter(byId);
   const chosen = (ids.length ? ids : ['meta', 'google_search']).map(byId);
   const o = OBJECTIVES.includes(objective) ? objective : 'Leads';
   const l = LANGS.includes(lang) ? lang : 'English';
   const blocks = chosen.map(p => `### ${p.id} (${p.name})\n${p.guidance}`);
-  const user = `Brief:\n${brief}\n\nObjective: ${o}${budget ? '\nMonthly budget: ' + S(budget) : ''}${audience ? '\nAudience notes: ' + S(audience) : ''}\nLanguage: ${l}\n\nPlatforms, in this order, using each id exactly:\n\n${blocks.join('\n\n')}`;
+  const user = `Brief:\n${brief}${context}\n\nObjective: ${o}${budget ? '\nMonthly budget: ' + S(budget) : ''}${audience ? '\nAudience notes: ' + S(audience) : ''}\nLanguage: ${l}\n\nPlatforms, in this order, using each id exactly:\n\n${blocks.join('\n\n')}`;
   const { data, provider, model } = await generateJSON(SYSTEM, user, normalize(new Set(chosen.map(p => p.id))));
   return { ads: data, provider, model };
 }

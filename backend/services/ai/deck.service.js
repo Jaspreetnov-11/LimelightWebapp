@@ -35,11 +35,11 @@ function normalizeOutline(json) {
   return { title: S(json.title) || slides[0].title, subtitle: S(json.subtitle), slides };
 }
 
-async function outline({ brief, count, style, lang, audience }) {
+async function outline({ brief, count, style, lang, audience, context = '' }) {
   const n = COUNTS.includes(Number(count)) ? Number(count) : 10;
   const st = STYLES.includes(style) ? style : 'Pitch';
   const l = LANGS.includes(lang) ? lang : 'English';
-  const user = `Brief:\n${brief}\n\nDeck type: ${st}\nSlides: exactly ${n}\nLanguage: ${l}${audience ? '\nAudience: ' + S(audience) : ''}\n\nDraft the outline.`;
+  const user = `Brief:\n${brief}${context}\n\nDeck type: ${st}\nSlides: exactly ${n}\nLanguage: ${l}${audience ? '\nAudience: ' + S(audience) : ''}\n\nDraft the outline.`;
   const { data, provider, model } = await generateJSON(OUTLINE_SYSTEM, user, normalizeOutline);
   data.slides = data.slides.slice(0, n + 1);
   return { outline: { ...data, style: st, lang: l, brief: S(brief).slice(0, 4000) }, provider, model };
