@@ -49,7 +49,7 @@ function Brief({ value, onChange, placeholder, disabled, max = 4000 }) {
   );
 }
 function Run({ busy, disabled, onClick, children }) {
-  return <button type="button" className="btn btn-primary ai-cta" onClick={onClick} disabled={busy || disabled}><Icon name="spark" />{busy ? 'Writing…' : children}</button>;
+  return <button type="button" className="btn btn-primary ai-cta" onClick={onClick} disabled={busy || disabled}>{busy ? 'Writing…' : children}</button>;
 }
 function useRun(fn) {
   const { toast } = useUi();
