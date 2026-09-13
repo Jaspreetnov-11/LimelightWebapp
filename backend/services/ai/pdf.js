@@ -83,7 +83,8 @@ function render(doc, meta = {}) {
   // Split mixed-script text into runs so Hindi, Punjabi and Latin each get a font that has the glyphs.
   // Punctuation, digits and spaces exist in every font here, so they stay inside the current run;
   // only letters decide the script.
-  const cls = ch => (hasGur.test(ch) ? 'g' : hasDev.test(ch) ? 'd' : /\p{L}/u.test(ch) ? 'o' : '');
+  // The danda (। ॥) is shared by Hindi and Punjabi and lives in the Devanagari block: treat it as punctuation.
+  const cls = ch => (ch === '।' || ch === '॥' ? '' : hasGur.test(ch) ? 'g' : hasDev.test(ch) ? 'd' : /\p{L}/u.test(ch) ? 'o' : '');
   const runsOf = t => {
     const out = []; let cur = '', k = '';
     for (const ch of String(t)) {
