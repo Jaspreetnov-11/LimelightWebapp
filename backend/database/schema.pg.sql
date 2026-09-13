@@ -250,6 +250,7 @@ CREATE TABLE IF NOT EXISTS lh_ai_refs (
   kind TEXT DEFAULT '',
   chars INTEGER DEFAULT 0,
   text TEXT DEFAULT '',
+  hash TEXT DEFAULT '',
   created_at TEXT DEFAULT (now())::text
 );
 CREATE INDEX IF NOT EXISTS idx_lh_ai_refs_emp ON lh_ai_refs (emp, created_at DESC);

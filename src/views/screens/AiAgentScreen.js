@@ -295,8 +295,15 @@ function ScheduleTab({ meta }) {
   const [openIdx, setOpenIdx] = useState(null);
   const [refs, setRefs] = useState([]);
   const name = id => (meta.content.platforms.find(p => p.id === id) || {}).name || id;
-  useEffect(() => { try { const raw = localStorage.getItem(LS_SCHED); if (raw) setSaved(JSON.parse(raw)); } catch (e) { /* ignore */ } }, []);
-  const persist = next => { setSaved(next); try { next ? localStorage.setItem(LS_SCHED, JSON.stringify(next)) : localStorage.removeItem(LS_SCHED); } catch (e) { /* ignore */ } };
+  const { toast } = useUi();
+  // The calendar and its posted ticks live in the workspace database (the latest schedule run of this person).
+  useEffect(() => { AiModel.scheduleLatest().then(r => { if (r && r.plan) setSaved(r); }).catch(() => {}); }, []);
+  const persist = next => {
+    const prev = saved;
+    setSaved(next);
+    if (!next && prev && prev.runId) AiModel.runDelete(prev.runId).catch(e => toast(e.message || 'Could not clear'));
+    else if (next && next.runId && prev && prev.runId === next.runId) AiModel.runState(next.runId, next.done).catch(e => toast(e.message || 'Could not save'));
+  };
   const { busy, run } = useRun(async () => { const r = await AiModel.schedule({ brief, platforms: picked, days: Number(days), perWeek: Number(perWeek), lang, start, refs }); persist({ plan: r.plan, start: r.start, done: {}, runId: r.runId }); setOpenIdx(null); return r; });
   const groups = useMemo(() => { if (!saved) return []; const m = new Map(); saved.plan.posts.forEach((p, i) => { if (!m.has(p.day)) m.set(p.day, []); m.get(p.day).push({ i, p }); }); return [...m.entries()].sort((a, b) => a[0] - b[0]); }, [saved]);
   const doneCount = saved ? Object.values(saved.done).filter(Boolean).length : 0;
@@ -320,9 +327,9 @@ function ScheduleTab({ meta }) {
       </div>
       <div className="panel ai-p">
         <div className="ai-out-h"><b style={{ fontSize: 15 }}>{saved ? saved.plan.campaign : 'Your calendar'}</b>{saved && <Chip tone="gr">{doneCount}/{saved.plan.posts.length} posted</Chip>}<span className="grow" />
-          {saved && <><PdfBtn id={saved.runId} /><a className="date-btn" href={'data:text/csv;charset=utf-8,' + encodeURIComponent(csv(saved.plan, saved.start))} download={saved.plan.campaign.replace(/\s+/g, '-').toLowerCase() + '-calendar.csv'}><Icon name="down" />CSV</a><button type="button" className="date-btn" onClick={() => persist(null)}>Clear</button></>}
+          {saved && <><PdfBtn id={saved.runId} /><a className="date-btn" href={'data:text/csv;charset=utf-8,' + encodeURIComponent(csv(saved.plan, saved.start))} download={saved.plan.campaign.replace(/\s+/g, '-').toLowerCase() + '-calendar.csv'}><Icon name="down" />CSV</a><button type="button" className="date-btn" onClick={() => { if (window.confirm('Remove this calendar? It is deleted from history too.')) persist(null); }}>Clear</button></>}
         </div>
-        {busy ? <Writing label="Planning" /> : !saved ? <Empty>Your calendar appears here.<br /><small>It stays saved in this browser, with a posted checkbox per item.</small></Empty> : (
+        {busy ? <Writing label="Planning" /> : !saved ? <Empty>Your calendar appears here.<br /><small>Saved to the workspace with a posted checkbox per item.</small></Empty> : (
           <>
             <div className="ai-dir"><Icon name="spark" style={{ color: 'var(--accent)', width: 18, height: 18, flex: 'none' }} /><div><div className="lab">Strategy</div><div>{saved.plan.strategy}</div></div></div>
             {groups.map(([day, items]) => { const d = addDays(saved.start, day); return (

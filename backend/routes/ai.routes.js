@@ -109,7 +109,7 @@ router.post('/references', protect, upload.single('file'), catchAsync(async (req
   try {
     const { text, kind } = await refsSvc.extract(req.file);
     const row = await store.refs.create({ emp: req.user.id, name: req.file.originalname, kind, text });
-    return apiResponse.created(res, row, 'Reference added');
+    return apiResponse.created(res, row, row.duplicate ? 'Already uploaded, reusing it' : 'Reference added');
   } finally {
     fs.unlink(req.file.path, () => {}); // the text is what we keep; the upload itself is not needed
   }
@@ -156,6 +156,21 @@ router.get('/history/:id/pptx', protect, catchAsync(async (req, res) => {
   const buf = await require('../services/ai/pptx').build(run.output.deck);
   const name = (run.output.deck.title || 'deck').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase().slice(0, 60) || 'deck';
   return apiResponse.success(res, { filename: name + '.pptx', base64: buf.toString('base64') });
+}));
+
+// Schedule state: the latest calendar for this person, and its posted ticks (kept in the run's output)
+router.get('/schedule/latest', protect, catchAsync(async (req, res) => {
+  const [latest] = await store.runs.list({ emp: req.user.id, tool: 'schedule', limit: 1 });
+  if (!latest) return apiResponse.success(res, null);
+  const run = await store.runs.get(latest.id);
+  return apiResponse.success(res, { runId: run.id, plan: run.output.plan, start: run.output.start, done: run.output.done || {} });
+}));
+
+router.patch('/history/:id/state', protect, catchAsync(async (req, res) => {
+  await loadRun(req);
+  const done = req.body.done && typeof req.body.done === 'object' ? req.body.done : {};
+  await store.runs.patchOutput(req.params.id, { done });
+  return apiResponse.success(res, { done });
 }));
 
 router.delete('/history/:id', protect, catchAsync(async (req, res) => {
