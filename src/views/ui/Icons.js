@@ -17,6 +17,7 @@ export function IconSprite() {
         <symbol id="i-tasks" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M4 7l2 2 4-4M4 15l2 2 4-4M13 7h7M13 15h7" /></symbol>
         <symbol id="i-flag" viewBox="0 0 24 24"><path fill="currentColor" d="M5 3v18h2v-7h11l-3-4 3-4H7V3z" /></symbol>
         <symbol id="i-leaf" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" d="M5 19c0-8 6-13 14-13-1 8-6 13-14 13zM5 19l6-6" /></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round" d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17z M13.5 6.5l3 3" /></symbol>
         <symbol id="i-file" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" d="M6 3h8l4 4v14H6zM14 3v4h4" /></symbol>
         <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M20 20l-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></symbol>
         <symbol id="i-filter" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" d="M3 5h18l-7 8v6l-4-2v-4z" /></symbol>

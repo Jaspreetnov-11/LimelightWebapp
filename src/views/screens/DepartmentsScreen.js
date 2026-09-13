@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/controllers/AuthController';
 import { useData } from '@/controllers/DataController';
 import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
@@ -10,6 +11,7 @@ import { assigneeIds, hm, ini, inr, overdue, pct, STATUSES, STATUS_COLOR } from 
 
 export function DepartmentsScreen() {
   const d = useData();
+  const { isAdmin } = useAuth();
   const { toast, confirm } = useUi();
   const modals = useModals();
   const [sel, setSel] = useState(null);
@@ -42,8 +44,8 @@ export function DepartmentsScreen() {
     return (<>
       <div className="dept-stats">
         <Stat icon="clock" tone="tl" value={members.length + ' staff'} label="Team size" />
-        <Stat icon="file" tone="gr" value={inr(payroll)} valueClass="money" label="Monthly payroll" />
-        <Stat icon="file" tone="or" value={inr(pend)} valueClass={'money' + (pend > 0 ? ' neg' : '')} label="Pending pay" />
+        {isAdmin && <Stat icon="file" tone="gr" value={inr(payroll)} valueClass="money" label="Monthly payroll" />}
+        {isAdmin && <Stat icon="file" tone="or" value={inr(pend)} valueClass={'money' + (pend > 0 ? ' neg' : '')} label="Pending pay" />}
         <Stat icon="cal" tone="pk" value={presentToday + '/' + members.length} label="Present today" />
         <Stat icon="leaf" tone="bl" value={pct(consumed, alloc) + '%'} label="Allocation consumed" />
         <Stat icon="flag" tone="pk" value={tasks.filter(overdue).length} label="Task Alerts" />
@@ -69,7 +71,7 @@ export function DepartmentsScreen() {
       <div className="content" style={{ padding: '0 0 30px' }}>
         {dep ? (
           <div className="panel" style={{ margin: '22px 24px 0' }}>
-            <div className="dept-head"><div className="r1"><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><b style={{ fontSize: 16 }}>{dep.name}</b><Chip tone={dep.billable ? 'gr' : 'gy'}>{dep.billable ? 'Billable' : 'Non-billable'} ●</Chip></div><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Sq icon="file" label="Edit" onClick={() => modals.open('dept', dep.id)} /><Sq label="Delete" onClick={remove} style={{ color: 'var(--danger)' }}>✕</Sq></div></div>
+            <div className="dept-head"><div className="r1"><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><b style={{ fontSize: 16 }}>{dep.name}</b><Chip tone={dep.billable ? 'gr' : 'gy'}>{dep.billable ? 'Billable' : 'Non-billable'} ●</Chip></div><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Sq icon="edit" label="Edit" onClick={() => modals.open('dept', dep.id)} /><Sq label="Delete" onClick={remove} style={{ color: 'var(--danger)' }}>✕</Sq></div></div>
               <div className="facts"><span>Active Projects: <b>{projIds.length}</b></span><span>Total Members: <b>{members.length}</b></span><span>Daily Hours: <b>{dep.daily || 8}h</b></span><span>Working Days/Wk: <b>6</b></span></div>
               <div className="facts"><span>Manager&apos;s: <b>{dep.manager ? d.empName(dep.manager) : '—'}</b></span></div></div>
             <div className="big-tabs">{[['members', 'Members (' + members.length + ')'], ['projects', 'Projects'], ['files', 'Files']].map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>

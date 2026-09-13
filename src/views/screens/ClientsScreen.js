@@ -73,7 +73,7 @@ export function ClientsScreen() {
                   <td onClick={e => e.stopPropagation()} style={{ whiteSpace: 'nowrap' }}>
                     <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                       <LinkBtn onClick={() => modals.open('project', null, { client_id: c.id })}>+ Project</LinkBtn>
-                      <Sq icon="file" label="Edit" onClick={() => modals.open('client', c.id)} />
+                      <Sq icon="edit" label="Edit" onClick={() => modals.open('client', c.id)} />
                       <Sq label="Remove" onClick={() => remove(c)} style={{ color: 'var(--danger)' }}>✕</Sq>
                     </span>
                   </td>

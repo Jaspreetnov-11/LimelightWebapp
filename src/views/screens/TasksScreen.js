@@ -126,7 +126,7 @@ export function TasksScreen() {
     const canReassign = (mine || lead) && t.status !== 'completed';
     return (
       <div className={'tcard' + (dragId === t.id ? ' dragging' : '') + (hl === t.id ? ' hl' : '')} data-task={t.id} key={t.id} draggable={lead} onDragStart={ev => { if (!lead) { ev.preventDefault(); return; } setDragId(t.id); ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', t.id); } catch (x) { /* ignore */ } }} onDragEnd={() => { setDragId(null); setOverCol(''); }}>
-        <div className="p"><span>{t.project_name || d.projName(t.project)}</span><span style={{ display: 'flex', gap: 4, alignItems: 'center' }}><i className={od ? 'r' : ''} title={od ? 'Overdue' : ''}><Icon name="flag" size={14} /></i>{canReassign && <button type="button" onClick={() => setReassignTaskTarget(t)} title="Reassign task" style={{ background: 'none', border: 0, color: 'var(--muted)', cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}>⇄</button>}{lead && <><button onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="file" /></button><button onClick={() => del(t)} aria-label="Delete">✕</button></>}</span></div>
+        <div className="p"><span>{t.project_name || d.projName(t.project)}</span><span style={{ display: 'flex', gap: 4, alignItems: 'center' }}><i className={od ? 'r' : ''} title={od ? 'Overdue' : ''}><Icon name="flag" size={14} /></i>{canReassign && <button type="button" onClick={() => setReassignTaskTarget(t)} title="Reassign task" style={{ background: 'none', border: 0, color: 'var(--muted)', cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}>⇄</button>}{lead && <><button onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="edit" /></button><button onClick={() => del(t)} aria-label="Delete">✕</button></>}</span></div>
         <small>{t.type || 'Other'}{t.dept ? ' · ' + t.dept : ''}</small>
         <div role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => setSheet(t.id)} title="Open task">{t.title}</div>
         {t.reassigned_by && (
@@ -153,7 +153,7 @@ export function TasksScreen() {
   const taskSheet = sheetTask ? (
     <div className="tsheet-bg" onClick={e => { if (e.target === e.currentTarget) setSheet(''); }}>
       <div className="tsheet" role="dialog" aria-label="Task">
-        <div className="tsheet-h"><b>Task</b><span style={{ display: 'inline-flex', gap: 6 }}>{actionsFor(sheetTask).lead && <button className="mini-btn" onClick={() => { setSheet(''); modals.open('task', sheetTask.id); }} title="Edit"><Icon name="file" /></button>}<button className="mini-btn" onClick={() => setSheet('')} aria-label="Close">✕</button></span></div>
+        <div className="tsheet-h"><b>Task</b><span style={{ display: 'inline-flex', gap: 6 }}>{actionsFor(sheetTask).lead && <button className="mini-btn" onClick={() => { setSheet(''); modals.open('task', sheetTask.id); }} title="Edit"><Icon name="edit" /></button>}<button className="mini-btn" onClick={() => setSheet('')} aria-label="Close">✕</button></span></div>
         {card(sheetTask)}
       </div>
     </div>
@@ -188,7 +188,7 @@ export function TasksScreen() {
                 {acts.slice(0, 2).map(([k, l, cls]) => <button key={k} className={cls === 'go' || cls === 'ok' ? 'mtask-done' : 'pill'} onClick={() => move(t.id, k)}>{l}</button>)}
                 {actionsFor(t).canReject && <button className="pill" onClick={() => reject(t)} style={{ color: 'var(--danger)', borderColor: 'rgba(255,100,100,0.3)' }}>✕ Reject</button>}
                 {(actionsFor(t).mine || actionsFor(t).lead) && t.status !== 'completed' && <button className="pill" onClick={() => setReassignTaskTarget(t)}>⇄ Reassign</button>}
-                {lead && <button className="mini-btn" onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="file" /></button>}
+                {lead && <button className="mini-btn" onClick={() => modals.open('task', t.id)} aria-label="Edit"><Icon name="edit" /></button>}
                 {lead && <button className="mini-btn" onClick={() => del(t)} aria-label="Delete">✕</button>}
               </div>
             </div>); })}

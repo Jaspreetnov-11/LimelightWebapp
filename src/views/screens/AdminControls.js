@@ -55,7 +55,7 @@ function StaffAccess() {
               <td><select value={e.week_off || ''} style={{ ...inp, width: 150 }} onChange={ev => save(e, { week_off: ev.target.value }, 'Week off updated')}><option value="">Default ({WEEK_DAYS[(d.settings && d.settings.weekOff && d.settings.weekOff[0]) ?? 0]})</option>{WEEK_DAYS.map((n, i) => <option key={i} value={String(i)}>{n}</option>)}<option value="0,6">Saturday + Sunday</option><option value="5,6">Friday + Saturday</option></select></td>
               <td><input type="number" min={0} step={500} defaultValue={Number(e.salary) || 0} style={{ ...inp, width: 130 }} onBlur={ev => { const v = Math.max(0, Number(ev.target.value) || 0); if (v !== (Number(e.salary) || 0)) save(e, { salary: v }, 'Salary updated'); }} onKeyDown={ev => { if (ev.key === 'Enter') ev.currentTarget.blur(); }} /></td>
               <td><label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12.5, cursor: 'pointer' }}><input type="checkbox" checked={active} onChange={() => toggleActive(e)} disabled={e.id === me.id} />{active ? 'Active' : 'Deactivated'}</label></td>
-              <td style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'inline-flex', gap: 6 }}><button className="date-btn" style={{ height: 32 }} onClick={() => resetPw(e)}>Reset password</button><Sq icon="file" label="Edit profile" onClick={() => modals.open('employee', e.id)} /></span></td>
+              <td style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'inline-flex', gap: 6 }}><button className="date-btn" style={{ height: 32 }} onClick={() => resetPw(e)}>Reset password</button><Sq icon="edit" label="Edit profile" onClick={() => modals.open('employee', e.id)} /></span></td>
             </tr>); })}
         </tbody>
       </table>

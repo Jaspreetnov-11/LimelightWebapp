@@ -4,9 +4,9 @@ import { useData } from '@/controllers/DataController';
 import { useUi } from '@/controllers/UiController';
 import { useModals } from '@/controllers/useModals';
 import { ProjectModel } from '@/models';
-import { Avatar, Chip, DateBtn, Donut, Empty, Icon, LinkBtn, Panel, Search, Sq, TaskChip, Tabs } from '@/views/ui';
+import { Avatar, Chip, Donut, Empty, Icon, LinkBtn, Panel, Search, Seg, Sq, TaskChip, Tabs } from '@/views/ui';
 import { Pager, usePager } from '@/views/ui/Pager';
-import { avFor, fmtD, fmtDY, hm, ini, overdue, pct, STATUSES, STATUS_COLOR, STATUS_LABEL } from '@/lib/format';
+import { avFor, fmtD, fmtDY, hm, ini, overdue, pct, STATUSES, STATUS_COLOR, STATUS_LABEL, thisMonth } from '@/lib/format';
 
 const colFor = n => ({ p: '#B48CFF', g: '#4ADE95', r: '#FF7AB3', b: '#6FA8FF', br: '#D9A066', o: '#FFD21F', t: '#5EE0D6' })[avFor(n)];
 
@@ -23,7 +23,10 @@ export function ProjectsScreen() {
   useEffect(() => { if ((!sel || !d.projById[sel]) && d.projects.length) setSel(d.projects[0].id); }, [d.projects, d.projById, sel]);
   useEffect(() => { if (!sel) return; let alive = true; ProjectModel.get(sel).then(p => { if (alive) setDetail(p); }).catch(() => {}); return () => { alive = false; }; }, [sel, d.tasks]);
 
-  const list = useMemo(() => d.projects.filter(p => p.name.toLowerCase().includes(q.toLowerCase())).filter(p => tab === 'all' || (tab === 'bill' ? p.billable : !p.billable)), [d.projects, q, tab]);
+  const [range, setRange] = useState('all'); // all | month
+  const [month, setMonth] = useState(() => thisMonth());
+  const inMonth = p => String(p.start || p.created_at || '').slice(0, 7) === month || d.tasks.some(t => t.project === p.id && (String(t.assigned || '').slice(0, 7) === month || String(t.completed || '').slice(0, 7) === month || (t.status !== 'completed' && String(t.deadline || '').slice(0, 7) === month)));
+  const list = useMemo(() => d.projects.filter(p => p.name.toLowerCase().includes(q.toLowerCase())).filter(p => tab === 'all' || (tab === 'bill' ? p.billable : !p.billable)).filter(p => range === 'all' || inMonth(p)), [d.projects, d.tasks, q, tab, range, month]); // eslint-disable-line react-hooks/exhaustive-deps
   const listPager = usePager(list, 10);
   const p = d.projById[sel];
   const tasks = useMemo(() => (detail && detail.id === sel && detail.tasks) || d.tasks.filter(t => t.project === sel), [detail, sel, d.tasks]);
@@ -53,7 +56,7 @@ export function ProjectsScreen() {
   return (
     <div className="two">
       <aside><b style={{ fontSize: 14 }}>Projects</b>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}><DateBtn>{new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</DateBtn>{d.canCreateProject && <button className="tb-btn solid" style={{ height: 34, padding: '0 12px', fontSize: 12.5 }} onClick={() => modals.open('project')}>+ Add Project</button>}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}><span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><Seg items={[['all', 'Overall'], ['month', 'Month']]} value={range} onChange={setRange} />{range === 'month' && <input type="month" value={month} onChange={e => setMonth(e.target.value)} style={{ width: 'auto', height: 32, fontSize: 12.5, padding: '0 8px', borderRadius: 100 }} />}</span>{d.canCreateProject && <button className="tb-btn solid" style={{ height: 34, padding: '0 12px', fontSize: 12.5 }} onClick={() => modals.open('project')}>+ Add Project</button>}</div>
         <Search value={q} onChange={setQ} />
         <Tabs items={[['all', 'All (' + d.projects.length + ')'], ['bill', 'Billable'], ['non', 'Non-billable']]} value={tab} onChange={setTab} style={{ fontSize: 12 }} />
         <div className="list" style={{ gap: 10 }}>
@@ -76,7 +79,7 @@ export function ProjectsScreen() {
               <Chip tone="pu">Project</Chip>
               <Chip tone={p.status === 'Approved' ? 'gr' : 'or'}>{p.status === 'Approved' ? '✓ ' : ''}{p.status || ''}</Chip>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-                {d.isLeaderOf(p.id) && <Sq icon="file" label="Edit project" onClick={() => modals.open('project', p.id)} />}
+                {d.isLeaderOf(p.id) && <Sq icon="edit" label="Edit project" onClick={() => modals.open('project', p.id)} />}
                 {d.isLeaderOf(p.id) && <Sq label="Delete project" onClick={remove} style={{ color: 'var(--danger)' }}>✕</Sq>}
               </div>
             </div>
