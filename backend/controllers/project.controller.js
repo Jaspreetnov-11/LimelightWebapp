@@ -51,7 +51,7 @@ const createProject = catchAsync(async (req, res) => {
   const proj = await projectModel.create({ id, name, client: '', client_id: '', fee: 0, billable: 1, ...cl, manager: lead, start, alloc: Number(alloc) || 0, status });
   await activityModel.log(`${req.user.name} created project "${name}"`);
   const notifyLeads = splitIds(lead).filter(x => x !== req.user.id);
-  if (notifyLeads.length) await activityModel.notify(notifyLeads, `You are a team leader of "${name}"`, { kind: 'project', link: '/projects' });
+  if (notifyLeads.length) await activityModel.notify(notifyLeads, `You are a team leader of "${name}"`, { kind: 'project', link: '/projects?project=' + id, ref_type: 'project', ref_id: id });
   return apiResponse.created(res, proj, 'Project created successfully');
 });
 
@@ -71,7 +71,7 @@ const updateProject = catchAsync(async (req, res) => {
     updateData.manager = mgrIds.join(',');
     const oldSet = new Set(currentLeads);
     const addedLeads = mgrIds.filter(x => !oldSet.has(x) && x !== req.user.id);
-    if (addedLeads.length) await activityModel.notify(addedLeads, `You are now a team leader of "${existing.name}"`, { kind: 'project', link: '/projects' });
+    if (addedLeads.length) await activityModel.notify(addedLeads, `You are now a team leader of "${existing.name}"`, { kind: 'project', link: '/projects?project=' + id, ref_type: 'project', ref_id: id });
   }
   const updated = await projectModel.update(id, updateData);
   return apiResponse.success(res, updated, 'Project updated successfully');

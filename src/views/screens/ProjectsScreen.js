@@ -20,6 +20,8 @@ export function ProjectsScreen() {
   const [view, setView] = useState('overview');
   const [detail, setDetail] = useState(null);
 
+  // Opened from a notification or alert (/projects?project=ID): select that project
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get('project'); if (id) { setSel(id); setRange('all'); setTab('all'); setView('overview'); } }, []);
   useEffect(() => { if ((!sel || !d.projById[sel]) && d.projects.length) setSel(d.projects[0].id); }, [d.projects, d.projById, sel]);
   useEffect(() => { if (!sel) return; let alive = true; ProjectModel.get(sel).then(p => { if (alive) setDetail(p); }).catch(() => {}); return () => { alive = false; }; }, [sel, d.tasks]);
 

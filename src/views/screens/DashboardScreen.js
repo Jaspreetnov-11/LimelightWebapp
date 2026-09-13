@@ -136,6 +136,8 @@ export function DashboardScreen() {
     return (withVal.length ? withVal : list).slice(0, 8);
   }, [prod]);
   const topStaff = useMemo(() => (prod && prod.list ? prod.list.filter(s => s.productiveMins > 0).slice(0, 6).map(s => ({ label: s.name, value: Math.round(s.productiveMins / 6) / 10, tip: (s.dept || '') + ' · tasks ' + hrs1(s.ownMins) + (s.managedMins ? ' · managing ' + hrs1(s.managedMins) : '') })) : []), [prod]);
+  // Team average productive hours per person per working day (people with any task time this month)
+  const teamAvgProd = useMemo(() => { if (!prod || !prod.list || !team) return 0; const active = prod.list.filter(s => s.productiveMins > 0); const days = Math.max(1, team.workdaysSoFar || 1); return active.length ? Math.round(active.reduce((a, s) => a + s.productiveMins, 0) / active.length / days) : 0; }, [prod, team]);
   const clientBars = useMemo(() => (isAdmin ? (d.clients || []).filter(c => c.revenue > 0 || c.cost > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 6).map(c => ({ label: c.name, a: c.revenue || 0, b: c.cost || 0 })) : []), [d.clients, isAdmin]);
   const projects = d.projects.filter(p => isAdmin || p.manager === me.id).slice().sort((a, b) => Number(b.consumed_mins) - Number(a.consumed_mins)).slice(0, 6);
   const [localTodos, setLocalTodos] = useState(null); // optimistic copy so a new to-do shows instantly
@@ -249,7 +251,7 @@ export function DashboardScreen() {
         <SectionTitle>Team this month</SectionTitle>
         <div className="kpis">
           <Kpi label="Staff" value={team.staffCount} sub={team.lateCount + ' late arrivals'} tone={team.lateCount ? 'warn' : ''} />
-          <Kpi label="Team avg hours / day" value={hrs1(team.avgWorkingMinutes)} sub={'target ' + hoursPerDay + 'h 00m'} tone={team.avgWorkingMinutes >= hoursPerDay * 60 ? 'ok' : team.avgWorkingMinutes > 0 ? 'warn' : ''} />
+          <Kpi label="Team avg productive / day" value={hrs1(teamAvgProd)} sub={'per person · target ' + hoursPerDay + 'h 00m'} tone={teamAvgProd >= hoursPerDay * 60 ? 'ok' : teamAvgProd > 0 ? 'warn' : ''} />
           <Kpi label="Productive hours" value={hrs1(prod && prod.totals ? prod.totals.productiveMins : 0)} sub={prod && prod.totals ? 'of ' + hrs1(team.totalWorkedMinutes) + ' clocked' + (prod.totals.breakMins ? ' · breaks −' + hrs1(prod.totals.breakMins) : '') : 'from task time'} bar={prod && prod.totals ? pct(prod.totals.productiveMins, team.totalWorkedMinutes) : 0} tone={prod && prod.totals && team.totalWorkedMinutes > 0 && prod.totals.productiveMins >= team.totalWorkedMinutes * 0.6 ? 'ok' : ''} />
           <Kpi label="Team hours" value={hrs1(team.totalWorkedMinutes)} sub={'of ' + hrs1(team.expectedMinutesSoFar) + ' expected'} bar={pct(team.totalWorkedMinutes, team.expectedMinutesSoFar)} />
           <Kpi label="Overtime hours" value={Math.round(team.otHours * 10) / 10 + 'h'} sub="across the team" />

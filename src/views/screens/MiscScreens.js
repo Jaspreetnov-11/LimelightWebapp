@@ -86,8 +86,8 @@ export function NotificationsScreen() {
   const { toast } = useUi();
   const a = d.alerts || { overdueTasks: [], overshotProjects: [] };
   const alerts = [
-    ...a.overshotProjects.map(p => ({ c: 'var(--danger)', t: p.name + ' is at ' + pct(Number(p.consumed_mins), Number(p.alloc)) + '% of its allocated hours', m: 'Project overrun', go: '/projects' })),
-    ...a.overdueTasks.map(t => ({ c: 'var(--warn)', t: '"' + t.title + '" (' + d.taskAssigneeNames(t) + ') was due ' + fmtD(t.deadline), m: 'Overdue task', go: '/tasks' }))
+    ...a.overshotProjects.map(p => ({ c: 'var(--danger)', t: p.name + ' is at ' + pct(Number(p.consumed_mins), Number(p.alloc)) + '% of its allocated hours', m: 'Project overrun', go: '/projects?project=' + p.id })),
+    ...a.overdueTasks.map(t => ({ c: 'var(--warn)', t: '"' + t.title + '" (' + d.taskAssigneeNames(t) + ') was due ' + fmtD(t.deadline), m: 'Overdue task', go: '/tasks?task=' + t.id }))
   ];
   const { confirm } = useUi();
   const { isAdmin } = useAuth();
