@@ -9,7 +9,7 @@ import { AttendanceModel, ReportModel } from '@/models';
 import { saveBlob, saveCsv } from '@/lib/download';
 import { Avatar, Chip, DeductLeaveModal, Empty, GeoLink, LinkBtn, Search, Seg, Sq } from '@/views/ui';
 import { Pager, usePager } from '@/views/ui/Pager';
-import { ATT, attStatus, fmtD, fmtDY, isoLocal, todayISO } from '@/lib/format';
+import { ATT, attStatus, fmtD, fmtDY, isoLocal, todayISO, weekOffOf } from '@/lib/format';
 
 const hrs = n => { const m = Math.round((Number(n) || 0) * 60); return Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; };
 
@@ -34,13 +34,19 @@ export function AttendanceScreen() {
   const emps = (tab === 'me' ? d.employees.filter(e => e.id === me.id) : d.employees).filter(e => { const s = q.toLowerCase(); return e.name.toLowerCase().includes(s) || (e.emp_id || '').toLowerCase().includes(s) || (e.phone || '').includes(s); }).sort((x, y) => rank(x) - rank(y) || String((rec[x.id] || {}).clock_in || '').localeCompare(String((rec[y.id] || {}).clock_in || '')) || x.name.localeCompare(y.name));
   const lv = e => d.leaves.find(l => l.emp === e.id && l.from_date <= date && l.to_date >= date && l.status !== 'rejected');
   const onLeave = e => { const l = lv(e); return l && l.kind !== 'wfh'; };
-  const cnt = k => rows.filter(a => attStatus(a) === k).length;
+  const holidaySet = new Set((d.holidays || []).map(h => String(h.date).slice(0, 10)));
+  const dow = new Date(date + 'T00:00:00').getDay();
+  const isPast = date < todayISO();
+  const isOff = e => weekOffOf(e, (d.settings && d.settings.weekOff) || [0]).includes(dow) || holidaySet.has(date);
+  // A past working day with no punch, no leave and no holiday counts as absent (same rule as the month stats)
+  const autoAbsent = e => isPast && !rec[e.id] && !lv(e) && !isOff(e) && (!e.joined || String(e.joined).slice(0, 10) <= date) && (!d.settings || !d.settings.attendanceFrom || d.settings.attendanceFrom <= date);
+  const cnt = k => rows.filter(a => attStatus(a) === k).length + (k === 'absent' ? d.employees.filter(autoAbsent).length : 0);
   const ot = rows.reduce((x, a) => x + (Number(a.ot_hours) || 0), 0), fine = rows.reduce((x, a) => x + (Number(a.fine_hours) || 0), 0);
   const punchedIn = rows.filter(a => a.clock_in).length, punchedOut = rows.filter(a => a.clock_out).length;
   const leaveCount = d.employees.filter(onLeave).length + cnt('leave');
   const pager = usePager(emps, 10);
   const groups = {}; pager.items.forEach(e => { (groups[e.dept || 'Other'] = groups[e.dept || 'Other'] || []).push(e); });
-  const unmarked = d.employees.length - rows.length;
+  const unmarked = d.employees.filter(e => !rec[e.id] && !autoAbsent(e) && !lv(e) && !isOff(e)).length;
 
   const shift = n => { const dd = new Date(date + 'T00:00:00'); dd.setDate(dd.getDate() + n); const iso = isoLocal(dd); if (iso <= todayISO()) setDate(iso); };
 
@@ -81,7 +87,7 @@ export function AttendanceScreen() {
   };
   const exportRegister = async () => { try { saveBlob(await ReportModel.download('attendance-register', { month: date.slice(0, 7) }), 'attendance-register-' + date.slice(0, 7) + '.csv'); } catch (err) { toast(err.message); } };
 
-  const stLabel = (a, l) => {
+  const stLabel = (a, l, e) => {
     const st = attStatus(a);
     if (st) {
       const sess = Array.isArray(a.sessions) ? a.sessions : [];
@@ -101,7 +107,9 @@ export function AttendanceScreen() {
       );
     }
     if (l) return <span className="st" style={{ color: l.status === 'pending' ? 'var(--warn)' : l.kind === 'wfh' ? 'var(--ok)' : 'var(--info)' }}>{l.kind === 'wfh' ? 'Work from home' : 'On leave'}{l.status === 'pending' ? ' (pending approval)' : ''} ({l.reason || ''}){l.remarks ? ' · ' + l.remarks : ''}</span>;
-    return <span className="st" style={{ color: 'var(--danger)' }}>Not Marked</span>;
+    if (isOff(e)) return <span className="st" style={{ color: 'var(--muted)' }}>{holidaySet.has(date) ? 'Holiday' : 'Weekly off'}</span>;
+    if (autoAbsent(e)) return <span className="st" style={{ color: 'var(--danger)' }}>Absent · no punch</span>;
+    return <span className="st" style={{ color: isPast ? 'var(--muted)' : 'var(--warn)' }}>{isPast ? 'Not marked' : 'Not clocked in yet'}</span>;
   };
 
   return (
@@ -125,7 +133,7 @@ export function AttendanceScreen() {
             <div className="panel">
               {groups[g].map(e => { const a = rec[e.id], l = lv(e), st = attStatus(a); return (
                 <div className="att-line" key={e.id}>
-                  <div className="who"><Avatar e={e} cls="" /><div><b>{e.name}</b> <span style={{ color: 'var(--muted)', fontSize: 12, marginLeft: 6 }}>{e.emp_id || ''}</span><small>{stLabel(a, l)}</small><div className="links"><LinkBtn onClick={() => notePrompt(e)}>{a && a.note ? 'Note: ' + a.note : 'Add Note'}</LinkBtn><span style={{ color: 'var(--muted)' }}>–</span><LinkBtn onClick={() => modals.open('attendance', null, { row: a, after: load })}>{a ? 'Edit' : 'Logs'}</LinkBtn></div></div></div>
+                  <div className="who"><Avatar e={e} cls="" /><div><b>{e.name}</b> <span style={{ color: 'var(--muted)', fontSize: 12, marginLeft: 6 }}>{e.emp_id || ''}</span><small>{stLabel(a, l, e)}</small><div className="links"><LinkBtn onClick={() => notePrompt(e)}>{a && a.note ? 'Note: ' + a.note : 'Add Note'}</LinkBtn><span style={{ color: 'var(--muted)' }}>–</span><LinkBtn onClick={() => modals.open('attendance', null, { row: a, after: load })}>{a ? 'Edit' : 'Logs'}</LinkBtn></div></div></div>
                   <div className="att-mark">
                     {Object.entries(ATT).map(([k, [c, l2, cls]]) => {
                       const isWeeklyOff = k === 'leave' && st === 'leave' && a && a.leave_type === 'Weekly Off';

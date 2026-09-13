@@ -1123,3 +1123,4 @@ html[data-theme="light"] .simran .msg.me,html[data-theme="light"] .simran-in but
 .tsheet .tcard{cursor:default; margin:0}
 .tsheet .tcard.hl{outline:none}
 @media (max-width:760px){ .tsheet-bg{align-items:flex-end; padding:0} .tsheet{width:100%; border-radius:20px 20px 0 0; max-height:85vh} .task-range{margin:6px 0} }
+html[data-theme="light"] select{background-repeat:no-repeat !important; background-position:right 12px center !important; background-size:12px 12px !important}
