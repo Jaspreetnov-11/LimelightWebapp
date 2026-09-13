@@ -36,7 +36,11 @@ router.post('/prompts', protect, catchAsync(async (req, res) => apiResponse.succ
 router.post('/content', protect, catchAsync(async (req, res) => apiResponse.success(res, await content.write({ brief: brief(req), platforms: req.body.platforms, tone: req.body.tone, lang: req.body.lang, variants: req.body.variants }))));
 router.post('/script', protect, catchAsync(async (req, res) => apiResponse.success(res, await script.write({ brief: brief(req), type: req.body.type, duration: req.body.duration, lang: req.body.lang, tone: req.body.tone, platform: req.body.platform }))));
 router.post('/schedule', protect, catchAsync(async (req, res) => apiResponse.success(res, await schedule.build({ brief: brief(req), platforms: req.body.platforms, days: req.body.days, perWeek: req.body.perWeek, lang: req.body.lang, start: req.body.start }))));
-router.post('/deck', protect, catchAsync(async (req, res) => apiResponse.success(res, await deck.make({ brief: brief(req), count: req.body.count, style: req.body.style, lang: req.body.lang, audience: req.body.audience, user: req.user }))));
+router.post('/deck', protect, catchAsync(async (req, res) => apiResponse.success(res, await deck.outline({ brief: brief(req), count: req.body.count, style: req.body.style, lang: req.body.lang, audience: req.body.audience }))));
+router.post('/deck/design', protect, catchAsync(async (req, res) => {
+  if (!req.body.outline || typeof req.body.outline !== 'object') throw new AppError('Approve an outline first.', 400);
+  return apiResponse.success(res, await deck.design({ outline: req.body.outline, user: req.user }));
+}));
 router.post('/ads', protect, catchAsync(async (req, res) => apiResponse.success(res, await ads.write({ brief: brief(req), platforms: req.body.platforms, objective: req.body.objective, budget: req.body.budget, audience: req.body.audience, lang: req.body.lang }))));
 
 module.exports = router;

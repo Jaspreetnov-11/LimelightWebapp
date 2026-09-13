@@ -167,3 +167,4 @@ export const AiModel = {
   ads: body => data(api.post('/ai/ads', body))
 };
 AiModel.deck = body => data(api.post('/ai/deck', body));
+AiModel.deckDesign = outline => data(api.post('/ai/deck/design', { outline }));

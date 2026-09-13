@@ -126,4 +126,29 @@ async function build(deck, shareWith) {
   return { id, url: 'https://docs.google.com/presentation/d/' + id + '/edit' };
 }
 
-module.exports = { ready, build };
+/** Designed deck -> the simple slide shapes build() understands (Slides API has no charts or panels without Sheets). */
+function fromDesign(deck) {
+  const blank = { subtitle: '', bullets: [], left: [], right: [], number: '', caption: '', quote: '' };
+  return {
+    title: deck.title,
+    slides: deck.slides.map(s => {
+      const b = { ...blank, title: s.title, notes: s.notes };
+      switch (s.kind) {
+        case 'cover': return { ...b, layout: 'title', subtitle: s.subtitle };
+        case 'closing': return { ...b, layout: 'closing', subtitle: s.subtitle || s.points[0] || '' };
+        case 'statement': return { ...b, layout: 'quote', quote: s.title };
+        case 'quote': return { ...b, layout: 'quote', quote: s.quote.text, caption: s.quote.by };
+        case 'stats': return { ...b, layout: 'big_number', number: s.stats[0].value, caption: s.stats[0].label + (s.stats.length > 1 ? '  ·  ' + s.stats.slice(1).map(x => x.value + ' ' + x.label).join('  ·  ') : '') };
+        case 'compare': return { ...b, layout: 'two_column', left: [s.compare.left.title, ...s.compare.left.items], right: [s.compare.right.title, ...s.compare.right.items] };
+        case 'steps': return { ...b, layout: 'bullets', bullets: s.steps.map((x, i) => (i + 1) + '. ' + x.title + (x.text ? ' — ' + x.text : '')) };
+        case 'chart': return { ...b, layout: 'bullets', bullets: [s.chart.takeaway, ...s.chart.categories.map((c, i) => c + ': ' + s.chart.series.map(se => se.values[i]).join(' / '))].filter(Boolean) };
+        case 'image': return { ...b, layout: 'bullets', bullets: [s.image.caption, 'Image: ' + s.image.prompt].filter(Boolean) };
+        case 'split': return { ...b, layout: 'bullets', bullets: [...s.points, '→ ' + s.callout] };
+        case 'agenda': return { ...b, layout: 'bullets', bullets: s.points.map((p, i) => (i + 1) + '. ' + p) };
+        default: return { ...b, layout: 'bullets', bullets: s.points };
+      }
+    })
+  };
+}
+
+module.exports = { ready, build, fromDesign };

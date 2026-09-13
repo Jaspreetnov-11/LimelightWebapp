@@ -369,15 +369,38 @@ function downloadBase64(base64, filename) {
   const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
+const KIND_LABEL = { cover: 'Cover', agenda: 'Agenda', statement: 'Statement', bullets: 'Points', split: 'Split + callout', stats: 'Stat cards', steps: 'Steps', compare: 'Compare', chart: 'Chart', quote: 'Quote', image: 'Image slot', closing: 'Closing' };
+
 function DeckTab({ meta }) {
+  const { toast } = useUi();
   const [brief, setBrief] = useState('');
   const [count, setCount] = useState('10');
   const [style, setStyle] = useState('Pitch');
   const [lang, setLang] = useState('English');
   const [audience, setAudience] = useState('');
-  const { busy, out, run } = useRun(() => AiModel.deck({ brief, count: Number(count), style, lang, audience }));
-  const d = out && out.deck;
-  const outline = d ? d.slides.map((s, i) => `${i + 1}. ${s.title}${s.subtitle ? ' — ' + s.subtitle : ''}${s.bullets.length ? '\n   - ' + s.bullets.join('\n   - ') : ''}${s.left.length ? '\n   Left: ' + s.left.join('; ') + '\n   Right: ' + s.right.join('; ') : ''}${s.number ? '\n   ' + s.number + ' — ' + s.caption : ''}${s.quote ? '\n   “' + s.quote + '”' : ''}${s.notes ? '\n   Notes: ' + s.notes : ''}`).join('\n\n') : '';
+  const [outline, setOutline] = useState(null);   // step 1 result, editable
+  const [design, setDesign] = useState(null);     // step 2 result
+  const [stage, setStage] = useState('idle');     // idle | outlining | review | designing | done
+
+  async function draft() {
+    setStage('outlining'); setDesign(null);
+    try { const r = await AiModel.deck({ brief, count: Number(count), style, lang, audience }); setOutline(r.outline); setStage('review'); }
+    catch (e) { toast(e.message || 'Failed'); setStage(outline ? 'review' : 'idle'); }
+  }
+  async function approve() {
+    setStage('designing');
+    try { const r = await AiModel.deckDesign(outline); setDesign(r); setStage('done'); }
+    catch (e) { toast(e.message || 'Failed'); setStage('review'); }
+  }
+  const editSlide = (i, patch) => setOutline(o => ({ ...o, slides: o.slides.map((s, k) => (k === i ? { ...s, ...patch } : s)) }));
+  const removeSlide = i => setOutline(o => ({ ...o, slides: o.slides.filter((_, k) => k !== i) }));
+  const addSlide = i => setOutline(o => { const s = [...o.slides]; s.splice(i + 1, 0, { title: 'New slide', points: [], notes: '' }); return { ...o, slides: s }; });
+  const move = (i, d) => setOutline(o => { const s = [...o.slides]; const j = i + d; if (j < 0 || j >= s.length) return o; [s[i], s[j]] = [s[j], s[i]]; return { ...o, slides: s }; });
+
+  const busy = stage === 'outlining' || stage === 'designing';
+  const deck = design && design.deck;
+  const outlineText = outline ? outline.slides.map((s, i) => `${i + 1}. ${s.title}${s.points.length ? '\n   - ' + s.points.join('\n   - ') : ''}${s.notes ? '\n   Notes: ' + s.notes : ''}`).join('\n\n') : '';
+
   return (
     <div className="ai-grid">
       <div className="ai-stack">
@@ -390,24 +413,54 @@ function DeckTab({ meta }) {
             <Field label="Language"><Select value={lang} onChange={setLang} options={meta.deck.langs} disabled={busy} /></Field>
           </div>
           <Field label="Audience (optional)"><input type="text" value={audience} onChange={e => setAudience(e.target.value)} placeholder="e.g. CMO of a Punjab tourism board" disabled={busy} /></Field>
-          <Run busy={busy} disabled={!brief.trim()} onClick={run}>Build deck</Run>
+          <Run busy={stage === 'outlining'} disabled={busy || !brief.trim()} onClick={draft}>{outline ? 'Redo outline' : 'Draft outline'}</Run>
+          <div className="ai-meta"><span>Step 1 drafts the outline. You approve or edit it, then the designer builds the slides.</span></div>
         </div>
       </div>
+
       <div className="panel ai-p">
-        <div className="ai-out-h"><b style={{ fontSize: 15 }}>{d ? d.title : 'Your deck'}</b>{d && <Chip tone="gr">{d.slides.length} slides</Chip>}<span className="grow" />{d && <CopyBtn text={outline}>Copy outline</CopyBtn>}</div>
-        {busy ? <Writing label="Building" /> : !d ? <Empty>Brief, slide count, type, build.<br /><small>{meta.deck.google ? 'You get a Google Slides link you can edit.' : 'You get a .pptx to open in PowerPoint or upload to Google Slides.'}</small></Empty> : (
+        {stage === 'outlining' && <Writing label="Outlining" />}
+        {stage === 'designing' && <Writing label="Designing" />}
+        {stage === 'idle' && <Empty>Brief, slide count, type, draft.<br /><small>{meta.deck.google ? 'After approval you get a Google Slides link you can edit.' : 'After approval you get a designed .pptx.'}</small></Empty>}
+
+        {stage === 'review' && outline && (
           <>
-            {out.slides && out.slides.url && <a className="btn btn-primary ai-cta" href={out.slides.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginBottom: 12 }}>Open in Google Slides ↗</a>}
-            {out.pptx && <button type="button" className="btn btn-primary ai-cta" style={{ marginBottom: 12 }} onClick={() => downloadBase64(out.pptx.base64, out.pptx.filename)}>Download .pptx</button>}
-            {d.subtitle && <div className="ai-dir"><Icon name="spark" style={{ color: 'var(--accent)', width: 18, height: 18, flex: 'none' }} /><div><div className="lab">Subtitle</div><div>{d.subtitle}</div></div></div>}
-            {d.slides.map((s, i) => (
+            <div className="ai-out-h"><b style={{ fontSize: 15 }}>Outline</b><Chip tone="or">Review · {outline.slides.length} slides</Chip><span className="grow" /><CopyBtn text={outlineText}>Copy</CopyBtn></div>
+            <div className="ai-fields" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              <Field label="Title"><input type="text" value={outline.title} onChange={e => setOutline({ ...outline, title: e.target.value })} /></Field>
+              <Field label="Subtitle"><input type="text" value={outline.subtitle} onChange={e => setOutline({ ...outline, subtitle: e.target.value })} /></Field>
+            </div>
+            {outline.slides.map((s, i) => (
               <div className="ai-card" key={i}>
-                <div className="ai-card-h"><Chip tone="gy">{i + 1}</Chip><b>{s.title || s.quote || s.number}</b><Chip tone="pu">{s.layout.replace('_', ' ')}</Chip></div>
+                <div className="ai-card-h"><Chip tone="gy">{i + 1}</Chip><input type="text" value={s.title} onChange={e => editSlide(i, { title: e.target.value })} style={{ flex: 1, minWidth: 160, height: 36, fontWeight: 600 }} />
+                  <span className="acts"><button type="button" className="mini-btn" title="Move up" onClick={() => move(i, -1)}>↑</button><button type="button" className="mini-btn" title="Move down" onClick={() => move(i, 1)}>↓</button><button type="button" className="mini-btn" title="Add slide after" onClick={() => addSlide(i)}>+</button><button type="button" className="mini-btn" title="Remove" onClick={() => removeSlide(i)}>✕</button></span>
+                </div>
+                <textarea value={s.points.join('\n')} onChange={e => editSlide(i, { points: e.target.value.split('\n') })} placeholder="One point per line" style={{ minHeight: 64, marginTop: 8, fontSize: 13 }} />
+                <textarea value={s.notes} onChange={e => editSlide(i, { notes: e.target.value })} placeholder="Speaker notes (optional)" style={{ minHeight: 44, marginTop: 6, fontSize: 12.5, color: 'var(--muted)' }} />
+              </div>
+            ))}
+            <button type="button" className="btn btn-primary ai-cta" onClick={approve} disabled={outline.slides.filter(s => s.title.trim()).length < 2}>Approve outline &amp; design slides</button>
+          </>
+        )}
+
+        {stage === 'done' && deck && (
+          <>
+            <div className="ai-out-h"><b style={{ fontSize: 15 }}>{deck.title}</b><Chip tone="gr">{deck.slides.length} slides designed</Chip><span className="grow" /><button type="button" className="date-btn" onClick={() => setStage('review')}>Back to outline</button></div>
+            {design.slides && design.slides.url && <a className="btn btn-primary ai-cta" href={design.slides.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', marginBottom: 12 }}>Open in Google Slides ↗</a>}
+            {design.pptx && <button type="button" className="btn btn-primary ai-cta" style={{ marginBottom: 12 }} onClick={() => downloadBase64(design.pptx.base64, design.pptx.filename)}>Download designed .pptx</button>}
+            {deck.slides.map((s, i) => (
+              <div className="ai-card" key={i}>
+                <div className="ai-card-h"><Chip tone="gy">{i + 1}</Chip><b>{s.title || s.quote.text}</b><Chip tone="pu">{KIND_LABEL[s.kind] || s.kind}</Chip></div>
+                {s.kicker && <div className="ai-tip" style={{ marginTop: 4 }}>{s.kicker.toUpperCase()}</div>}
                 {s.subtitle && <div className="ai-meta" style={{ marginTop: 6 }}><span>{s.subtitle}</span></div>}
-                {s.bullets.length > 0 && <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 13.5, color: 'var(--t2)' }}>{s.bullets.map((b, k) => <li key={k}>{b}</li>)}</ul>}
-                {(s.left.length > 0 || s.right.length > 0) && <div className="ai-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}><ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--t2)' }}>{s.left.map((b, k) => <li key={k}>{b}</li>)}</ul><ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: 'var(--t2)' }}>{s.right.map((b, k) => <li key={k}>{b}</li>)}</ul></div>}
-                {s.number && <div style={{ marginTop: 8 }}><b style={{ fontSize: 26, color: 'var(--accent)' }}>{s.number}</b> <span className="ai-meta" style={{ display: 'inline' }}>{s.caption}</span></div>}
-                {s.quote && <div className="ai-tip">“{s.quote}”{s.caption ? ' — ' + s.caption : ''}</div>}
+                {s.points.length > 0 && <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 13.5, color: 'var(--t2)' }}>{s.points.map((b, k) => <li key={k}>{b}</li>)}</ul>}
+                {s.kind === 'split' && s.callout && <div className="ai-chips"><Chip tone="pu">Callout: {s.callout}</Chip></div>}
+                {s.stats.length > 0 && <div className="ai-chips">{s.stats.map((st, k) => <Chip key={k} tone="gy"><b style={{ color: 'var(--accent)', marginRight: 6 }}>{st.value}</b>{st.label}</Chip>)}</div>}
+                {s.steps.length > 0 && <ol style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 13, color: 'var(--t2)' }}>{s.steps.map((st, k) => <li key={k}><b style={{ color: 'var(--text)' }}>{st.title}</b>{st.text ? ' — ' + st.text : ''}</li>)}</ol>}
+                {s.kind === 'compare' && <div className="ai-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>{[s.compare.left, s.compare.right].map((side, k) => <div key={k}><b style={{ fontSize: 13 }}>{side.title}</b><ul style={{ margin: '4px 0 0', paddingLeft: 18, fontSize: 12.5, color: 'var(--t2)' }}>{side.items.map((x, j) => <li key={j}>{x}</li>)}</ul></div>)}</div>}
+                {s.kind === 'chart' && <div className="ai-meta" style={{ marginTop: 8 }}><span>{s.chart.type} chart · {s.chart.categories.join(', ')} · {s.chart.takeaway}</span></div>}
+                {s.kind === 'quote' && <div className="ai-tip">“{s.quote.text}”{s.quote.by ? ' — ' + s.quote.by : ''}</div>}
+                {s.kind === 'image' && <div className="ai-meta" style={{ marginTop: 8 }}><span>Image prompt: {s.image.prompt}</span><CopyBtn text={s.image.prompt} small>Copy prompt</CopyBtn></div>}
                 {s.notes && <div className="ai-meta" style={{ marginTop: 8 }}><span>Notes: {s.notes}</span></div>}
               </div>
             ))}
