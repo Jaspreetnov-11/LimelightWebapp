@@ -156,3 +156,13 @@ export const ReportModel = {
     return res.blob();
   }
 };
+
+// AI Agent page: prompt studio, content writing (social + scripts), scheduling, ads. Backend: /api/ai/*
+export const AiModel = {
+  meta: () => data(api.get('/ai/meta')),
+  prompts: body => data(api.post('/ai/prompts', body)),
+  content: body => data(api.post('/ai/content', body)),
+  script: body => data(api.post('/ai/script', body)),
+  schedule: body => data(api.post('/ai/schedule', body)),
+  ads: body => data(api.post('/ai/ads', body))
+};

@@ -27,6 +27,8 @@ export function IconSprite() {
         <symbol id="i-login" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M10 17l5-5-5-5M15 12H3M13 3h6v18h-6" /></symbol>
         <symbol id="i-logout" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" d="M16 17l5-5-5-5M21 12H9M11 3H5v18h6" /></symbol>
         <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2" fill="currentColor" /><circle cx="12" cy="12" r="2" fill="currentColor" /><circle cx="12" cy="19" r="2" fill="currentColor" /></symbol>
+        <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2zM5 17l.9 2.1L8 20l-2.1.9L5 23l-.9-2.1L2 20l2.1-.9L5 17zM19 16l.7 1.6 1.6.7-1.6.7L19 20.6l-.7-1.6-1.6-.7 1.6-.7L19 16z" /></symbol>
+        <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></symbol>
         <symbol id="i-mark" viewBox="0 0 48 48"><path d="M6 14 C3 11 5 6 10 6.5 L41 3 C45 2.6 47.5 6.5 45.5 10 L31 43 C29 47 24 46.5 22.5 43 Z" fill="#FFD21F" stroke="#FFD21F" strokeWidth="3" strokeLinejoin="round" /></symbol>
         <symbol id="i-mascot" viewBox="0 0 70 74">
           <ellipse cx="35" cy="14" rx="20" ry="8" fill="#FFE38A" opacity=".35" />

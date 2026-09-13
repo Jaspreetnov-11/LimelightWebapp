@@ -19,7 +19,7 @@ import { SimranChat } from '@/views/ui/SimranChat';
 export const NAV = [
   ['dashboard', 'Home', 'grid', 'all'], ['tasks', 'Tasks', 'check', 'all'], ['projects', 'Projects', 'brief', 'all'], ['attendance', 'Attendance', 'cal', 'all'],
   ['leaves', 'Leaves / WFH', 'leaf', 'all'], ['staff', 'Staff', 'users', 'all'], ['departments', 'Departments', 'build', 'all'], ['payroll', 'Payroll', 'tasks', 'admin'], ['payments', 'Payments', 'file', 'admin'],
-  ['clients', 'Clients', 'brief', 'admin'], ['reports', 'Reports', 'chart', 'admin'], ['notifications', 'Notifications', 'bell', 'all'], ['events', 'Events', 'flag', 'all'], ['settings', 'Settings', 'dots', 'all']
+  ['clients', 'Clients', 'brief', 'admin'], ['reports', 'Reports', 'chart', 'admin'], ['ai-agent', 'AI Agent', 'spark', 'all'], ['notifications', 'Notifications', 'bell', 'all'], ['events', 'Events', 'flag', 'all'], ['settings', 'Settings', 'dots', 'all']
 ];
 const ADMIN_ONLY = new Set(NAV.filter(n => n[3] === 'admin').map(n => n[0]));
 

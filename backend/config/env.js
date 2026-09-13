@@ -36,6 +36,10 @@ module.exports = {
   GIT_COMMIT: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7),
   // Simran assistant (optional): Claude answers when a key is set; WhatsApp Cloud API sends when both are set
   ANTHROPIC_API_KEY: (process.env.ANTHROPIC_API_KEY || '').trim(),
+  ANTHROPIC_MODEL: (process.env.ANTHROPIC_MODEL || 'claude-opus-5').trim(),
+  // AI Agent page (prompts, content, scripts, schedule, ads): Gemini free tier first, Claude if only that key exists
+  GEMINI_API_KEY: (process.env.GEMINI_API_KEY || '').trim(),
+  GEMINI_MODEL: (process.env.GEMINI_MODEL || 'gemini-3.6-flash').trim(),
   WHATSAPP_TOKEN: (process.env.WHATSAPP_TOKEN || '').trim(),
   WHATSAPP_PHONE_ID: (process.env.WHATSAPP_PHONE_ID || '').trim()
 };
