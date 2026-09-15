@@ -23,6 +23,7 @@ export function AttendanceScreen() {
   const [q, setQ] = useState('');
   const [rows, setRows] = useState([]);
   const [leaveModalTarget, setLeaveModalTarget] = useState(null);
+  const [statFilter, setStatFilter] = useState('all'); // 'all' | 'present' | 'wfh' | 'absent' | 'punched_in' | 'punched_out' | 'not_punched'
   const isToday = date === todayISO();
 
   const load = useCallback(async () => { try { setRows(await AttendanceModel.list({ date })); } catch (err) { toast(err.message); } }, [date, toast]);
@@ -30,21 +31,26 @@ export function AttendanceScreen() {
 
   const rec = useMemo(() => Object.fromEntries(rows.map(a => [a.emp, a])), [rows]);
   // Punched-in staff float to the top: currently clocked in first, then clocked out, then not punched yet
-  const rank = e => { const a = rec[e.id]; if (!a || !a.clock_in) return 2; return a.clock_out ? 1 : 0; };
-  const emps = (tab === 'me' ? d.employees.filter(e => e.id === me.id) : d.employees).filter(e => { const s = q.toLowerCase(); return e.name.toLowerCase().includes(s) || (e.emp_id || '').toLowerCase().includes(s) || (e.phone || '').includes(s); }).sort((x, y) => rank(x) - rank(y) || String((rec[x.id] || {}).clock_in || '').localeCompare(String((rec[y.id] || {}).clock_in || '')) || x.name.localeCompare(y.name));
-  const lv = e => d.leaves.find(l => l.emp === e.id && l.from_date <= date && l.to_date >= date && l.status !== 'rejected');
-  const onLeave = e => { const l = lv(e); return l && l.kind !== 'wfh'; };
-  const holidaySet = new Set((d.holidays || []).map(h => String(h.date).slice(0, 10)));
+  const rank = useCallback(e => { const a = rec[e.id]; if (!a || !a.clock_in) return 2; return a.clock_out ? 1 : 0; }, [rec]);
+  const lv = useCallback(e => d.leaves.find(l => l.emp === e.id && l.from_date <= date && l.to_date >= date && l.status !== 'rejected'), [d.leaves, date]);
+  const onLeave = useCallback(e => { const l = lv(e); return l && l.kind !== 'wfh'; }, [lv]);
+  const holidaySet = useMemo(() => new Set((d.holidays || []).map(h => String(h.date).slice(0, 10))), [d.holidays]);
   const dow = new Date(date + 'T00:00:00').getDay();
   const isPast = date < todayISO();
-  const isOff = e => weekOffOf(e, (d.settings && d.settings.weekOff) || [0]).includes(dow) || holidaySet.has(date);
+  const isOff = useCallback(e => weekOffOf(e, (d.settings && d.settings.weekOff) || [0]).includes(dow) || holidaySet.has(date), [d.settings, dow, holidaySet, date]);
   // A past working day with no punch, no leave and no holiday counts as absent (same rule as the month stats)
-  const autoAbsent = e => isPast && !rec[e.id] && !lv(e) && !isOff(e) && (!e.joined || String(e.joined).slice(0, 10) <= date) && (!d.settings || !d.settings.attendanceFrom || d.settings.attendanceFrom <= date);
-  const cnt = k => rows.filter(a => attStatus(a) === k).length + (k === 'absent' ? d.employees.filter(autoAbsent).length : 0);
-  const ot = rows.reduce((x, a) => x + (Number(a.ot_hours) || 0), 0), fine = rows.reduce((x, a) => x + (Number(a.fine_hours) || 0), 0);
-  const punchedIn = rows.filter(a => a.clock_in).length, punchedOut = rows.filter(a => a.clock_out).length;
+  const autoAbsent = useCallback(e => isPast && !rec[e.id] && !lv(e) && !isOff(e) && (!e.joined || String(e.joined).slice(0, 10) <= date) && (!d.settings || !d.settings.attendanceFrom || d.settings.attendanceFrom <= date), [isPast, rec, lv, isOff, date, d.settings]);
+
+  // Active staff or staff who have attendance records on this date
+  const baseStaff = useMemo(() => {
+    return d.employees.filter(e => {
+      const isActive = Number(e.active === undefined || e.active === null ? 1 : e.active) === 1;
+      return isActive || rec[e.id];
+    });
+  }, [d.employees, rec]);
+
   // Exactly one bucket per person, so the numbers add up to the total
-  const bucketOf = e => {
+  const bucketOf = useCallback(e => {
     const a = rec[e.id]; const st = attStatus(a);
     if (st === 'absent') return 'absent';
     if (st === 'leave') return 'leave';
@@ -53,12 +59,54 @@ export function AttendanceScreen() {
     if (isOff(e)) return 'off';
     if (autoAbsent(e)) return 'absent';
     return 'none';
-  };
-  const buckets = d.employees.reduce((acc, e) => { const b = bucketOf(e); acc[b] = (acc[b] || 0) + 1; return acc; }, {});
-  const leaveCount = buckets.leave || 0;
+  }, [rec, onLeave, isOff, autoAbsent]);
+
+  const buckets = useMemo(() => baseStaff.reduce((acc, e) => { const b = bucketOf(e); acc[b] = (acc[b] || 0) + 1; return acc; }, {}), [baseStaff, bucketOf]);
+  const punchedIn = useMemo(() => baseStaff.filter(e => rec[e.id] && rec[e.id].clock_in).length, [baseStaff, rec]);
+  const punchedOut = useMemo(() => baseStaff.filter(e => rec[e.id] && rec[e.id].clock_out).length, [baseStaff, rec]);
+  const notPunched = useMemo(() => baseStaff.filter(e => !rec[e.id] || !rec[e.id].clock_in).length, [baseStaff, rec]);
+  const unmarked = useMemo(() => baseStaff.filter(e => !rec[e.id] && !autoAbsent(e) && !lv(e) && !isOff(e)).length, [baseStaff, rec, autoAbsent, lv, isOff]);
+
+  const statCards = [
+    { key: 'all', label: 'Total Staff', count: baseStaff.length, color: 'inherit', tone: 'gy', activeBorder: 'var(--accent, #F5C518)', activeBg: 'rgba(245, 197, 24, 0.12)' },
+    { key: 'present', label: 'Present', count: buckets.present || 0, color: 'var(--ok, #4ADE95)', tone: 'gr', activeBorder: 'var(--ok, #4ADE95)', activeBg: 'rgba(74, 222, 149, 0.12)' },
+    { key: 'wfh', label: 'WFH', count: buckets.wfh || 0, color: 'var(--info, #6FA8FF)', tone: 'bl', activeBorder: 'var(--info, #6FA8FF)', activeBg: 'rgba(111, 168, 255, 0.12)' },
+    { key: 'absent', label: 'Absent', count: buckets.absent || 0, color: 'var(--danger, #FF5C7A)', tone: 'pk', activeBorder: 'var(--danger, #FF5C7A)', activeBg: 'rgba(255, 92, 122, 0.12)' },
+    { key: 'punched_in', label: 'Punched In', count: punchedIn, color: '#38BDF8', tone: 'bl', activeBorder: '#38BDF8', activeBg: 'rgba(56, 189, 248, 0.12)' },
+    { key: 'punched_out', label: 'Punched Out', count: punchedOut, color: '#A78BFA', tone: 'pu', activeBorder: '#A78BFA', activeBg: 'rgba(167, 139, 250, 0.12)' },
+    { key: 'not_punched', label: 'Not Punched', count: notPunched, color: 'var(--warn, #F59E0B)', tone: 'or', activeBorder: 'var(--warn, #F59E0B)', activeBg: 'rgba(245, 158, 11, 0.12)' }
+  ];
+  const currentCard = statCards.find(c => c.key === statFilter) || statCards[0];
+
+  // Filter staff list according to tab, statFilter and search query q
+  const emps = useMemo(() => {
+    const list = tab === 'me' ? baseStaff.filter(e => e.id === me.id) : baseStaff;
+    const s = q.toLowerCase();
+
+    return list.filter(e => {
+      const a = rec[e.id];
+      const b = bucketOf(e);
+
+      if (statFilter === 'present' && b !== 'present') return false;
+      if (statFilter === 'wfh' && b !== 'wfh') return false;
+      if (statFilter === 'absent' && b !== 'absent') return false;
+      if (statFilter === 'punched_in' && (!a || !a.clock_in)) return false;
+      if (statFilter === 'punched_out' && (!a || !a.clock_out)) return false;
+      if (statFilter === 'not_punched' && (a && a.clock_in)) return false;
+
+      if (!s) return true;
+      return (
+        e.name.toLowerCase().includes(s) ||
+        (e.emp_id || '').toLowerCase().includes(s) ||
+        (e.phone || '').includes(s) ||
+        (e.dept || '').toLowerCase().includes(s) ||
+        (e.role || '').toLowerCase().includes(s)
+      );
+    }).sort((x, y) => rank(x) - rank(y) || String((rec[x.id] || {}).clock_in || '').localeCompare(String((rec[y.id] || {}).clock_in || '')) || x.name.localeCompare(y.name));
+  }, [baseStaff, tab, me.id, q, statFilter, rec, bucketOf, rank]);
+
   const pager = usePager(emps, 10);
   const groups = {}; pager.items.forEach(e => { (groups[e.dept || 'Other'] = groups[e.dept || 'Other'] || []).push(e); });
-  const unmarked = d.employees.filter(e => !rec[e.id] && !autoAbsent(e) && !lv(e) && !isOff(e)).length;
 
   const shift = n => { const dd = new Date(date + 'T00:00:00'); dd.setDate(dd.getDate() + n); const iso = isoLocal(dd); if (iso <= todayISO()) setDate(iso); };
 
@@ -134,11 +182,47 @@ export function AttendanceScreen() {
         <div className="panel">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}><Sq onClick={() => shift(-1)} style={{ height: 34, width: 34 }}>‹</Sq><input type="date" value={date} max={todayISO()} onChange={e => { if (e.target.value && e.target.value <= todayISO()) setDate(e.target.value); }} style={{ height: 34, width: 160, fontSize: 12.5, borderRadius: 100 }} /><Sq onClick={() => shift(1)} style={{ height: 34, width: 34, opacity: isToday ? 0.4 : 1 }}>›</Sq>{!isToday && <LinkBtn onClick={() => setDate(todayISO())}>Today</LinkBtn>}</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Seg items={[['all', 'All staff'], ['me', 'Me']]} value={tab} onChange={setTab} /><Chip tone={unmarked <= 0 ? 'gr' : 'or'}>{unmarked <= 0 ? '✓ All marked' : unmarked + ' unmarked'}</Chip></div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <Seg items={[['all', 'All staff'], ['me', 'Me']]} value={tab} onChange={setTab} />
+              <Chip
+                tone={unmarked <= 0 ? 'gr' : 'or'}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setStatFilter(prev => prev === 'not_punched' ? 'all' : 'not_punched')}
+                title="Click to filter not punched / unmarked staff"
+              >
+                {unmarked <= 0 ? '✓ All marked' : unmarked + ' unmarked'}
+              </Chip>
+            </div>
           </div>
-          <div className="sum" style={{ borderTop: '1px solid var(--line)' }}><div><span>Total Staff</span><b>{d.employees.length}</b></div><div><span>Present</span><b style={{ color: 'var(--ok)' }}>{buckets.present || 0}</b></div><div><span>WFH</span><b style={{ color: 'var(--info)' }}>{buckets.wfh || 0}</b></div><div><span>Absent</span><b style={{ color: 'var(--danger)' }}>{buckets.absent || 0}</b></div><div><span>Punched In</span><b>{punchedIn}</b></div><div><span>Punched Out</span><b>{punchedOut}</b></div></div>
+          <div className="sum" style={{ borderTop: '1px solid var(--line)' }}>
+            <div onClick={() => setStatFilter('all')} style={{ cursor: 'pointer', opacity: statFilter === 'all' ? 1 : 0.45, transition: 'opacity 0.15s' }}>
+              <span>Total Staff</span><b>{baseStaff.length}</b>
+            </div>
+            <div onClick={() => setStatFilter(prev => prev === 'present' ? 'all' : 'present')} style={{ cursor: 'pointer', opacity: statFilter === 'all' || statFilter === 'present' ? 1 : 0.45, transition: 'opacity 0.15s' }}>
+              <span>Present</span><b style={{ color: 'var(--ok)' }}>{buckets.present || 0}</b>
+            </div>
+            <div onClick={() => setStatFilter(prev => prev === 'wfh' ? 'all' : 'wfh')} style={{ cursor: 'pointer', opacity: statFilter === 'all' || statFilter === 'wfh' ? 1 : 0.45, transition: 'opacity 0.15s' }}>
+              <span>WFH</span><b style={{ color: 'var(--info)' }}>{buckets.wfh || 0}</b>
+            </div>
+            <div onClick={() => setStatFilter(prev => prev === 'absent' ? 'all' : 'absent')} style={{ cursor: 'pointer', opacity: statFilter === 'all' || statFilter === 'absent' ? 1 : 0.45, transition: 'opacity 0.15s' }}>
+              <span>Absent</span><b style={{ color: 'var(--danger)' }}>{buckets.absent || 0}</b>
+            </div>
+            <div onClick={() => setStatFilter(prev => prev === 'punched_in' ? 'all' : 'punched_in')} style={{ cursor: 'pointer', opacity: statFilter === 'all' || statFilter === 'punched_in' ? 1 : 0.45, transition: 'opacity 0.15s' }}>
+              <span>Punched In</span><b>{punchedIn}</b>
+            </div>
+            <div onClick={() => setStatFilter(prev => prev === 'punched_out' ? 'all' : 'punched_out')} style={{ cursor: 'pointer', opacity: statFilter === 'all' || statFilter === 'punched_out' ? 1 : 0.45, transition: 'opacity 0.15s' }}>
+              <span>Punched Out</span><b>{punchedOut}</b>
+            </div>
+            <div onClick={() => setStatFilter(prev => prev === 'not_punched' ? 'all' : 'not_punched')} style={{ cursor: 'pointer', opacity: statFilter === 'all' || statFilter === 'not_punched' ? 1 : 0.45, transition: 'opacity 0.15s' }}>
+              <span>Not Punched</span><b style={{ color: 'var(--warn, #F59E0B)' }}>{notPunched}</b>
+            </div>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}><button className="date-btn" onClick={() => modals.open('leave')}>☂ Leave / WFH</button><button className="date-btn" onClick={() => modals.open('payment', null, { type: 'Fine' })}>₹ Fine</button><Search value={q} onChange={setQ} placeholder="Search staff by name, phone or ID" style={{ flex: 1, minWidth: 220, maxWidth: 380 }} /></div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button className="date-btn" onClick={() => modals.open('leave')}>☂ Leave / WFH</button>
+          <button className="date-btn" onClick={() => modals.open('payment', null, { type: 'Fine' })}>₹ Fine</button>
+          <Search value={q} onChange={setQ} placeholder="Search staff by name, phone or ID" style={{ flex: 1, minWidth: 220, maxWidth: 380 }} />
+        </div>
         {Object.keys(groups).sort((x, y) => Math.min(...groups[x].map(rank)) - Math.min(...groups[y].map(rank)) || x.localeCompare(y)).map(g => (
           <div key={g}>
             <div className="group-h">{g} <span className="n">{groups[g].length}</span></div>
@@ -164,7 +248,18 @@ export function AttendanceScreen() {
             </div>
           </div>
         ))}
-        {!emps.length && <div className="panel"><Empty>No staff match</Empty></div>}
+        {!emps.length && (
+          <div className="panel">
+            <Empty>
+              No staff match {statFilter !== 'all' ? `the "${currentCard.label}" filter` : ''}{q ? ` for "${q}"` : ''}.
+              {statFilter !== 'all' && (
+                <div style={{ marginTop: 8 }}>
+                  <LinkBtn onClick={() => setStatFilter('all')}>Show all staff</LinkBtn>
+                </div>
+              )}
+            </Empty>
+          </div>
+        )}
         <div className="panel"><Pager pager={pager} /></div>
         <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)' }}>Showing {fmtDY(date)}. Staff clock in themselves with GPS; admins can adjust status, overtime, fines and notes here.</p>
       </div>

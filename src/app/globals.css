@@ -504,7 +504,9 @@
   .att-line .who small{display:block; font-size:11.5px; margin-top:2px}
   .att-line .who .st{font-weight:500}
   .att-line .links{display:flex; gap:12px; margin-top:8px}
-  .sum{display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px; padding:16px 18px}
+  .sum{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:12px; padding:16px 18px}
+  .sum div{cursor:pointer; user-select:none; transition:opacity .15s}
+  .sum div:hover{opacity:.85}
   .sum div span{display:block; font-size:12px; color:var(--muted)} .sum div b{font-size:20px; font-weight:700; font-variant-numeric:tabular-nums}
   .money{font-variant-numeric:tabular-nums; font-weight:600}
   .money.neg{color:var(--danger)} .money.pos{color:var(--ok)}
@@ -572,7 +574,7 @@
     .glance,.status-row,.proj-over,.emp-stats,.emp-charts,.dept-charts,.emp-bottom{grid-template-columns:1fr !important}
     .glance .meetings,.status-row .open,.status-row > [style*="span 2"]{grid-column:auto !important; grid-row:auto !important}
     .stat{padding:14px} .stat b{font-size:19px}
-    .sum{grid-template-columns:repeat(3,1fr); gap:10px; padding:14px} .sum div b{font-size:17px}
+    .sum{grid-template-columns:repeat(auto-fit,minmax(105px,1fr)); gap:10px; padding:12px} .sum div b{font-size:17px}
     .two{grid-template-columns:1fr; min-height:0}
     .two > aside{border-right:0; border-bottom:1px solid var(--line); padding:12px}
     .two > aside .list{max-height:260px; overflow:auto}
