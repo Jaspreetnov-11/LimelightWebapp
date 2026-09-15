@@ -124,3 +124,73 @@ export function Toast() {
   const { toastState } = useUi();
   return <div className={'toast' + (toastState.show ? ' show' : '')} role="status" aria-live="polite">{toastState.msg}</div>;
 }
+
+export function ConfirmModal() {
+  const { confirmDialog, closeConfirm } = useUi();
+
+  useEffect(() => {
+    if (!confirmDialog) return;
+    const onKey = e => { if (e.key === 'Escape') closeConfirm(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [confirmDialog, closeConfirm]);
+
+  if (!confirmDialog) return null;
+
+  return (
+    <div className="scrim open" onClick={e => { if (e.target === e.currentTarget) closeConfirm(false); }} role="presentation">
+      <div className="dialog" role="dialog" aria-modal="true" style={{ maxWidth: 460, padding: '24px 26px 22px', textAlign: 'left' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <div style={{
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            background: confirmDialog.danger ? 'rgba(255, 92, 122, 0.15)' : 'rgba(111, 168, 255, 0.15)',
+            border: `1px solid ${confirmDialog.danger ? 'rgba(255, 92, 122, 0.3)' : 'rgba(111, 168, 255, 0.3)'}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 18,
+            flexShrink: 0
+          }}>
+            {confirmDialog.danger ? '⚠️' : 'ℹ️'}
+          </div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{confirmDialog.title}</h2>
+        </div>
+
+        <p style={{ margin: '0 0 14px', fontSize: 13.5, color: 'var(--text-soft)', lineHeight: 1.55 }}>
+          {confirmDialog.message}
+        </p>
+
+        {confirmDialog.sub && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid var(--line)',
+            borderRadius: 10,
+            padding: '10px 14px',
+            fontSize: 12,
+            color: 'var(--muted)',
+            lineHeight: 1.5,
+            marginBottom: 16
+          }}>
+            {confirmDialog.sub}
+          </div>
+        )}
+
+        <div className="row" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+          <button type="button" className="btn btn-ghost" onClick={() => closeConfirm(false)}>
+            {confirmDialog.cancelText || 'Cancel'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={confirmDialog.danger ? { background: 'var(--danger, #FF5C7A)', borderColor: 'var(--danger, #FF5C7A)', color: '#fff' } : {}}
+            onClick={() => closeConfirm(true)}
+          >
+            {confirmDialog.okText || 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

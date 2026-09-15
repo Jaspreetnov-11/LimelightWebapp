@@ -3,7 +3,7 @@
 const BaseModel = require('./base.model');
 const db = require('../config/db');
 
-function searchWhere({ query = '', dept = '' } = {}) {
+function searchWhere({ query = '', dept = '', active = '' } = {}) {
   let sql = '';
   const params = [];
   if (query) {
@@ -15,6 +15,10 @@ function searchWhere({ query = '', dept = '' } = {}) {
     sql += ' AND dept = ?';
     params.push(dept);
   }
+  if (active !== '' && active !== undefined && active !== null) {
+    sql += ' AND active = ?';
+    params.push(Number(active) ? 1 : 0);
+  }
   return { sql, params };
 }
 
@@ -23,14 +27,14 @@ class EmployeeModel extends BaseModel {
     super('lh_employees');
   }
 
-  async search({ query = '', dept = '', limit = 100, offset = 0 } = {}) {
-    const w = searchWhere({ query, dept });
+  async search({ query = '', dept = '', active = '', limit = 100, offset = 0 } = {}) {
+    const w = searchWhere({ query, dept, active });
     const sql = `SELECT * FROM lh_employees WHERE 1=1${w.sql} ORDER BY name ASC LIMIT ? OFFSET ?`;
     return db.all(sql, [...w.params, Number(limit), Number(offset)]);
   }
 
-  async countSearch({ query = '', dept = '' } = {}) {
-    const w = searchWhere({ query, dept });
+  async countSearch({ query = '', dept = '', active = '' } = {}) {
+    const w = searchWhere({ query, dept, active });
     const row = await db.get(`SELECT COUNT(*) as total FROM lh_employees WHERE 1=1${w.sql}`, w.params);
     return row ? Number(row.total) || 0 : 0;
   }

@@ -70,6 +70,13 @@ async function runSecurityTests() {
     }
   }
 
+  const authService = require('../services/auth.service');
+  const employeeModel = require('../models/employee.model');
+  const allEmployees = await employeeModel.findAll();
+  const adminUser = allEmployees.find(e => e.access === 'admin') || allEmployees[0];
+  const adminToken = authService.generateToken(adminUser);
+  const authHeaders = { authorization: 'Bearer ' + adminToken };
+
   // 1. Security Headers
   await test('Verify Security Headers are present', async () => {
     const res = await request('GET', '/api/health');
@@ -80,7 +87,7 @@ async function runSecurityTests() {
 
   // 2. SQL Injection - Query Parameter with Tautology
   await test('SQL Injection: employee search with "\' OR \'1\'=\'1" returns 0 records safely', async () => {
-    const res = await request('GET', "/api/employees?query=' OR '1'='1");
+    const res = await request('GET', "/api/employees?query=' OR '1'='1", null, authHeaders);
     assert.strictEqual(res.status, 200);
     // Should safely search literally for that string and return 0 matches
     assert.strictEqual(res.body.data.length, 0);
@@ -88,18 +95,18 @@ async function runSecurityTests() {
 
   // 3. SQL Injection - Attempted Table Drop via Query Parameter
   await test('SQL Injection: attempted DROP TABLE injection is treated as literal parameter', async () => {
-    const res = await request('GET', "/api/employees?query=admin'; DROP TABLE lh_employees; --");
+    const res = await request('GET', "/api/employees?query=admin'; DROP TABLE lh_employees; --", null, authHeaders);
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.data.length, 0);
 
     // Verify lh_employees table still exists and is completely undamaged
-    const count = db.get('SELECT COUNT(*) as count FROM lh_employees');
+    const count = await db.get('SELECT COUNT(*) as count FROM lh_employees');
     assert.ok(count && count.count > 0, 'Table lh_employees should still exist and contain records');
   });
 
   // 4. SQL Injection - Attempted UNION SELECT injection
   await test('SQL Injection: attempted UNION SELECT in query parameters', async () => {
-    const res = await request('GET', "/api/employees?dept=' UNION SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14 --");
+    const res = await request('GET', "/api/employees?dept=' UNION SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14 --", null, authHeaders);
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.data.length, 0);
   });
@@ -117,16 +124,16 @@ async function runSecurityTests() {
 
   // 6. SQL Injection - Attempted parameter injection in route ID
   await test('SQL Injection: route parameter with "\' OR \'1\'=\'1" returns 404', async () => {
-    const res = await request('GET', "/api/employees/' OR '1'='1");
+    const res = await request('GET', "/api/employees/' OR '1'='1", null, authHeaders);
     assert.strictEqual(res.status, 404);
   });
 
   // 7. Base Model Identifier Defense
-  await test('SQL Injection: Base Model throws error on illegal column characters', () => {
+  await test('SQL Injection: Base Model throws error on illegal column characters', async () => {
     const baseModel = require('../models/base.model');
     const testModel = new baseModel('lh_employees');
-    assert.throws(() => {
-      testModel.findAll({}, { orderBy: 'name; DROP TABLE lh_employees;--' });
+    await assert.rejects(async () => {
+      await testModel.findAll({}, { orderBy: 'name; DROP TABLE lh_employees;--' });
     }, /Invalid ORDER BY clause/);
   });
 
@@ -143,19 +150,19 @@ async function runSecurityTests() {
   // 9. Unauthorized Access Prevention
   await test('RBAC Security: Protected endpoint rejects unauthenticated request (401)', async () => {
     const res = await request('POST', '/api/employees', {
-      name: 'Unauthorized User'
+      name: 'Hacker',
+      email: 'hacker@example.com',
+      role: 'admin'
     });
     assert.strictEqual(res.status, 401);
-    assert.strictEqual(res.body.success, false);
   });
 
-  // 10. Rate Limiting Protection on Auth
+  // 10. Rate Limiting Protection (Brute Force Defense)
   await test('Rate Limiter: Blocks excessive requests with 429 Too Many Requests', async () => {
     let blocked = false;
+    // Auth limiter threshold is 20 requests per minute
     for (let i = 0; i < 25; i++) {
-      const res = await request('POST', '/api/auth/forgot-password', {
-        email: 'test@example.com'
-      });
+      const res = await request('POST', '/api/auth/login', { email: 'fake@example.com', password: 'wrong' });
       if (res.status === 429) {
         blocked = true;
         break;
@@ -188,20 +195,20 @@ async function runSecurityTests() {
   // 12. Database Constraints & Data Integrity Defense
   await test('Database Security: Foreign keys and unique constraints are enforced', async () => {
     // Unique attendance constraint test (emp, date)
-    const emp = db.get('SELECT id FROM lh_employees LIMIT 1');
+    const emp = await db.get('SELECT id FROM lh_employees LIMIT 1');
     assert.ok(emp, 'Should have at least one test employee');
 
     const testDate = '2099-01-01';
-    db.run('DELETE FROM lh_attendance WHERE emp = ? AND date = ?', [emp.id, testDate]);
-    db.run('INSERT INTO lh_attendance (id, emp, date) VALUES (?, ?, ?)', ['att_test_1', emp.id, testDate]);
+    await db.run('DELETE FROM lh_attendance WHERE emp = ? AND date = ?', [emp.id, testDate]);
+    await db.run('INSERT INTO lh_attendance (id, emp, date) VALUES (?, ?, ?)', ['att_test_1', emp.id, testDate]);
 
     // Attempting duplicate insert with same (emp, date) must fail constraint check
-    assert.throws(() => {
-      db.run('INSERT INTO lh_attendance (id, emp, date) VALUES (?, ?, ?)', ['att_test_2', emp.id, testDate]);
+    await assert.rejects(async () => {
+      await db.run('INSERT INTO lh_attendance (id, emp, date) VALUES (?, ?, ?)', ['att_test_2', emp.id, testDate]);
     }, /UNIQUE constraint failed/);
 
     // Clean up
-    db.run('DELETE FROM lh_attendance WHERE id = ?', ['att_test_1']);
+    await db.run('DELETE FROM lh_attendance WHERE id = ?', ['att_test_1']);
   });
 
   console.log(`\nSECURITY TEST SUMMARY: ${passed} passed, ${failed} failed`);

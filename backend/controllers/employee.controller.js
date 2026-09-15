@@ -22,17 +22,22 @@ const avFor = id => AV[[...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) 
 const cleanShift = s => (SHIFTS[s] ? s : 'day');
 
 const getAllEmployees = catchAsync(async (req, res) => {
-  const { query, dept, page = 1, limit = 100 } = req.query;
+  const { query, dept, active, page = 1, limit = 100 } = req.query;
   const offset = (Number(page) - 1) * Number(limit);
   const [employees, total, pre] = await Promise.all([
-    employeeModel.search({ query, dept, limit, offset }),
-    employeeModel.countSearch({ query, dept }),
+    employeeModel.search({ query, dept, active, limit, offset }),
+    employeeModel.countSearch({ query, dept, active }),
     payrollService.preloadMonth(thisMonth())
   ]);
   const admin = req.user && req.user.role === 'admin';
   const list = employees.map(e => {
     const pr = payrollService.computeEmployeePayroll(e, thisMonth(), pre);
-    const row = { ...e, managers: parseManagers(e.managers), shift: e.shift || 'day' };
+    const row = {
+      ...e,
+      active: (e.active === undefined || e.active === null) ? 1 : Number(e.active),
+      managers: parseManagers(e.managers),
+      shift: e.shift || 'day'
+    };
     // Pay figures are private: staff only see their own
     if (admin || (req.user && req.user.id === e.id)) Object.assign(row, { pendingBal: pr.pending, earned: pr.earned, paid: pr.paid });
     else { delete row.salary; }
@@ -47,7 +52,13 @@ const getEmployeeById = catchAsync(async (req, res) => {
   if (!employee) throw new AppError('Employee not found', 404);
   const admin = req.user && (req.user.role === 'admin' || req.user.id === id);
   const [payroll, tasks] = await Promise.all([admin ? payrollService.getEmployeePayroll(employee) : null, taskModel.filterTasks({ assignee: id, limit: 100 })]);
-  const out = { ...employee, managers: parseManagers(employee.managers), shift: employee.shift || 'day', tasks };
+  const out = {
+    ...employee,
+    active: (employee.active === undefined || employee.active === null) ? 1 : Number(employee.active),
+    managers: parseManagers(employee.managers),
+    shift: employee.shift || 'day',
+    tasks
+  };
   if (admin) out.payroll = payroll; else delete out.salary;
   return apiResponse.success(res, out);
 });
@@ -94,6 +105,7 @@ const createEmployee = catchAsync(async (req, res) => {
     salary: Number(salary) || 0,
     access: settingsService.isAdminEmail(cleanEmail) ? 'admin' : (ACCESS.includes(access) ? access : 'staff'),
     shift: cleanShift(shift),
+    active: 1,
     av: avFor(id),
     ini: initialsOf(name)
   });
@@ -118,6 +130,7 @@ const updateEmployee = catchAsync(async (req, res) => {
   if (!isAdmin) for (const k of ['salary', 'access', 'shift', 'emp_id', 'joined', 'active', 'managers', 'dept', 'role', 'week_off']) delete updateData[k];
   if (updateData.week_off !== undefined) updateData.week_off = cleanWeekOff(updateData.week_off);
 
+  if (updateData.active !== undefined) updateData.active = Number(updateData.active) ? 1 : 0;
   if (updateData.managers && Array.isArray(updateData.managers)) updateData.managers = JSON.stringify(updateData.managers);
   if (updateData.email) updateData.email = String(updateData.email).trim().toLowerCase();
   if (updateData.name && !updateData.ini) updateData.ini = initialsOf(updateData.name);
@@ -138,15 +151,24 @@ const updateEmployee = catchAsync(async (req, res) => {
 
 const deleteEmployee = catchAsync(async (req, res) => {
   const { id } = req.params;
-  if (req.user && req.user.id === id) throw new AppError('You cannot remove yourself.', 400);
+  if (req.user && req.user.id === id) throw new AppError('You cannot exit or remove yourself.', 400);
   const existing = await employeeModel.findById(id);
   if (!existing) throw new AppError('Employee not found', 404);
 
+  // Unassign active/pending tasks
   await taskModel.unassignEverywhere(id);
-  await employeeModel.delete(id);
-  try { await supabase.deleteUser(id); } catch (e) { console.error('[AUTH-DELETE]', e.message); }
-  await activityModel.log(`${existing.name} was removed from the team`);
-  return apiResponse.success(res, null, 'Employee removed successfully');
+
+  if (req.query.hard === 'true') {
+    await employeeModel.delete(id);
+    try { await supabase.deleteUser(id); } catch (e) { console.error('[AUTH-DELETE]', e.message); }
+    await activityModel.log(`${existing.name} was permanently removed from the team`);
+    return apiResponse.success(res, { id, deleted: true }, 'Employee permanently removed');
+  }
+
+  // Soft delete: keep row and all historical records intact, set active = 0 (Inactive / Exited)
+  await employeeModel.update(id, { active: 0 });
+  await activityModel.log(`${existing.name} was marked as exited (inactive)`);
+  return apiResponse.success(res, { id, active: 0 }, 'Employee marked as exited (inactive). Past records preserved.');
 });
 
 /**

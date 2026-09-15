@@ -3,7 +3,7 @@ import { AuthProvider } from '@/controllers/AuthController';
 import { UiProvider } from '@/controllers/UiController';
 import { DataProvider } from '@/controllers/DataController';
 import { IconSprite } from '@/views/ui/Icons';
-import { FormModal, Toast } from '@/views/ui/FormModal';
+import { ConfirmModal, FormModal, Toast } from '@/views/ui/FormModal';
 import { SelfieModal } from '@/views/ui/SelfieModal';
 
 export const metadata = {
@@ -36,6 +36,7 @@ export default function RootLayout({ children }) {
             <DataProvider>
               {children}
               <FormModal />
+              <ConfirmModal />
               <SelfieModal />
               <Toast />
             </DataProvider>

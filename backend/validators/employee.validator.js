@@ -44,6 +44,9 @@ const updateEmployeeSchema = {
   emp_id: {
     required: false
   },
+  active: {
+    required: false
+  },
   email: {
     required: false,
     custom: (v) => !v || emailRegex.test(v) || 'Invalid email format'
