@@ -7,6 +7,7 @@ const taskModel = require('../models/task.model');
 const projectModel = require('../models/project.model');
 const payrollService = require('./payroll.service');
 const attendanceService = require('./attendance.service');
+const worktime = require('./worktime.service');
 const { thisMonth } = require('../utils/calculations');
 
 function toCsv(headers, rows) {
@@ -85,11 +86,13 @@ class ReportService {
     const [tasks, projects, employees] = await Promise.all([taskModel.findAll({}, { orderBy: 'created_at DESC' }), projectModel.findAll(), employeeModel.findAll()]);
     const projMap = Object.fromEntries(projects.map(p => [p.id, p.name]));
     const empMap = Object.fromEntries(employees.map(e => [e.id, e.name]));
-    const headers = ['Task Title', 'Project', 'Department', 'Assignee', 'Assigned Date', 'Deadline', 'Completed', 'Estimated Hours', 'Hours Taken', 'Status'];
+    const started = tasks.filter(t => t.started_at).map(t => String(t.started_at).slice(0, 10)).sort()[0];
+    const byEmp = started ? worktime.attendanceIntervalsByEmp(await attendanceModel.getSince(started)) : {};
+    const headers = ['Task Title', 'Project', 'Department', 'Assignee', 'Assigned Date', 'Deadline', 'Completed', 'Estimated Hours', 'Hours Taken (while clocked in)', 'Status'];
     const rows = tasks.map(t => [
       t.title, projMap[t.project] || '', t.dept || '',
       t.assignee ? String(t.assignee).split(',').map(id => empMap[id.trim()] || id.trim()).join(', ') : 'Unassigned',
-      t.assigned || '', t.deadline || '', t.completed || '', hrs(t.mins), hrs(t.taken_mins), t.status
+      t.assigned || '', t.deadline || '', t.completed || '', hrs(t.mins), hrs(t.started_at ? worktime.taskWorkedMinutes(t, byEmp) : 0), t.status
     ]);
     return toCsv(headers, rows);
   }

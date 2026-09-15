@@ -16,6 +16,8 @@
 
 const db = require('../config/db');
 const clientModel = require('../models/client.model');
+const attendanceModel = require('../models/attendance.model');
+const worktime = require('./worktime.service');
 const { thisMonth, workdaysIn, hoursPerDay } = require('../utils/calculations');
 
 const splitIds = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
@@ -28,13 +30,16 @@ function monthBounds(month) {
 }
 
 /** Minutes of a task that fall inside the month (see header). */
-function minutesInMonth(t, month, now) {
+function minutesInMonth(t, month, now, byEmp = {}) {
   if (t.status === 'completed') return monthOf(t.completed_at || t.completed) === month ? Number(t.taken_mins) || 0 : 0;
   if (!t.started_at) return 0;
+  // Running task: only the time inside this month while the assignees were clocked in
   const { start, end } = monthBounds(month);
   const from = Math.max(new Date(t.started_at).getTime(), start.getTime());
   const to = Math.min(now.getTime(), end.getTime());
-  return to > from ? Math.round((to - from) / 60000) : 0;
+  if (to <= from) return 0;
+  const clipped = { ...t, started_at: new Date(from).toISOString(), completed_at: new Date(to).toISOString() };
+  return worktime.taskWorkedMinutes(clipped, byEmp, now.getTime());
 }
 
 class PnlService {
@@ -49,16 +54,18 @@ class PnlService {
   /** P&L for every client in a month. */
   async monthly(month = thisMonth()) {
     const now = new Date();
-    const [clients, projects, tasks, rates] = await Promise.all([
+    const [clients, projects, tasks, rates, attRows] = await Promise.all([
       clientModel.listWithProjectCounts(),
       db.all("SELECT id, name, client_id, client, billable, fee, start, alloc, status FROM lh_projects WHERE client_id <> ''"),
       db.all("SELECT t.id, t.title, t.project, t.assignee, t.status, t.mins, t.taken_mins, t.started_at, t.completed_at, t.completed FROM lh_tasks t JOIN lh_projects p ON p.id = t.project WHERE p.client_id <> ''"),
-      this.hourlyRates(month)
+      this.hourlyRates(month),
+      attendanceModel.getMonthAttendanceAll(month).catch(() => [])
     ]);
+    const byEmp = worktime.attendanceIntervalsByEmp(attRows, now.getTime());
     const projById = Object.fromEntries(projects.map(p => [p.id, p]));
     const perProject = {};
     for (const t of tasks) {
-      const mins = minutesInMonth(t, month, now);
+      const mins = minutesInMonth(t, month, now, byEmp);
       if (!mins) continue;
       const ids = splitIds(t.assignee);
       const share = ids.length ? mins / ids.length : 0;
