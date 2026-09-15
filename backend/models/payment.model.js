@@ -45,6 +45,10 @@ class PaymentModel extends BaseModel {
     for (const r of rows) map[r.emp] = Number(r.total_paid) || 0;
     return map;
   }
+
+  async findByEmp(empId) {
+    return this.findAll({ emp: empId }, { orderBy: 'date DESC' });
+  }
 }
 
 module.exports = new PaymentModel();

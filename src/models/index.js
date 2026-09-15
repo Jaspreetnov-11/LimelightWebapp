@@ -179,3 +179,10 @@ AiModel.referenceUpload = (file, save) => { const fd = new FormData(); fd.append
 AiModel.referenceDelete = id => api.del('/ai/references/' + id);
 AiModel.scheduleLatest = () => data(api.get('/ai/schedule/latest'));
 AiModel.runState = (id, done) => data(api.patch('/ai/history/' + id + '/state', { done }));
+
+export const SalarySlipModel = {
+  list: (empId, fy) => data(api.get('/salary-slips/' + empId, fy ? { fy } : undefined)),
+  generate: body => data(api.post('/salary-slips/generate', body)),
+  update: (id, body) => data(api.put('/salary-slips/' + id, body)),
+  remove: id => api.del('/salary-slips/' + id)
+};

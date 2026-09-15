@@ -256,3 +256,27 @@ CREATE TABLE IF NOT EXISTS lh_ai_refs (
 CREATE INDEX IF NOT EXISTS idx_lh_ai_refs_emp ON lh_ai_refs (emp, created_at DESC);
 ALTER TABLE lh_ai_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lh_ai_refs ENABLE ROW LEVEL SECURITY;
+
+-- 16. Salary Slips
+CREATE TABLE IF NOT EXISTS lh_salary_slips (
+  id TEXT PRIMARY KEY,
+  emp TEXT NOT NULL,
+  month TEXT NOT NULL,
+  year TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  gross_earnings NUMERIC DEFAULT 0,
+  total_deductions NUMERIC DEFAULT 0,
+  net_payable NUMERIC DEFAULT 0,
+  paid_amount NUMERIC DEFAULT 0,
+  due_amount NUMERIC DEFAULT 0,
+  payable_days NUMERIC DEFAULT 0,
+  carry_forward NUMERIC DEFAULT 0,
+  advance_payments NUMERIC DEFAULT 0,
+  earnings_breakdown TEXT DEFAULT '[]',
+  deductions_breakdown TEXT DEFAULT '[]',
+  created_at TEXT DEFAULT (now())::text,
+  updated_at TEXT DEFAULT (now())::text,
+  UNIQUE(emp, month)
+);
+CREATE INDEX IF NOT EXISTS idx_lh_salary_slips_emp ON lh_salary_slips (emp, month DESC);
+ALTER TABLE lh_salary_slips ENABLE ROW LEVEL SECURITY;

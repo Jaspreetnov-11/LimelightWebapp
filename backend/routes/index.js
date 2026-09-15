@@ -26,6 +26,7 @@ const performanceRoutes = require('./performance.routes');
 const productivityRoutes = require('./productivity.routes');
 const assistantRoutes = require('./assistant.routes');
 const aiRoutes = require('./ai.routes');
+const salarySlipRoutes = require('./salarySlip.routes');
 
 // Healthcheck
 router.get('/health', (req, res) => {
@@ -64,5 +65,6 @@ router.use('/performance', performanceRoutes);
 router.use('/productivity', productivityRoutes);
 router.use('/assistant', assistantRoutes);
 router.use('/ai', aiRoutes);
+router.use('/salary-slips', salarySlipRoutes);
 
 module.exports = router;

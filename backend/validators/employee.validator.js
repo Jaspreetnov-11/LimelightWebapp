@@ -47,6 +47,9 @@ const updateEmployeeSchema = {
   active: {
     required: false
   },
+  salary_structure: {
+    required: false
+  },
   email: {
     required: false,
     custom: (v) => !v || emailRegex.test(v) || 'Invalid email format'

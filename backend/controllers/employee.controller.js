@@ -21,6 +21,34 @@ const AV = ['o', 'p', 'g', 'r', 'b', 'br', 't'];
 const avFor = id => AV[[...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % AV.length];
 const cleanShift = s => (SHIFTS[s] ? s : 'day');
 
+function parseSalaryStructure(val, salary = 0) {
+  let struct = null;
+  if (typeof val === 'string' && val.trim()) {
+    try { struct = JSON.parse(val); } catch (e) { struct = null; }
+  } else if (typeof val === 'object' && val !== null) {
+    struct = val;
+  }
+  if (!struct || !Array.isArray(struct.earnings) || !struct.earnings.length) {
+    const sal = Math.max(0, Number(salary) || 0);
+    const basic = Math.round(sal * 0.5);
+    const hra = Math.round(sal * 0.3);
+    const special = Math.max(0, sal - basic - hra);
+    return {
+      earnings: [
+        { name: 'Basic + DA', amount: basic },
+        { name: 'HRA', amount: hra },
+        { name: 'Special Allowance', amount: special }
+      ],
+      deductions: [
+        { name: 'Provident Fund (EPF)', amount: 0 },
+        { name: 'Professional Tax', amount: 0 }
+      ]
+    };
+  }
+  if (!Array.isArray(struct.deductions)) struct.deductions = [];
+  return struct;
+}
+
 const getAllEmployees = catchAsync(async (req, res) => {
   const { query, dept, active, page = 1, limit = 100 } = req.query;
   const offset = (Number(page) - 1) * Number(limit);
@@ -39,8 +67,17 @@ const getAllEmployees = catchAsync(async (req, res) => {
       shift: e.shift || 'day'
     };
     // Pay figures are private: staff only see their own
-    if (admin || (req.user && req.user.id === e.id)) Object.assign(row, { pendingBal: pr.pending, earned: pr.earned, paid: pr.paid });
-    else { delete row.salary; }
+    if (admin || (req.user && req.user.id === e.id)) {
+      Object.assign(row, {
+        pendingBal: pr.pending,
+        earned: pr.earned,
+        paid: pr.paid,
+        salary_structure: parseSalaryStructure(e.salary_structure, e.salary)
+      });
+    } else {
+      delete row.salary;
+      delete row.salary_structure;
+    }
     return row;
   });
   return apiResponse.paginated(res, list, total, page, limit);
@@ -59,7 +96,13 @@ const getEmployeeById = catchAsync(async (req, res) => {
     shift: employee.shift || 'day',
     tasks
   };
-  if (admin) out.payroll = payroll; else delete out.salary;
+  if (admin) {
+    out.payroll = payroll;
+    out.salary_structure = parseSalaryStructure(employee.salary_structure, employee.salary);
+  } else {
+    delete out.salary;
+    delete out.salary_structure;
+  }
   return apiResponse.success(res, out);
 });
 
@@ -127,8 +170,24 @@ const updateEmployee = catchAsync(async (req, res) => {
   delete updateData.password;
   for (const k of ['pending_bal', 'pendingBal', 'earned', 'paid', 'payroll', 'tasks', 'id', 'loginLinked', 'passwordSet']) delete updateData[k];
   // Only admins change pay, access, shift, employee code or joining date
-  if (!isAdmin) for (const k of ['salary', 'access', 'shift', 'emp_id', 'joined', 'active', 'managers', 'dept', 'role', 'week_off']) delete updateData[k];
+  if (!isAdmin) for (const k of ['salary', 'salary_structure', 'access', 'shift', 'emp_id', 'joined', 'active', 'managers', 'dept', 'role', 'week_off']) delete updateData[k];
   if (updateData.week_off !== undefined) updateData.week_off = cleanWeekOff(updateData.week_off);
+
+  if (updateData.salary_structure !== undefined) {
+    let parsed = updateData.salary_structure;
+    if (typeof parsed === 'string') {
+      try { parsed = JSON.parse(parsed); } catch (e) { parsed = null; }
+    }
+    if (parsed && typeof parsed === 'object') {
+      if (Array.isArray(parsed.earnings)) {
+        const totalEarnings = parsed.earnings.reduce((s, i) => s + (Math.max(0, Number(i.amount) || 0)), 0);
+        if (updateData.salary === undefined) {
+          updateData.salary = totalEarnings;
+        }
+      }
+      updateData.salary_structure = JSON.stringify(parsed);
+    }
+  }
 
   if (updateData.active !== undefined) updateData.active = Number(updateData.active) ? 1 : 0;
   if (updateData.managers && Array.isArray(updateData.managers)) updateData.managers = JSON.stringify(updateData.managers);

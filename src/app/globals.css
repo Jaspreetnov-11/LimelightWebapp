@@ -69,8 +69,8 @@
   .link{background:none; border:0; padding:0; color:var(--accent); font-weight:500; font-size:12.5px; cursor:pointer; font-family:inherit; border-radius:4px}
   .link:hover{text-decoration:underline}
   .link:focus-visible,.btn:focus-visible,.eye:focus-visible,.pill:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
-  .control{position:relative}
-  input,textarea,select{width:100%; height:48px; padding:0 14px; font:inherit; font-size:14px; color:var(--text); background:var(--field); border:1.5px solid var(--line); border-radius:var(--radius-field); outline:none; transition:border-color .15s, box-shadow .15s, background .15s; color-scheme:dark !important}
+  input:not([type=checkbox]):not([type=radio]),textarea,select{width:100%; height:48px; padding:0 14px; font:inherit; font-size:14px; color:var(--text); background:var(--field); border:1.5px solid var(--line); border-radius:var(--radius-field); outline:none; transition:border-color .15s, box-shadow .15s, background .15s; color-scheme:dark !important}
+  input[type=checkbox],input[type=radio]{width:16px !important; height:16px !important; min-width:16px; max-width:16px; min-height:16px; max-height:16px; margin:0; padding:0; flex-shrink:0; accent-color:var(--accent); cursor:pointer}
   textarea{height:110px; padding:12px 14px; resize:vertical}
   input::placeholder,textarea::placeholder{color:var(--placeholder)}
   input:focus,textarea:focus,select:focus{border-color:var(--accent-line); box-shadow:0 0 0 4px var(--accent-dim); background:var(--ov-07)}

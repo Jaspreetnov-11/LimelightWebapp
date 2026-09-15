@@ -272,3 +272,26 @@ CREATE TABLE IF NOT EXISTS lh_ai_refs (
   created_at TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_lh_ai_refs_emp ON lh_ai_refs (emp, created_at DESC);
+
+-- 16. Salary Slips
+CREATE TABLE IF NOT EXISTS lh_salary_slips (
+  id TEXT PRIMARY KEY,
+  emp TEXT NOT NULL,
+  month TEXT NOT NULL,
+  year TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  gross_earnings REAL DEFAULT 0,
+  total_deductions REAL DEFAULT 0,
+  net_payable REAL DEFAULT 0,
+  paid_amount REAL DEFAULT 0,
+  due_amount REAL DEFAULT 0,
+  payable_days REAL DEFAULT 0,
+  carry_forward REAL DEFAULT 0,
+  advance_payments REAL DEFAULT 0,
+  earnings_breakdown TEXT DEFAULT '[]',
+  deductions_breakdown TEXT DEFAULT '[]',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(emp, month)
+);
+CREATE INDEX IF NOT EXISTS idx_lh_salary_slips_emp ON lh_salary_slips (emp, month DESC);

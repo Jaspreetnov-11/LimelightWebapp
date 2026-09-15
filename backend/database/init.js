@@ -15,7 +15,7 @@ const env = require('../config/env');
 
 // Columns added after the initial schema. Applied with ALTER TABLE when missing.
 const EXTRA_COLUMNS = {
-  lh_employees: [['shift', "TEXT DEFAULT 'day'"], ['active', 'INTEGER DEFAULT 1'], ['week_off', "TEXT DEFAULT ''"]],
+  lh_employees: [['shift', "TEXT DEFAULT 'day'"], ['active', 'INTEGER DEFAULT 1'], ['week_off', "TEXT DEFAULT ''"], ['salary_structure', "TEXT DEFAULT ''"]],
   lh_tasks: [
     ['dept', "TEXT DEFAULT ''"],
     ['started_at', 'TEXT'],
@@ -40,6 +40,29 @@ async function ensureColumns() {
       }
     }
   }
+  // Ensure lh_salary_slips table exists
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS lh_salary_slips (
+      id TEXT PRIMARY KEY,
+      emp TEXT NOT NULL,
+      month TEXT NOT NULL,
+      year TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      gross_earnings ${db.isPostgres ? 'NUMERIC' : 'REAL'} DEFAULT 0,
+      total_deductions ${db.isPostgres ? 'NUMERIC' : 'REAL'} DEFAULT 0,
+      net_payable ${db.isPostgres ? 'NUMERIC' : 'REAL'} DEFAULT 0,
+      paid_amount ${db.isPostgres ? 'NUMERIC' : 'REAL'} DEFAULT 0,
+      due_amount ${db.isPostgres ? 'NUMERIC' : 'REAL'} DEFAULT 0,
+      payable_days ${db.isPostgres ? 'NUMERIC' : 'REAL'} DEFAULT 0,
+      carry_forward ${db.isPostgres ? 'NUMERIC' : 'REAL'} DEFAULT 0,
+      advance_payments ${db.isPostgres ? 'NUMERIC' : 'REAL'} DEFAULT 0,
+      earnings_breakdown TEXT DEFAULT '[]',
+      deductions_breakdown TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(emp, month)
+    );
+  `);
   // Task status "On Hold" became "Changes" (changes requested by the reviewer)
   await db.run("UPDATE lh_tasks SET status = 'changes' WHERE status = 'hold'");
 }

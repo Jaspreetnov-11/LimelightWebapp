@@ -12,6 +12,13 @@ import { Avatar, Chip, DateBtn, Donut, Empty, Icon, Legend, LinkBtn, Panel, Sear
 import { Pager, usePager } from '@/views/ui/Pager';
 import { ImportStaff } from '@/views/screens/ImportStaff';
 import { assigneeIds, avFor, fmtD, fmtDY, hm, ini, inr, overdue, shiftDisplay, STATUSES, STATUS_COLOR, STATUS_LABEL, thisMonth } from '@/lib/format';
+import {
+  StaffSalaryStructure,
+  StaffSalaryOverview,
+  StaffAttendanceTab,
+  StaffLoansTab,
+  StaffLeavesTab
+} from '@/views/screens/staff';
 
 export function StaffListScreen() {
   const d = useData();
@@ -147,6 +154,7 @@ export function StaffProfileScreen({ id }) {
   const [stats, setStats] = useState(null);
   const [pays, setPays] = useState([]);
   const [tab, setTab] = useState('all');
+  const [subTab, setSubTab] = useState('profile');
   const e = d.employees.find(x => x.id === id);
 
   const sidePager = usePager(d.employees, 30);
@@ -291,21 +299,75 @@ export function StaffProfileScreen({ id }) {
             )}
           </div>
         </div>
-        <div className="emp-stats">
-          <Stat icon="file" tone="gr" value={(pb > 0 ? '- ' : '') + inr(Math.abs(pb))} valueClass={'money' + (pb > 0 ? ' neg' : '')} label={pb > 0 ? 'Pending this month' : pb < 0 ? 'Advance given' : 'Settled'} />
-          <Stat icon="clock" tone="tl" value={hm(st.avgWorkingMinutes)} label="Avg Working Hours" />
-          <Stat icon="cal" tone="or" value={<>{st.present + st.half}<span style={{ fontSize: 12, color: 'var(--muted)' }}> / {st.workdaysSoFar}</span></>} label={'Days present · ' + st.unaccounted + ' unaccounted'} />
-          <Stat icon="flag" tone="pk" value={myTasks.filter(overdue).length} label="Task Alerts" />
+
+        {/* Staff Profile Sub-Navigation Tabs (Snapshot 1) */}
+        <div className="tabs" style={{ margin: '14px 0 20px', overflowX: 'auto', borderBottom: '1px solid var(--line-soft)', paddingBottom: 0 }}>
+          {[
+            ['profile', 'Profile'],
+            ['attendance', 'Attendance'],
+            ['salary_overview', 'Salary Overview'],
+            ['salary_structure', 'Salary Structure'],
+            ['loans', 'Loans'],
+            ['leaves', 'Leave(s)']
+          ].map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              className={subTab === k ? 'on' : ''}
+              onClick={() => setSubTab(k)}
+              style={{ whiteSpace: 'nowrap', padding: '10px 16px', fontSize: 13.5 }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <div className="emp-charts">
-          <Panel title={'Attendance · ' + new Date().toLocaleDateString('en-GB', { month: 'short' })} bodyStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}><Donut parts={[['#4ADE95', st.present], ['#FFB84D', st.half], ['#FF5C7A', st.absent], ['#6FA8FF', st.leave], ['var(--track)', st.unaccounted]]} center={(st.present + st.half) + '|Days'} size={150} /><Legend items={[['#4ADE95', 'Present ' + st.present], ['#FFB84D', 'Half ' + st.half], ['#FF5C7A', 'Absent ' + st.absent], ['#6FA8FF', 'Leave ' + st.leave]]} /></Panel>
-          <Panel title="Tasks Status" bodyStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, paddingTop: 6 }}><Donut parts={tstat} center={myTasks.length + '|Total Tasks'} size={150} /><Legend items={STATUSES.map((k, i) => [tstat[i][0], STATUS_LABEL[k] + ' ' + tstat[i][1]])} /></Panel>
-          <Panel title="Recent payments" right={<LinkBtn href="/payments">All</LinkBtn>}>{pays.length ? <div className="list">{pays.slice(0, 6).map(p => <div className="row" key={p.id}><Chip tone={p.type === 'Fine' ? 'pk' : p.type === 'Advance' ? 'or' : 'gr'}>{p.type}</Chip><span style={{ flex: 1, fontSize: 12.5 }}>{fmtD(p.date)}{p.note ? ' · ' + p.note : ''}</span><b className="money">{inr(p.amount)}</b></div>)}</div> : <Empty>No payments yet</Empty>}</Panel>
-        </div>
-        <div className="emp-bottom">
-          <div className="panel"><div className="panel-h">All Projects ({projIds.length})</div><Tabs items={[['all', 'All'], ['bill', 'Billable'], ['non', 'Non-billable']]} value={tab} onChange={setTab} style={{ padding: '0 12px' }} /><div className="list" style={{ padding: '8px 12px' }}>{projs.map(p => <div className="row" key={p.id}><span className="avatar sm p">{ini(p.name)}</span><span style={{ flex: 1 }}>{p.name}</span><Chip tone={p.billable ? 'gr' : 'gy'}>{p.billable ? 'Billable' : 'Non-billable'}</Chip></div>)}{!projs.length && <Empty>No projects</Empty>}{topP.length > 0 && <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 8, paddingTop: 8 }}>{topP.map(([p, m]) => <div className="row" key={p}><span style={{ flex: 1, fontSize: 12.5 }}>{d.projName(p)}</span><b>{hm(m)}</b></div>)}</div>}</div></div>
-          <div className="panel"><div className="panel-h">Tasks ({myTasks.length})</div><div style={{ overflowX: 'auto' }}><table><thead><tr><th>Task</th><th>Project</th><th>Assigned</th><th>Deadline</th><th>Est / Taken</th><th>Status</th></tr></thead><tbody>{taskPager.items.map(t => <tr key={t.id}><td><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn></td><td>{t.project_name || d.projName(t.project)}</td><td>{fmtD(t.assigned)}</td><td style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</td><td>{hm(t.mins)} / {hm(t.taken_mins)}</td><td><TaskChip status={t.status} /></td></tr>)}</tbody></table>{!myTasks.length && <Empty icon="file">No tasks found</Empty>}</div><Pager pager={taskPager} /></div>
-        </div>
+
+        {subTab === 'profile' && (
+          <>
+            <div className="emp-stats">
+              <Stat icon="file" tone="gr" value={(pb > 0 ? '- ' : '') + inr(Math.abs(pb))} valueClass={'money' + (pb > 0 ? ' neg' : '')} label={pb > 0 ? 'Pending this month' : pb < 0 ? 'Advance given' : 'Settled'} />
+              <Stat icon="clock" tone="tl" value={hm(st.avgWorkingMinutes)} label="Avg Working Hours" />
+              <Stat icon="cal" tone="or" value={<>{st.present + st.half}<span style={{ fontSize: 12, color: 'var(--muted)' }}> / {st.workdaysSoFar}</span></>} label={'Days present · ' + st.unaccounted + ' unaccounted'} />
+              <Stat icon="flag" tone="pk" value={myTasks.filter(overdue).length} label="Task Alerts" />
+            </div>
+            <div className="emp-charts">
+              <Panel title={'Attendance · ' + new Date().toLocaleDateString('en-GB', { month: 'short' })} bodyStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}><Donut parts={[['#4ADE95', st.present], ['#FFB84D', st.half], ['#FF5C7A', st.absent], ['#6FA8FF', st.leave], ['var(--track)', st.unaccounted]]} center={(st.present + st.half) + '|Days'} size={150} /><Legend items={[['#4ADE95', 'Present ' + st.present], ['#FFB84D', 'Half ' + st.half], ['#FF5C7A', 'Absent ' + st.absent], ['#6FA8FF', 'Leave ' + st.leave]]} /></Panel>
+              <Panel title="Tasks Status" bodyStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, paddingTop: 6 }}><Donut parts={tstat} center={myTasks.length + '|Total Tasks'} size={150} /><Legend items={STATUSES.map((k, i) => [tstat[i][0], STATUS_LABEL[k] + ' ' + tstat[i][1]])} /></Panel>
+              <Panel title="Recent payments" right={<LinkBtn href="/payments">All</LinkBtn>}>{pays.length ? <div className="list">{pays.slice(0, 6).map(p => <div className="row" key={p.id}><Chip tone={p.type === 'Fine' ? 'pk' : p.type === 'Advance' ? 'or' : 'gr'}>{p.type}</Chip><span style={{ flex: 1, fontSize: 12.5 }}>{fmtD(p.date)}{p.note ? ' · ' + p.note : ''}</span><b className="money">{inr(p.amount)}</b></div>)}</div> : <Empty>No payments yet</Empty>}</Panel>
+            </div>
+            <div className="emp-bottom">
+              <div className="panel"><div className="panel-h">All Projects ({projIds.length})</div><Tabs items={[['all', 'All'], ['bill', 'Billable'], ['non', 'Non-billable']]} value={tab} onChange={setTab} style={{ padding: '0 12px' }} /><div className="list" style={{ padding: '8px 12px' }}>{projs.map(p => <div className="row" key={p.id}><span className="avatar sm p">{ini(p.name)}</span><span style={{ flex: 1 }}>{p.name}</span><Chip tone={p.billable ? 'gr' : 'gy'}>{p.billable ? 'Billable' : 'Non-billable'}</Chip></div>)}{!projs.length && <Empty>No projects</Empty>}{topP.length > 0 && <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 8, paddingTop: 8 }}>{topP.map(([p, m]) => <div className="row" key={p}><span style={{ flex: 1, fontSize: 12.5 }}>{d.projName(p)}</span><b>{hm(m)}</b></div>)}</div>}</div></div>
+              <div className="panel"><div className="panel-h">Tasks ({myTasks.length})</div><div style={{ overflowX: 'auto' }}><table><thead><tr><th>Task</th><th>Project</th><th>Assigned</th><th>Deadline</th><th>Est / Taken</th><th>Status</th></tr></thead><tbody>{taskPager.items.map(t => <tr key={t.id}><td><LinkBtn onClick={() => modals.open('task', t.id)} style={{ textAlign: 'left' }}>{t.title}</LinkBtn></td><td>{t.project_name || d.projName(t.project)}</td><td>{fmtD(t.assigned)}</td><td style={{ color: overdue(t) ? 'var(--danger)' : undefined }}>{fmtD(t.deadline)}</td><td>{hm(t.mins)} / {hm(t.taken_mins)}</td><td><TaskChip status={t.status} /></td></tr>)}</tbody></table>{!myTasks.length && <Empty icon="file">No tasks found</Empty>}</div><Pager pager={taskPager} /></div>
+            </div>
+          </>
+        )}
+
+        {subTab === 'attendance' && (
+          <StaffAttendanceTab employee={e} />
+        )}
+
+        {subTab === 'salary_overview' && (
+          <StaffSalaryOverview
+            employee={e}
+            onNavigateToStructure={() => setSubTab('salary_structure')}
+          />
+        )}
+
+        {subTab === 'salary_structure' && (
+          <StaffSalaryStructure
+            employee={e}
+            onCancel={() => setSubTab('salary_overview')}
+            onUpdated={() => { d.reload('employees'); }}
+          />
+        )}
+
+        {subTab === 'loans' && (
+          <StaffLoansTab employee={e} />
+        )}
+
+        {subTab === 'leaves' && (
+          <StaffLeavesTab employee={e} />
+        )}
       </div>
     </div>
   );
