@@ -27,6 +27,9 @@ const createEmployeeSchema = {
   phone: {
     required: false
   },
+  emp_id: {
+    required: false
+  },
   password: {
     required: false,
     custom: (v) => !v || v.length >= 6 || 'Password must be at least 6 characters'
@@ -37,6 +40,9 @@ const updateEmployeeSchema = {
   name: {
     required: false,
     minLength: 2
+  },
+  emp_id: {
+    required: false
   },
   email: {
     required: false,

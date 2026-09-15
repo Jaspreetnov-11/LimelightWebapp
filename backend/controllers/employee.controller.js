@@ -52,6 +52,11 @@ const getEmployeeById = catchAsync(async (req, res) => {
   return apiResponse.success(res, out);
 });
 
+const getNextEmpId = catchAsync(async (req, res) => {
+  const nextId = await employeeModel.nextEmpId();
+  return apiResponse.success(res, { nextId });
+});
+
 /**
  * Admin adds staff. The login lives in Supabase Auth: an existing Auth account with this email is
  * linked (password updated only if one was typed), otherwise a new one is created with the given
@@ -73,6 +78,8 @@ const createEmployee = catchAsync(async (req, res) => {
   const id = authUser.id;
   if (await employeeModel.findById(id)) throw new AppError('This login already belongs to a staff member.', 409);
 
+  const cleanEmpId = (emp_id && String(emp_id).trim()) ? String(emp_id).trim() : await employeeModel.nextEmpId();
+
   const newEmp = await employeeModel.create({
     id, name,
     role: role || '',
@@ -80,7 +87,7 @@ const createEmployee = catchAsync(async (req, res) => {
     email: cleanEmail,
     phone: phone || '',
     week_off: cleanWeekOff(req.body.week_off),
-    emp_id: emp_id || await employeeModel.nextEmpId(),
+    emp_id: cleanEmpId,
     joined: joined || todayISO(),
     dob: dob || null,
     managers: JSON.stringify(Array.isArray(managers) ? managers : []),
@@ -155,4 +162,4 @@ const importEmployees = catchAsync(async (req, res) => {
   return apiResponse.success(res, result, req.body.dryRun ? 'Checked' : 'Imported');
 });
 
-module.exports = { getAllEmployees, getEmployeeById, createEmployee, updateEmployee, deleteEmployee, importEmployees, ACCESS };
+module.exports = { getAllEmployees, getEmployeeById, getNextEmpId, createEmployee, updateEmployee, deleteEmployee, importEmployees, ACCESS };

@@ -5,7 +5,7 @@ import { useAuth } from './AuthController';
 import { useData } from './DataController';
 import { useUi } from './UiController';
 import { ActivityModel, AttendanceModel, AuthModel, ClientModel, DepartmentModel, EmployeeModel, FileModel, HolidayModel, LeaveModel, PaymentModel, ProjectModel, TaskModel } from '@/models';
-import { ACCESS_LABEL, avFor, ini, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO, WEEK_DAYS } from '@/lib/format';
+import { ACCESS_LABEL, avFor, ini, nextEmpCode, PAY_TYPES, SHIFTS, STATUSES, STATUS_LABEL, TASK_TYPES, todayISO, WEEK_DAYS } from '@/lib/format';
 
 export function useModals() {
   const { me, isAdmin } = useAuth();
@@ -88,6 +88,7 @@ export function useModals() {
       const e = id ? employees.find(x => x.id === id) : null;
       const mgrOpts = [{ v: '', l: 'None' }].concat(employees.filter(x => !e || x.id !== e.id).map(x => ({ v: x.name, l: x.name + (x.role ? ' · ' + x.role : '') })));
       const currentMgr = e && Array.isArray(e.managers) && e.managers.length ? e.managers[0] : '';
+      const autoEmpId = nextEmpCode(employees);
       openModal({
         title: e ? 'Edit staff' : 'Add staff', sub: e ? 'Leave the password blank to keep the current one.' : 'Creates the login. If this email already has a Limelight login it is linked as-is; type a password only to set a new one.', ok: e ? 'Save changes' : 'Add staff',
         fields: [
@@ -101,13 +102,14 @@ export function useModals() {
           { name: 'week_off', label: 'Weekly off', type: 'select', options: [{ v: '', l: 'Default (' + WEEK_DAYS[(settings && settings.weekOff && settings.weekOff[0]) ?? 0] + ')' }].concat(WEEK_DAYS.map((n, i) => ({ v: String(i), l: n }))).concat([{ v: '0,6', l: 'Saturday + Sunday' }, { v: '5,6', l: 'Friday + Saturday' }]), value: e ? (e.week_off || '') : '', help: 'Attendance, absents and leave balance skip this day' },
           { name: 'access', label: 'App access', type: 'select', required: true, options: Object.entries(ACCESS_LABEL).map(([v, l]) => ({ v, l })), value: e ? (e.access || 'staff') : 'staff' },
           { name: 'salary', label: 'Monthly salary (₹)', type: 'number', required: true, value: e ? (e.salary || 0) : 25000, min: 0, step: 500 },
-          { name: 'emp_id', label: 'Employee ID', value: e ? e.emp_id : '', placeholder: 'Auto (LH0001…)' },
+          { name: 'emp_id', label: 'Employee ID', value: e ? (e.emp_id || '') : autoEmpId, placeholder: 'Auto (' + autoEmpId + ')' },
           { name: 'joined', label: 'Joining date', type: 'date', required: true, value: e ? (e.joined || '') : todayISO() },
           { name: 'dob', label: 'Date of birth', type: 'date', value: e ? (e.dob || '') : '' },
           { name: 'manager', label: 'Reporting manager', type: 'select', options: mgrOpts, value: currentMgr }
         ],
         onSubmit: async d => {
-          const body = { name: d.name, email: d.email, phone: d.phone, role: d.role, dept: d.dept, shift: d.shift, week_off: d.week_off || '', salary: Number(d.salary) || 0, emp_id: d.emp_id, joined: d.joined, dob: d.dob || null, access: d.access, managers: d.manager ? [d.manager] : [] };
+          const empIdToSave = (d.emp_id && String(d.emp_id).trim()) ? String(d.emp_id).trim() : (e ? (e.emp_id || '') : autoEmpId);
+          const body = { name: d.name, email: d.email, phone: d.phone, role: d.role, dept: d.dept, shift: d.shift, week_off: d.week_off || '', salary: Number(d.salary) || 0, emp_id: empIdToSave, joined: d.joined, dob: d.dob || null, access: d.access, managers: d.manager ? [d.manager] : [] };
           if (d.password) body.password = d.password;
           if (e) { await EmployeeModel.update(e.id, body); toast('Staff updated.'); } else { const r = await EmployeeModel.create(body); toast(r && r.passwordSet ? 'Staff added. They can log in now.' : 'Staff added and linked to their existing login.'); }
           await reload('employees', 'departments', 'activity');

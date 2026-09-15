@@ -135,3 +135,18 @@ export const weekOffOf = (e, fallback = [0]) => {
   return days.length ? days : fallback;
 };
 export const weekOffLabel = (e, fallback) => weekOffOf(e, fallback).map(d => WEEK_DAYS[d]).join(', ');
+
+/** Next sequential employee code, e.g. LH0050 -> LH0051 */
+export const nextEmpCode = (employees = []) => {
+  let max = 0;
+  for (const emp of (employees || [])) {
+    const raw = String((emp && (emp.emp_id || emp.empId)) || '').trim();
+    const m = raw.match(/^LH(\d+)$/i);
+    if (m) {
+      const num = parseInt(m[1], 10);
+      if (Number.isFinite(num) && num > max) max = num;
+    }
+  }
+  return 'LH' + String(max + 1).padStart(4, '0');
+};
+

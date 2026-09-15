@@ -16,6 +16,7 @@ export const AuthModel = {
 
 export const EmployeeModel = {
   list: params => data(api.get('/employees', { limit: 500, ...(params || {}) })),
+  nextId: () => data(api.get('/employees/next-id')).then(r => (r && r.nextId) || ''),
   get: id => data(api.get('/employees/' + id)),
   create: body => data(api.post('/employees', body)),
   update: (id, body) => data(api.put('/employees/' + id, body)),

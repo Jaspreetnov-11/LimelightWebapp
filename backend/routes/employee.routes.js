@@ -8,6 +8,7 @@ const validate = require('../middleware/validate.middleware');
 const { createEmployeeSchema, updateEmployeeSchema } = require('../validators/employee.validator');
 
 router.get('/', protect, employeeController.getAllEmployees);
+router.get('/next-id', protect, employeeController.getNextEmpId);
 router.get('/:id', protect, employeeController.getEmployeeById);
 router.post('/', protect, restrictTo('admin'), validate(createEmployeeSchema), employeeController.createEmployee);
 router.post('/import', protect, restrictTo('admin'), employeeController.importEmployees);

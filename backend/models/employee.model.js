@@ -42,11 +42,15 @@ class EmployeeModel extends BaseModel {
 
   /** Next sequential employee code, e.g. LH0020 */
   async nextEmpId() {
-    const rows = await db.all("SELECT emp_id FROM lh_employees WHERE emp_id LIKE 'LH%'");
+    const rows = await db.all("SELECT emp_id FROM lh_employees WHERE LOWER(emp_id) LIKE 'lh%'");
     let max = 0;
     for (const r of rows) {
-      const n = parseInt(String(r.emp_id).slice(2), 10);
-      if (Number.isFinite(n) && n > max) max = n;
+      const raw = String(r.emp_id || '').trim();
+      const m = raw.match(/^lh(\d+)$/i);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (Number.isFinite(n) && n > max) max = n;
+      }
     }
     return 'LH' + String(max + 1).padStart(4, '0');
   }
