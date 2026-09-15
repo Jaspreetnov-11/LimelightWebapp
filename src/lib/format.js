@@ -100,6 +100,7 @@ export const greeting = () => { const h = new Date().getHours(); return h < 12 ?
 /** Minutes taken on a task: stored when completed, live (since accept) while in progress. */
 export const takenMins = (t, now = Date.now()) => {
   if (!t) return 0;
+  if (t.worked_mins !== undefined && t.worked_mins !== null) return Number(t.worked_mins) || 0; // only time while clocked in
   if (t.status === 'completed') return Number(t.taken_mins) || 0;
   if (t.started_at) return Math.max(0, Math.round((now - new Date(t.started_at).getTime()) / 60000));
   return 0;

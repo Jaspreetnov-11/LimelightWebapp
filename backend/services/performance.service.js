@@ -14,6 +14,8 @@ const taskModel = require('../models/task.model');
 const employeeModel = require('../models/employee.model');
 const settingsService = require('./settings.service');
 const db = require('../config/db');
+const attendanceModel = require('../models/attendance.model');
+const worktime = require('./worktime.service');
 const { thisMonth } = require('../utils/calculations');
 
 const DEFAULT_WEIGHTS = { Shoot: 1.5, Edit: 1.5, Design: 1.5, Content: 1.3, 'Social Media': 1.0, 'Client Call': 0.8, Other: 0.7 };
@@ -55,7 +57,11 @@ function scoreTask(t, weights) {
 
 async function computeMonth(month = thisMonth()) {
   const weights = weightsNow();
-  const [tasks, employees] = await Promise.all([taskModel.findAll(), employeeModel.findAll({}, { orderBy: 'name ASC' })]);
+  const prevMonth = (() => { const [y, m] = month.split('-').map(Number); return m === 1 ? (y - 1) + '-12' : y + '-' + String(m - 1).padStart(2, '0'); })();
+  const [rawTasks, employees, attRows] = await Promise.all([taskModel.findAll(), employeeModel.findAll({}, { orderBy: 'name ASC' }), attendanceModel.getSince(prevMonth + '-01').catch(() => [])]);
+  // Time taken = task span while the assignees were clocked in (a timer left running overnight is not work)
+  const attByEmp = worktime.attendanceIntervalsByEmp(attRows);
+  const tasks = rawTasks.map(t => (t.started_at ? { ...t, taken_mins: worktime.taskWorkedMinutes(t, attByEmp) } : t));
   const byEmp = {};
   for (const e of employees) byEmp[e.id] = { id: e.id, name: e.name, dept: e.dept || '', role: e.role || '', ini: e.ini || '', av: e.av || '', points: 0, tasks: 0, onTime: 0, withDeadline: 0, creative: 0, takenMins: 0, tracked: 0 };
   for (const t of tasks) {

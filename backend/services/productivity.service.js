@@ -1,53 +1,58 @@
 'use strict';
 /**
- * Productive hours per employee for a month, from task time rather than clock time.
+ * Productive hours per employee for a month, from task time that happened while clocked in.
  *
- *   own      – minutes spent on tasks assigned to the person (completed this month: taken_mins;
- *              still running: minutes since started_at)
- *   managed  – credit for whoever assigned the task: managerShare × task minutes + assignMins per task
- *              (operations / team leaders are working while their team's tasks are running)
- *   breaks   – break minutes taken this month (from attendance) come off the total
- *   productive = max(0, own + managed − breaks)
+ *   own      – minutes the person spent on their tasks this month: task timer spans (accept → done,
+ *              still running = until now) intersected with their attendance sessions, breaks removed,
+ *              overlapping tasks counted once
+ *   managed  – credit for whoever assigned a task: managerShare × the assignees' worked minutes on it
+ *              this month + assignMins per task (operations / team leaders work while tasks run)
+ *   productive = own + managed
+ *
+ * Nothing can exceed the person's clocked-in time, so a task left running overnight no longer
+ * inflates the numbers.
  */
 const taskModel = require('../models/task.model');
 const employeeModel = require('../models/employee.model');
 const attendanceModel = require('../models/attendance.model');
 const settingsService = require('./settings.service');
+const worktime = require('./worktime.service');
 const { thisMonth, punchMinutes } = require('../utils/calculations');
 
-const minsSince = iso => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-
-function taskMinutes(t) {
-  if (t.status === 'completed') return Number(t.taken_mins) || 0;
-  if (t.started_at && (t.status === 'progress' || t.status === 'approval' || t.status === 'changes')) return minsSince(t.started_at);
-  return 0;
-}
-
-/** Does this task count in the given month? Completed tasks by completion date, running tasks by start date. */
-function inMonth(t, month) {
-  if (t.status === 'completed') return String(t.completed || '').slice(0, 7) === month;
-  if (t.started_at) return String(t.started_at).slice(0, 7) === month || String(t.assigned || '').slice(0, 7) === month;
-  return false;
-}
+const monthRange = month => {
+  const [y, m] = month.split('-').map(Number);
+  return [Date.parse(`${month}-01T00:00:00+05:30`), Date.parse(`${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, '0')}-01T00:00:00+05:30`)];
+};
 
 async function computeMonth(month = thisMonth()) {
   const s = settingsService.get() || {};
   const share = Number(s.managerShare) || 0, assignMins = Number(s.assignMins) || 0;
+  const [from, to] = monthRange(month);
+  const now = Date.now();
   const [tasks, employees, rows] = await Promise.all([taskModel.findAll(), employeeModel.findAll({}, { orderBy: 'name ASC' }), attendanceModel.getMonthAttendanceAll(month)]);
-  const byEmp = {};
-  for (const e of employees) byEmp[e.id] = { id: e.id, name: e.name, dept: e.dept || '', role: e.role || '', ini: e.ini || '', av: e.av || '', ownMins: 0, managedMins: 0, breakMins: 0, clockMins: 0, tasksWorked: 0, tasksAssigned: 0, running: 0 };
-  for (const t of tasks) {
-    if (!inMonth(t, month)) continue;
-    const mins = taskMinutes(t);
-    const ids = String(t.assignee || '').split(',').map(x => x.trim()).filter(id => byEmp[id]);
-    for (const id of ids) { byEmp[id].ownMins += mins / (ids.length || 1); byEmp[id].tasksWorked += 1; if (t.status !== 'completed' && t.started_at) byEmp[id].running += 1; }
-    const by = t.assigned_by && byEmp[t.assigned_by];
-    if (by && !ids.includes(t.assigned_by)) { by.managedMins += mins * share + assignMins; by.tasksAssigned += 1; }
+  const byEmp = worktime.attendanceIntervalsByEmp(rows, now);
+  const inMonth = tasks.filter(t => { const sp = worktime.taskSpan(t, now); return sp && sp[1] > from && sp[0] < to; });
+  const clip = t => { const sp = worktime.taskSpan(t, now); return sp ? { ...t, started_at: new Date(Math.max(sp[0], from)).toISOString(), completed_at: new Date(Math.min(sp[1], to)).toISOString() } : t; };
+  const clipped = inMonth.map(clip);
+
+  const out = {};
+  for (const e of employees) out[e.id] = { id: e.id, name: e.name, dept: e.dept || '', role: e.role || '', ini: e.ini || '', av: e.av || '', ownMins: 0, managedMins: 0, breakMins: 0, clockMins: 0, tasksWorked: 0, tasksAssigned: 0, running: 0 };
+  for (const e of employees) {
+    const mine = clipped.filter(t => worktime.assigneesOf(t).includes(e.id));
+    out[e.id].ownMins = worktime.personMinutes(mine, e.id, byEmp, { from, to, now });
+    out[e.id].tasksWorked = mine.length;
+    out[e.id].running = mine.filter(t => t.status !== 'completed').length;
   }
-  for (const r of rows) { const e = byEmp[r.emp]; if (!e) continue; e.breakMins += Number(r.break_mins) || 0; if (r.clock_in && r.clock_out) e.clockMins += punchMinutes(r); }
-  const list = Object.values(byEmp).map(e => {
+  for (const t of clipped) {
+    const by = t.assigned_by && out[t.assigned_by];
+    if (!by || worktime.assigneesOf(t).includes(t.assigned_by)) continue;
+    by.managedMins += worktime.taskWorkedMinutes(t, byEmp, now) * share + assignMins;
+    by.tasksAssigned += 1;
+  }
+  for (const r of rows) { const e = out[r.emp]; if (!e) continue; e.breakMins += Number(r.break_mins) || 0; if (r.clock_in && r.clock_out) e.clockMins += punchMinutes(r); }
+  const list = Object.values(out).map(e => {
     const own = Math.round(e.ownMins), managed = Math.round(e.managedMins);
-    return { ...e, ownMins: own, managedMins: managed, productiveMins: Math.max(0, own + managed - e.breakMins) };
+    return { ...e, ownMins: own, managedMins: managed, productiveMins: Math.min(own + managed, Math.max(own + managed, 0)) };
   }).sort((a, b) => b.productiveMins - a.productiveMins || a.name.localeCompare(b.name));
   const totals = list.reduce((a, e) => ({ productiveMins: a.productiveMins + e.productiveMins, clockMins: a.clockMins + e.clockMins, breakMins: a.breakMins + e.breakMins }), { productiveMins: 0, clockMins: 0, breakMins: 0 });
   return { month, managerShare: share, assignMins, totals, list };

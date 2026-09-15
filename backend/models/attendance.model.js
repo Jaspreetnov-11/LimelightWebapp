@@ -36,6 +36,10 @@ class AttendanceModel extends BaseModel {
   }
 
   /** All rows of a month for every employee (payroll runs use this to avoid N queries). */
+  async getSince(dateISO) {
+    return db.all('SELECT * FROM lh_attendance WHERE date >= ? ORDER BY date ASC', [String(dateISO).slice(0, 10)]);
+  }
+
   async getMonthAttendanceAll(month) {
     return db.all('SELECT * FROM lh_attendance WHERE substr(date, 1, 7) = ? ORDER BY date ASC', [month]);
   }

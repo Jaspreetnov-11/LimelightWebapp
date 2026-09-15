@@ -19,6 +19,15 @@ const apiResponse = require('../utils/apiResponse');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const { todayISO } = require('../utils/calculations');
+const attendanceModel = require('../models/attendance.model');
+const worktime = require('../services/worktime.service');
+
+/** Minutes actually worked on a task: its timer span intersected with the assignees' clocked-in time. */
+async function cappedTaken(task) {
+  if (!task || !task.started_at) return 0;
+  const rows = await attendanceModel.getSince(String(task.started_at).slice(0, 10));
+  return worktime.taskWorkedMinutes(task, worktime.attendanceIntervalsByEmp(rows));
+}
 
 const splitIds = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
 const nowISO = () => new Date().toISOString();
@@ -64,6 +73,13 @@ const getAllTasks = catchAsync(async (req, res) => {
     taskModel.count(),
     taskModel.getStatusCounts(assignee)
   ]);
+  // worked_mins: task time while the assignees were clocked in (what the timers and productivity show)
+  const started = tasks.filter(t => t.started_at);
+  if (started.length) {
+    const earliest = started.map(t => String(t.started_at).slice(0, 10)).sort()[0];
+    const byEmp = worktime.attendanceIntervalsByEmp(await attendanceModel.getSince(earliest));
+    for (const t of tasks) t.worked_mins = t.started_at ? worktime.taskWorkedMinutes(t, byEmp) : 0;
+  }
   return apiResponse.success(res, tasks, 'Tasks fetched successfully', 200, { total, statusCounts });
 });
 
@@ -104,7 +120,7 @@ const updateTask = catchAsync(async (req, res) => {
   }
   if (updateData.flag !== undefined) updateData.flag = updateData.flag ? 1 : 0;
   if (updateData.mins !== undefined) updateData.mins = Number(updateData.mins) || 0;
-  if (updateData.status && updateData.status !== existing.status) Object.assign(updateData, statusPatch(existing, updateData.status));
+  if (updateData.status && updateData.status !== existing.status) { Object.assign(updateData, statusPatch(existing, updateData.status)); if (updateData.status === 'completed') updateData.taken_mins = await cappedTaken(existing); }
   else delete updateData.status;
 
   const updated = await taskModel.update(existing.id, updateData);
@@ -136,7 +152,9 @@ const updateTaskStatus = catchAsync(async (req, res) => {
     throw new AppError(status === 'completed' ? 'Submit the task for approval; the team leader marks it completed.' : 'You cannot move the task to this stage.', 403);
   }
 
-  const updated = await taskModel.update(existing.id, statusPatch(existing, status));
+  const patch = statusPatch(existing, status);
+  if (status === 'completed') patch.taken_mins = await cappedTaken(existing);
+  const updated = await taskModel.update(existing.id, patch);
 
   const who = req.user.name;
   const ids = splitIds(existing.assignee);
